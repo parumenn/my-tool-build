@@ -9,7 +9,7 @@ import {
   KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
   Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
   ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays, Share2
+  CalendarDays, Share2, Globe
 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -55,6 +55,7 @@ import HtmlEditor from './components/tools/HtmlEditor';
 import SqlPlayground from './components/tools/SqlPlayground';
 import DateCalculator from './components/tools/DateCalculator';
 import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
+import ServerLocation from './components/tools/ServerLocation';
 import { Tool } from './types';
 
 // --- Global Contexts ---
@@ -77,6 +78,15 @@ export const TOOLS: Tool[] = [
     icon: QrCode,
     color: 'text-blue-500',
     darkColor: 'text-blue-400',
+  },
+  {
+    id: 'server-loc',
+    name: 'サーバー位置情報',
+    path: '/server-loc',
+    description: 'ドメインやIPアドレスから、サーバーの物理的な位置（国・地域）を特定し地図上に表示します。',
+    icon: Globe,
+    color: 'text-indigo-500',
+    darkColor: 'text-indigo-400',
   },
   {
     id: 'subnet',
@@ -634,6 +644,7 @@ const Layout: React.FC = () => {
                 <Route path="/pdf" element={<PdfTools />} />
                 <Route path="/date" element={<DateCalculator />} />
                 <Route path="/subnet" element={<IpSubnetVisualizer />} />
+                <Route path="/server-loc" element={<ServerLocation />} />
               </Routes>
 
               {/* Ad Banner */}
