@@ -14,19 +14,22 @@ if (!file_exists($DATA_DIR)) {
     mkdir($DATA_DIR, 0777, true);
 }
 
-$MESSAGES_FILE = $DATA_DIR . '/messages.json';
-$ATTEMPTS_FILE = $DATA_DIR . '/login_attempts.json';
-$TOKENS_FILE   = $DATA_DIR . '/active_tokens.json';
+$MESSAGES_FILE   = $DATA_DIR . '/messages.json';
+$ATTEMPTS_FILE   = $DATA_DIR . '/login_attempts.json';
+$TOKENS_FILE     = $DATA_DIR . '/active_tokens.json';
+$ACCESS_LOG_FILE = $DATA_DIR . '/access_log.json';
+$CONFIG_FILE     = $DATA_DIR . '/admin_config.json';
 
-// Default Password: "admin" (Change this in production!)
-// Hash generated using password_hash("admin", PASSWORD_DEFAULT)
-$ADMIN_HASH = '$2y$10$8.Dk.t.t.t.t.t.t.t.t.u12345678901234567890123456789'; // Dummy hash, logic below uses dynamic hash for "admin" if verify fails to keep it simple for this demo, or we set a fixed one.
-// Let's use a real hash for "admin123"
-$ADMIN_HASH = '$2y$10$z./x.x.x.x.x.x.x.x.x.uS/S/S/S/S/S/S/S/S/S/S/S/S/S/S/S'; // Placeholder
-// Correct Hash for "admin123":
-$ADMIN_HASH = '$2y$10$vI8aWBnG3q3.q.q.q.q.qu.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1'; // We will generate it dynamically if not set or compare simply for this portable app.
-// Actually, for this standalone tool, let's allow setting it here.
-$ADMIN_PASSWORD_PLAIN = 'admin123'; 
+// Initial Setup: Create config with default password "admin123" if not exists
+if (!file_exists($CONFIG_FILE)) {
+    $defaultConfig = [
+        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT)
+    ];
+    file_put_contents($CONFIG_FILE, json_encode($defaultConfig, JSON_PRETTY_PRINT));
+}
+
+// Load Config
+$config = json_decode(file_get_contents($CONFIG_FILE), true);
 
 // Brute Force Settings
 $MAX_ATTEMPTS = 5;
@@ -49,7 +52,36 @@ function save_json($file, $data) {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
-// --- 1. Send Message (Public) ---
+function verify_token($token) {
+    global $TOKENS_FILE;
+    $tokens = load_json($TOKENS_FILE);
+    return isset($tokens[$token]) && $tokens[$token] > time();
+}
+
+// --- 1. Log Access (Public) ---
+if ($action === 'log_access') {
+    // Simple access logging
+    $log = [
+        'timestamp' => time(),
+        'date' => date('Y-m-d H:i:s'),
+        'ip' => get_client_ip(),
+        'path' => $input['path'] ?? '/',
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+    ];
+
+    $logs = load_json($ACCESS_LOG_FILE);
+    array_unshift($logs, $log);
+    
+    // Limit log size to 5000 entries
+    if (count($logs) > 5000) {
+        $logs = array_slice($logs, 0, 5000);
+    }
+    
+    save_json($ACCESS_LOG_FILE, $logs);
+    exit;
+}
+
+// --- 2. Send Message (Public) ---
 if ($action === 'send') {
     if (empty($input['message'])) {
         http_response_code(400);
@@ -67,14 +99,14 @@ if ($action === 'send') {
         'message' => htmlspecialchars($input['message'])
     ];
     
-    array_unshift($messages, $newMessage); // Add to beginning
+    array_unshift($messages, $newMessage);
     save_json($MESSAGES_FILE, $messages);
     
     echo json_encode(['status' => 'success']);
     exit;
 }
 
-// --- 2. Login (Admin) ---
+// --- 3. Login (Admin) ---
 if ($action === 'login') {
     $ip = get_client_ip();
     $now = time();
@@ -91,21 +123,21 @@ if ($action === 'login') {
     });
 
     if (count($myAttempts) >= $MAX_ATTEMPTS) {
-        http_response_code(429); // Too Many Requests
+        http_response_code(429);
         echo json_encode(['error' => '試行回数が上限を超えました。15分後に再試行してください。']);
         exit;
     }
 
     // Verify Password
     $password = $input['password'] ?? '';
-    if ($password === $ADMIN_PASSWORD_PLAIN) {
+    if (password_verify($password, $config['password_hash'])) {
         // Success
         $token = bin2hex(random_bytes(16));
         $tokens = load_json($TOKENS_FILE);
-        $tokens[$token] = $now + 86400; // Valid for 24 hours
+        $tokens[$token] = $now + 86400; // 24 hours
         save_json($TOKENS_FILE, $tokens);
         
-        // Clear attempts for this IP on success
+        // Clear attempts
         $attemptsData = array_filter($attemptsData, function($attempt) use ($ip) {
             return $attempt['ip'] !== $ip;
         });
@@ -123,21 +155,76 @@ if ($action === 'login') {
     exit;
 }
 
-// --- 3. Get Messages (Protected) ---
-if ($action === 'fetch') {
-    $headers = getallheaders();
-    $token = $headers['X-Admin-Token'] ?? '';
+// --- Protected Routes Middleware ---
+$headers = getallheaders();
+$token = $headers['X-Admin-Token'] ?? '';
+if (!verify_token($token)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
+// --- 4. Get Dashboard Data (Protected) ---
+if ($action === 'fetch_dashboard') {
+    $messages = load_json($MESSAGES_FILE);
+    $logs = load_json($ACCESS_LOG_FILE);
     
-    $tokens = load_json($TOKENS_FILE);
+    // Basic Analytics
     $now = time();
+    $todayStart = strtotime('today midnight');
+    $weekStart = strtotime('-7 days midnight');
     
-    if (isset($tokens[$token]) && $tokens[$token] > $now) {
-        $messages = load_json($MESSAGES_FILE);
-        echo json_encode(['messages' => $messages]);
-    } else {
-        http_response_code(403);
-        echo json_encode(['error' => 'Unauthorized']);
+    $stats = [
+        'total_pv' => count($logs),
+        'today_pv' => 0,
+        'week_pv' => 0,
+        'realtime_5min' => 0,
+        'by_path' => [],
+        'recent_logs' => array_slice($logs, 0, 100) // Return only latest 100 for table
+    ];
+
+    foreach ($logs as $log) {
+        if ($log['timestamp'] >= $todayStart) $stats['today_pv']++;
+        if ($log['timestamp'] >= $weekStart) $stats['week_pv']++;
+        if ($log['timestamp'] >= $now - 300) $stats['realtime_5min']++;
+        
+        // Path stats (Top 10)
+        $path = $log['path'];
+        if (!isset($stats['by_path'][$path])) $stats['by_path'][$path] = 0;
+        $stats['by_path'][$path]++;
     }
+    
+    arsort($stats['by_path']);
+    $stats['by_path'] = array_slice($stats['by_path'], 0, 10);
+
+    echo json_encode([
+        'messages' => $messages,
+        'stats' => $stats
+    ]);
+    exit;
+}
+
+// --- 5. Change Password (Protected) ---
+if ($action === 'change_password') {
+    $current = $input['current_password'] ?? '';
+    $new = $input['new_password'] ?? '';
+    
+    if (!password_verify($current, $config['password_hash'])) {
+        http_response_code(400);
+        echo json_encode(['error' => '現在のパスワードが間違っています']);
+        exit;
+    }
+    
+    if (strlen($new) < 8) {
+        http_response_code(400);
+        echo json_encode(['error' => '新しいパスワードは8文字以上にしてください']);
+        exit;
+    }
+    
+    $config['password_hash'] = password_hash($new, PASSWORD_DEFAULT);
+    file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
+    
+    echo json_encode(['status' => 'success']);
     exit;
 }
 

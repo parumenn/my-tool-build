@@ -588,6 +588,33 @@ const SEOMetadata = () => {
   );
 };
 
+// --- Logger Component ---
+const AccessLogger: React.FC = () => {
+  const location = useLocation();
+  const loggedRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    // Prevent duplicate logs for the same path in rapid succession or strict mode
+    if (loggedRef.current === location.pathname) return;
+    loggedRef.current = location.pathname;
+
+    const logAccess = async () => {
+        try {
+            await fetch('./backend/admin_api.php?action=log_access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: location.pathname })
+            });
+        } catch (e) {
+            // silent fail
+        }
+    };
+    logAccess();
+  }, [location.pathname]);
+
+  return null;
+};
+
 // --- Layout & Main Component ---
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -632,6 +659,7 @@ const Layout: React.FC = () => {
     <AppContext.Provider value={{ showAds, setShowAds }}>
       {/* Dynamic SEO Injection */}
       <SEOMetadata />
+      <AccessLogger />
 
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
         <Sidebar 
