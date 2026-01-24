@@ -92,24 +92,109 @@ function verify_token($token) {
     return isset($tokens[$token]) && $tokens[$token] > time();
 }
 
+/**
+ * Minimal SMTP Client for environments without Composer/PHPMailer
+ * Supports STARTTLS (port 587) and SSL (port 465)
+ */
+class MinimalSMTP {
+    private $host;
+    private $port;
+    private $user;
+    private $pass;
+    private $socket;
+    private $timeout = 10;
+
+    public function __construct($host, $port, $user, $pass) {
+        $this->host = $host;
+        $this->port = $port;
+        $this->user = $user;
+        $this->pass = $pass;
+    }
+
+    public function send($to, $subject, $body, $fromName = 'OmniTools Admin') {
+        try {
+            $protocol = ($this->port == 465) ? 'ssl://' : '';
+            $hostAddress = $protocol . $this->host;
+
+            $this->socket = fsockopen($hostAddress, $this->port, $errno, $errstr, $this->timeout);
+            if (!$this->socket) {
+                throw new Exception("Connection failed: $errstr ($errno)");
+            }
+
+            $this->read();
+            $this->cmd('EHLO ' . $_SERVER['SERVER_NAME']);
+
+            // STARTTLS for port 587
+            if ($this->port == 587) {
+                $this->cmd('STARTTLS');
+                if (!stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                    throw new Exception("TLS handshake failed");
+                }
+                $this->cmd('EHLO ' . $_SERVER['SERVER_NAME']);
+            }
+
+            // Auth
+            $this->cmd('AUTH LOGIN');
+            $this->cmd(base64_encode($this->user));
+            $this->cmd(base64_encode($this->pass));
+
+            // Mail Transaction
+            $this->cmd("MAIL FROM: <{$this->user}>");
+            $this->cmd("RCPT TO: <$to>");
+            $this->cmd('DATA');
+
+            // Headers & Body
+            $headers  = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+            $headers .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$this->user}>\r\n";
+            $headers .= "To: <$to>\r\n";
+            $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+            $headers .= "Date: " . date("r") . "\r\n";
+
+            $this->cmd($headers . "\r\n" . $body . "\r\n.");
+            $this->cmd('QUIT');
+
+            fclose($this->socket);
+            return true;
+        } catch (Exception $e) {
+            if ($this->socket) fclose($this->socket);
+            return $e->getMessage();
+        }
+    }
+
+    private function cmd($command) {
+        fputs($this->socket, $command . "\r\n");
+        $response = $this->read();
+        // Check for error codes (4xx or 5xx)
+        $code = substr($response, 0, 3);
+        if ($code >= 400) {
+            throw new Exception("SMTP Error [$code]: $response");
+        }
+        return $response;
+    }
+
+    private function read() {
+        $response = '';
+        while ($str = fgets($this->socket, 515)) {
+            $response .= $str;
+            if (substr($str, 3, 1) == ' ') break;
+        }
+        return $response;
+    }
+}
+
 // --- Mail Helper Function ---
-// 戻り値: 成功時は true (boolean), 失敗時はエラーメッセージ (string)
 function send_alert_email($subject, $body) {
     global $config, $has_phpmailer;
 
     $to = $config['alert_email'];
-    if (empty($to)) {
-        return '通知先アドレスが設定されていません。';
-    }
+    if (empty($to)) return '通知先アドレスが設定されていません。';
+    if (empty($config['smtp_host']) || empty($config['smtp_user'])) return 'SMTP設定が不完全です。';
 
-    // 1. Try PHPMailer (SMTP) if available and configured
-    if ($has_phpmailer && !empty($config['smtp_host']) && !empty($config['smtp_user'])) {
-        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return 'PHPMailerクラスが見つかりません。';
-        
+    // 1. Try PHPMailer (Best)
+    if ($has_phpmailer && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-
-            // Server settings
             $mail->isSMTP();
             $mail->Host       = $config['smtp_host'];
             $mail->SMTPAuth   = true;
@@ -118,44 +203,41 @@ function send_alert_email($subject, $body) {
             $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port       = $config['smtp_port'];
             $mail->CharSet    = 'UTF-8';
-
-            // Recipients
             $mail->setFrom($config['smtp_user'], 'OmniTools Admin');
             $mail->addAddress($to);
-
-            // Content
             $mail->isHTML(false);
-            $mail->Subject = "[OmniTools Alert] " . $subject;
+            $mail->Subject = "[OmniTools] " . $subject;
             $mail->Body    = $body;
-
             $mail->send();
             return true;
         } catch (\Exception $e) {
-            // SMTP failure, will fall back to mail() below if possible, or return error
-            // Don't return here, attempt fallback
-            $smtpError = $mail->ErrorInfo;
+            $phpMailerError = $mail->ErrorInfo;
         }
     }
 
-    // 2. Fallback to PHP native mail()
-    // This works on servers with local sendmail/postfix configured, even without PHPMailer library
-    $sender = 'noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost');
-    $headers = "From: OmniTools <{$sender}>\r\n";
-    $headers .= "Reply-To: {$sender}\r\n";
-    $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
-    $headers .= "Content-Type: text/plain; charset=UTF-8";
+    // 2. Try MinimalSMTP (No dependencies)
+    // This allows SMTP usage even without Composer
+    try {
+        $smtp = new MinimalSMTP($config['smtp_host'], $config['smtp_port'], $config['smtp_user'], $config['smtp_pass']);
+        $res = $smtp->send($to, $subject, $body);
+        if ($res === true) return true;
+        $minimalError = $res;
+    } catch (\Exception $e) {
+        $minimalError = $e->getMessage();
+    }
 
+    // 3. Fallback to PHP native mail()
+    $sender = 'noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost');
+    $headers = "From: OmniTools <{$sender}>\r\nReply-To: {$sender}\r\nX-Mailer: PHP/" . phpversion() . "\r\nContent-Type: text/plain; charset=UTF-8";
     if (@mail($to, "[OmniTools] " . $subject, $body, $headers)) {
-        // Fallback success
         return true;
     }
 
-    // 3. Both failed
-    if (!$has_phpmailer) {
-        return 'PHPMailerライブラリがなく、標準のmail()関数による送信も失敗しました。サーバーで "composer require phpmailer/phpmailer" を実行するか、PHPのメール設定(sendmail)を確認してください。';
-    }
-    
-    return 'メール送信に失敗しました。SMTP設定を確認してください。' . (isset($smtpError) ? " (SMTP Error: $smtpError)" : "");
+    // 4. Return detailed error
+    $msg = 'メール送信に失敗しました。';
+    if (isset($phpMailerError)) $msg .= " (PHPMailer: $phpMailerError)";
+    if (isset($minimalError)) $msg .= " (MinimalSMTP: $minimalError)";
+    return $msg;
 }
 
 // --- 1. Log Access (Public) ---
