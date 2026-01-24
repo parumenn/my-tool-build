@@ -115,10 +115,10 @@ const Settings: React.FC = () => {
             <Shield size={24} />
          </div>
          <div>
-            <h3 className="font-bold text-emerald-800 dark:text-emerald-400 mb-1">データは安全です</h3>
+            <h3 className="font-bold text-emerald-800 dark:text-emerald-400 mb-1">安全な設計</h3>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
-               当サイトはサーバーレスで動作しており、あなたの入力データやファイルがサーバーに送信・保存されることは一切ありません。<br/>
-               すべての処理はお使いのブラウザ内（ローカル）で完結します。
+               当サイトのデータ管理はサーバーレスで動作しており、各アプリで入力されたデータ（テキスト/画像等ファイルの種類を問わず）がサーバーに送信・保存されることは一切ありません。<br/>
+               すべての処理はお使いのブラウザ内（ローカル）で完結しています。
             </p>
          </div>
       </div>
