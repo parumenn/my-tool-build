@@ -32,6 +32,7 @@ echo 展開が完了しました。
 setlocal enabledelayedexpansion
 
 echo --- 1. ビルドを開始します ---
+call npm install
 call npm run build
 
 echo --- 2. 手元の変更を一旦Gitに預けます ---
