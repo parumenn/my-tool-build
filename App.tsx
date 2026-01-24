@@ -59,6 +59,9 @@ import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
 import ServerLocation from './components/tools/ServerLocation';
 import { Tool } from './types';
 
+// Admin Path Configuration
+const ADMIN_PATH = '/secure-panel-7x9v2';
+
 // --- Global Contexts ---
 export const AppContext = createContext<{
   showAds: boolean;
@@ -614,7 +617,7 @@ const Layout: React.FC = () => {
 
   const currentTool = TOOLS.find(t => t.path === location.pathname);
   const isMultiview = location.pathname === '/multiview';
-  const isAdmin = location.pathname === '/admin';
+  const isAdmin = location.pathname === ADMIN_PATH;
   
   // Sidebar items based on addedTools order
   const sidebarTools = addedTools
@@ -701,7 +704,7 @@ const Layout: React.FC = () => {
             <div className="max-w-7xl mx-auto h-full pb-24 lg:pb-32">
               <Routes>
                 <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={toggleAddedTool} onReorder={reorderAddedTools} />} />
-                <Route path="/admin" element={<AdminPage />} />
+                <Route path={ADMIN_PATH} element={<AdminPage />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/qrcode" element={<QRCodeGenerator />} />
                 <Route path="/password" element={<PasswordGenerator />} />
