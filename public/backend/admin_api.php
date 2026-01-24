@@ -77,14 +77,16 @@ function verify_token($token) {
 }
 
 // --- Mail Helper Function ---
+// 戻り値: 成功時は true (boolean), 失敗時はエラーメッセージ (string)
 function send_alert_email($subject, $body) {
     global $config, $has_phpmailer;
 
-    // ライブラリがない、または設定が不十分な場合は何もしない
-    if (!$has_phpmailer) return false;
-    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return false;
+    // ライブラリがない、または設定が不十分な場合はエラー文字列を返す
+    if (!$has_phpmailer) return 'PHPMailerライブラリが見つかりません。サーバーで "composer require phpmailer/phpmailer" を実行してください。';
+    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return 'PHPMailerクラスが見つかりません。';
+    
     if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['alert_email'])) {
-        return false;
+        return 'SMTP設定が未完了です。ホスト、ユーザー、通知先アドレスを入力してください。';
     }
 
     try {
@@ -112,8 +114,8 @@ function send_alert_email($subject, $body) {
         $mail->send();
         return true;
     } catch (\Exception $e) {
-        // ログ出力など必要であればここで行う
-        return false;
+        // エラー詳細を返す
+        return '送信エラー: ' . $mail->ErrorInfo;
     }
 }
 
@@ -321,12 +323,13 @@ if ($action === 'update_smtp') {
     file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
     
     // Try sending a test email
-    $testResult = send_alert_email("Test Mail", "これはSMTP設定のテストメールです。");
+    $testResult = send_alert_email("Test Mail", "これはSMTP設定のテストメールです。\n正しく設定されています。");
     
-    if ($testResult) {
+    if ($testResult === true) {
         echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました']);
     } else {
-        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テストメールの送信に失敗しました（ライブラリ未導入または設定ミス）']);
+        // エラー詳細を含めて返す
+        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、メール送信に失敗しました: ' . $testResult]);
     }
     exit;
 }

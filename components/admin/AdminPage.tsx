@@ -127,7 +127,7 @@ const AdminPage: React.FC = () => {
         logout();
       }
     } catch (e) {
-      console.error(e);
+      // console.error(e); // Silent error for polling
     } finally {
       if (!isBackground) setDataLoading(false);
     }
@@ -490,7 +490,7 @@ const AdminPage: React.FC = () => {
                       messages.map((msg) => (
                          <div key={msg.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex justify-between mb-4">
-                               <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3">
                                   <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-500">
                                      <User size={20} />
                                   </div>
