@@ -41,7 +41,7 @@ if ($isWindows) {
     $binary = '';
     
     // Common paths
-    $possiblePaths = ['/usr/sbin/traceroute', '/usr/bin/traceroute', '/bin/traceroute'];
+    $possiblePaths = ['/usr/sbin/traceroute', '/usr/bin/traceroute', '/bin/traceroute', '/usr/local/bin/traceroute'];
     foreach ($possiblePaths as $p) {
         if (file_exists($p) && is_executable($p)) {
             $binary = $p;
@@ -63,14 +63,13 @@ if ($isWindows) {
     }
 
     // -n: no DNS lookup (faster), -m: max hops, -w: timeout (sec), -q: queries per hop
+    // 2>&1 to capture stderr
     $command = "$binary -n -m $maxHops -w 1 -q 1 $escapedHost 2>&1";
 }
 
 // 3. Execute
 $output = [];
 $returnVar = 0;
-// Note: If exec() is disabled in php.ini, this will fail silently or throw a warning.
-// Check php.ini disable_functions if it doesn't work.
 exec($command, $output, $returnVar);
 
 // 4. Parse Output
@@ -81,7 +80,6 @@ foreach ($output as $line) {
     
     // Parse Logic
     // Linux:  " 1  192.168.1.1  0.123 ms"
-    // Windows: " 1    <1 ms    <1 ms    <1 ms  192.168.1.1"
     
     // Extract IP
     if (preg_match('/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/', $line, $ipMatch)) {
@@ -107,14 +105,16 @@ foreach ($output as $line) {
     }
 }
 
-// 5. Error Handling
+// 5. Error Handling / Empty Result
 if (empty($hops)) {
-    // If no hops, check if command exists
-    if ($returnVar === 127 || (count($output) === 0 && $returnVar !== 0)) {
+    // If no hops, check if command failed completely
+    if ($returnVar === 127 || (count($output) === 0 && $returnVar !== 0) || (count($output) > 0 && strpos($output[0], 'not found') !== false)) {
         http_response_code(500);
         echo json_encode([
-            'error' => 'Traceroute command failed. Please install it (sudo apt install traceroute) or check exec() permissions.',
-            'debug_cmd' => $command
+            'error' => 'Traceroute command failed or not installed.',
+            'detail' => 'Please run: sudo apt-get install traceroute (or inetutils-traceroute)',
+            'debug_cmd' => $command,
+            'output' => $output
         ]);
         exit;
     }
