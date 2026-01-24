@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, Calendar, LogOut, Loader2, 
-  Activity, BarChart3, Settings, Eye, Clock, Smartphone, Globe, KeyRound 
+  Activity, BarChart3, Settings, Eye, Clock, Smartphone, Globe, KeyRound,
+  RefreshCw, CheckCircle2, AlertTriangle, XCircle, Timer, Link as LinkIcon
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -21,6 +22,9 @@ interface AccessLog {
   ip: string;
   path: string;
   ua: string;
+  referer?: string;
+  status?: number;
+  response_time?: number; // ms
 }
 
 interface DashboardStats {
@@ -80,7 +84,9 @@ const AdminPage: React.FC = () => {
   };
 
   const fetchDashboard = async (currentToken: string) => {
-    setDataLoading(true);
+    // Silent update if stats exist, else show loading
+    if (!stats) setDataLoading(true);
+    
     try {
       const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', {
         headers: { 'X-Admin-Token': currentToken }
@@ -138,11 +144,18 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchDashboard(token);
-      // Auto refresh stats every 30s
-      const interval = setInterval(() => fetchDashboard(token), 30000);
+      // Auto refresh stats every 5 seconds for real-time feel
+      const interval = setInterval(() => fetchDashboard(token), 5000);
       return () => clearInterval(interval);
     }
   }, [token]);
+
+  // Helper for Status Badge
+  const StatusBadge = ({ code }: { code?: number }) => {
+      if (!code || code === 200) return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800 border border-green-200"><CheckCircle2 size={10} className="mr-1"/> 200</span>;
+      if (code === 404) return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200"><AlertTriangle size={10} className="mr-1"/> 404</span>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200"><XCircle size={10} className="mr-1"/> {code}</span>;
+  };
 
   // --- LOGIN SCREEN ---
   if (!token) {
@@ -227,7 +240,10 @@ const AdminPage: React.FC = () => {
                          <div className="absolute right-0 top-0 p-4 opacity-10"><Activity size={64} /></div>
                          <p className="text-sm font-bold text-gray-500 dark:text-gray-400">リアルタイム (5分)</p>
                          <p className="text-4xl font-black text-green-500 mt-2">{stats.realtime_5min}</p>
-                         <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> アクティブ</p>
+                         <div className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> アクティブ
+                            <span className="text-gray-400 text-[10px] ml-auto">5秒毎に更新</span>
+                         </div>
                       </div>
                       <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                          <p className="text-sm font-bold text-gray-500 dark:text-gray-400">今日のPV</p>
@@ -247,7 +263,7 @@ const AdminPage: React.FC = () => {
                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                          <h3 className="font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
-                            <BarChart3 size={20} className="text-blue-500" /> 人気ページ (Top 10)
+                            <BarChart3 size={20} className="text-blue-500" /> アクセス数の多いページ (Top 10)
                          </h3>
                          <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
@@ -273,9 +289,15 @@ const AdminPage: React.FC = () => {
                                <div key={i} className="flex justify-between items-center text-xs pb-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                                   <div>
                                      <div className="font-bold text-gray-700 dark:text-gray-300 truncate w-32">{log.path}</div>
-                                     <div className="text-gray-400">{new Date(log.timestamp * 1000).toLocaleTimeString()}</div>
+                                     <div className="text-gray-400 flex items-center gap-1">
+                                        {new Date(log.timestamp * 1000).toLocaleTimeString()}
+                                        <StatusBadge code={log.status} />
+                                     </div>
                                   </div>
-                                  <div className="text-right font-mono text-gray-500">{log.ip}</div>
+                                  <div className="text-right">
+                                     <div className="font-mono text-gray-500">{log.ip}</div>
+                                     {log.response_time && <div className="text-[10px] text-gray-400">{log.response_time}ms</div>}
+                                  </div>
                                </div>
                             ))}
                          </div>
@@ -291,30 +313,48 @@ const AdminPage: React.FC = () => {
                       <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                          <Activity size={20} className="text-indigo-500" /> アクセスログ (最新100件)
                       </h3>
-                      <button onClick={() => fetchDashboard(token!)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200">更新</button>
+                      <button onClick={() => fetchDashboard(token!)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
+                         <RefreshCw size={12} /> 更新
+                      </button>
                    </div>
                    <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left text-gray-600 dark:text-gray-300">
                          <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
                             <tr>
                                <th className="px-6 py-3">Time</th>
-                               <th className="px-6 py-3">IP Address</th>
-                               <th className="px-6 py-3">Path</th>
-                               <th className="px-6 py-3">User Agent</th>
+                               <th className="px-6 py-3">Status</th>
+                               <th className="px-6 py-3">Path / Referer</th>
+                               <th className="px-6 py-3">IP / UA</th>
+                               <th className="px-6 py-3">Load</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {stats.recent_logs.map((log, i) => (
                                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                   <td className="px-6 py-3 whitespace-nowrap text-xs text-gray-500">{log.date}</td>
-                                  <td className="px-6 py-3 font-mono text-indigo-600 dark:text-indigo-400">{log.ip}</td>
                                   <td className="px-6 py-3">
-                                     <span className={`px-2 py-1 rounded text-xs font-bold ${log.path === '/admin' || log.path.includes('secure') ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'}`}>
-                                        {log.path}
-                                     </span>
+                                     <StatusBadge code={log.status} />
                                   </td>
-                                  <td className="px-6 py-3 text-xs text-gray-400 max-w-xs truncate" title={log.ua}>
-                                     {log.ua}
+                                  <td className="px-6 py-3">
+                                     <div className="flex flex-col">
+                                        <span className={`text-xs font-bold ${log.path === '/admin' || log.path.includes('secure') ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>
+                                           {log.path}
+                                        </span>
+                                        {log.referer && (
+                                           <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5 truncate max-w-[200px]" title={log.referer}>
+                                              <LinkIcon size={8} /> {log.referer.replace(/^https?:\/\//, '')}
+                                           </span>
+                                        )}
+                                     </div>
+                                  </td>
+                                  <td className="px-6 py-3">
+                                     <div className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{log.ip}</div>
+                                     <div className="text-[10px] text-gray-400 max-w-xs truncate" title={log.ua}>
+                                        {log.ua}
+                                     </div>
+                                  </td>
+                                  <td className="px-6 py-3 text-xs font-mono text-gray-500">
+                                     {log.response_time ? `${log.response_time}ms` : '-'}
                                   </td>
                                </tr>
                             ))}

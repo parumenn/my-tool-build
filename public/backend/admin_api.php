@@ -1,4 +1,6 @@
 <?php
+$start_time = microtime(true); // Start timing
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, X-Admin-Token");
@@ -60,13 +62,19 @@ function verify_token($token) {
 
 // --- 1. Log Access (Public) ---
 if ($action === 'log_access') {
+    // Calculate server-side processing duration (approximate) or use client provided duration
+    $duration = microtime(true) - $start_time;
+    
     // Simple access logging
     $log = [
         'timestamp' => time(),
         'date' => date('Y-m-d H:i:s'),
         'ip' => get_client_ip(),
         'path' => $input['path'] ?? '/',
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
+        'referer' => $input['referer'] ?? '',
+        'status' => $input['status'] ?? 200,
+        'response_time' => isset($input['load_time']) ? round($input['load_time'], 2) : round($duration * 1000, 2) // ms
     ];
 
     $logs = load_json($ACCESS_LOG_FILE);
@@ -184,12 +192,13 @@ if ($action === 'fetch_dashboard') {
     ];
 
     foreach ($logs as $log) {
-        if ($log['timestamp'] >= $todayStart) $stats['today_pv']++;
-        if ($log['timestamp'] >= $weekStart) $stats['week_pv']++;
-        if ($log['timestamp'] >= $now - 300) $stats['realtime_5min']++;
+        $ts = $log['timestamp'];
+        if ($ts >= $todayStart) $stats['today_pv']++;
+        if ($ts >= $weekStart) $stats['week_pv']++;
+        if ($ts >= $now - 300) $stats['realtime_5min']++;
         
         // Path stats (Top 10)
-        $path = $log['path'];
+        $path = $log['path'] ?? '/';
         if (!isset($stats['by_path'][$path])) $stats['by_path'][$path] = 0;
         $stats['by_path'][$path]++;
     }
