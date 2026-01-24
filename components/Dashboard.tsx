@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tool } from '../types';
-import { ArrowRight, Plus, Check, GripVertical, ShieldCheck, Search } from 'lucide-react';
+import { ArrowRight, Plus, Check, GripVertical, ShieldCheck, Search, Info } from 'lucide-react';
 
 interface DashboardProps {
   tools: Tool[];
@@ -76,11 +76,11 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
         >
           <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br ${tool.color.replace('text-', 'from-').replace(/500|600|700/, '100')} dark:opacity-10 to-transparent opacity-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-150 duration-500 pointer-events-none`}></div>
           
-          <div className="relative z-10 flex justify-between items-start mb-2 md:mb-4">
+          <div className="relative z-10 flex justify-between items-start mb-2 md:mb-4 pointer-events-none">
             <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center ${tool.color.replace('text-', 'bg-').replace(/500|600|700/, '100')} dark:bg-gray-800 ${tool.color} dark:${tool.darkColor || tool.color}`}>
               <tool.icon size={20} className="md:w-6 md:h-6" />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 pointer-events-auto">
                {isDraggable && !searchTerm && <GripVertical className="text-gray-300 cursor-grab hidden lg:block" />}
                <button 
                 onClick={(e) => {
@@ -100,7 +100,10 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
             </div>
           </div>
           
-          <Link to={tool.path} className="flex-1 block">
+          <Link 
+            to={tool.path} 
+            className={`flex-1 block after:absolute after:inset-0 after:z-0 ${isDraggable ? 'md:after:hidden' : ''}`}
+          >
             <h3 className="text-xs sm:text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-1 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 md:line-clamp-1">
               {tool.name}
             </h3>
@@ -110,7 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
             </p>
           </Link>
           
-          <Link to={tool.path} className="hidden md:flex items-center text-xs font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 mt-auto">
+          <Link to={tool.path} className="hidden md:flex items-center text-xs font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 mt-auto relative z-10">
             使ってみる <ArrowRight size={14} className="ml-1" />
           </Link>
         </div>
@@ -125,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
         </h2>
         <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-emerald-700 dark:text-emerald-300 text-[10px] md:text-xs font-bold border border-emerald-100 dark:border-emerald-800 mb-4 md:mb-6">
            <ShieldCheck size={12} className="md:w-3.5 md:h-3.5" />
-           <span>完全プライベート: データは端末に保存されます</span>
+           <span>完全プライベート: データはサーバーには送信されず端末に保存されローカルで動作します</span>
         </div>
         
         {/* Search Bar */}
@@ -158,7 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
       )}
 
       {/* All Tools Section */}
-      <div>
+      <div className="mb-12">
          <h3 className="text-base md:text-lg font-bold text-gray-700 dark:text-gray-300 mb-3 md:mb-4 px-2 flex items-center gap-2">
              <span className="w-1.5 h-5 md:w-2 md:h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
              その他のツール
@@ -171,6 +174,37 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
                </div>
             )}
           </div>
+      </div>
+
+      {/* SEO Footer Content */}
+      <div className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-700">
+         <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+               <Info size={20} className="text-blue-500" /> まいつーるについて
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+               「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。
+               QRコード作成、家計簿、PDF編集、画像変換、パスワード生成など、日常や業務で役立つ40種類以上のツールをブラウザひとつで利用できます。
+            </p>
+            <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-300">
+               <div>
+                  <h4 className="font-bold text-gray-800 dark:text-white mb-2">主な機能カテゴリ</h4>
+                  <ul className="list-disc list-inside space-y-1 ml-1">
+                     <li>開発者向けツール（JSON整形、Base64、正規表現、SQL）</li>
+                     <li>画像・PDF編集（リサイズ、形式変換、結合、透かし）</li>
+                     <li>生活便利ツール（家計簿、タイマー、単位変換、QRコード）</li>
+                     <li>ネットワーク（IP確認、スピードテスト、ポート開放確認）</li>
+                  </ul>
+               </div>
+               <div>
+                  <h4 className="font-bold text-gray-800 dark:text-white mb-2">安心のセキュリティ</h4>
+                  <p className="leading-relaxed">
+                     当サイトの多くのツール（画像加工、家計簿、メモなど）は、データ処理をすべてお使いのブラウザ内（クライアントサイド）で行います。
+                     サーバーにファイルをアップロードしたり、個人情報を保存したりすることはありません。
+                  </p>
+               </div>
+            </div>
+         </div>
       </div>
     </div>
   );

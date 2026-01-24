@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Disc, Play, RefreshCw, Plus, X } from 'lucide-react';
 
@@ -113,7 +114,7 @@ const Roulette: React.FC = () => {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             <Disc className="text-pink-500" />
-            決定ルーレット
+            ルーレット
           </h2>
           
           <div className="flex gap-2">

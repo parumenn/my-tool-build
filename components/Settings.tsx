@@ -1,10 +1,18 @@
-import React, { useContext, useRef } from 'react';
+
+import React, { useContext, useRef, useState } from 'react';
 import { AppContext } from '../App';
-import { Monitor, Shield, Database, Download, Upload, AlertCircle } from 'lucide-react';
+import { Monitor, Shield, Database, Download, Upload, AlertCircle, Mail, Send, Loader2, CheckCircle2 } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { showAds, setShowAds } = useContext(AppContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Message Form State
+  const [msgName, setMsgName] = useState('');
+  const [msgContact, setMsgContact] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendResult, setSendResult] = useState<'idle' | 'success' | 'error'>('idle');
 
   // --- Backup & Restore Logic ---
   const handleBackup = () => {
@@ -62,6 +70,39 @@ const Settings: React.FC = () => {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msgBody.trim()) return;
+
+    setIsSending(true);
+    setSendResult('idle');
+
+    try {
+      const res = await fetch('./backend/admin_api.php?action=send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: msgName,
+          contact: msgContact,
+          message: msgBody
+        })
+      });
+
+      if (res.ok) {
+        setSendResult('success');
+        setMsgName('');
+        setMsgContact('');
+        setMsgBody('');
+      } else {
+        setSendResult('error');
+      }
+    } catch (e) {
+      setSendResult('error');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -153,9 +194,77 @@ const Settings: React.FC = () => {
             </div>
          </div>
       </div>
+
+      {/* Contact Admin */}
+      <div className="bg-white dark:bg-dark-lighter p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+         <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Mail size={20} className="text-pink-500" />
+            管理者へ連絡
+         </h3>
+         <p className="text-xs text-gray-500 mb-6">
+            バグ報告や機能要望など、管理者へメッセージを送信できます。<br/>
+            ※返信が必要な場合はメールアドレス等を記入してください。
+         </p>
+
+         {sendResult === 'success' ? (
+            <div className="bg-green-50 dark:bg-green-900/30 p-6 rounded-xl text-center">
+               <CheckCircle2 size={48} className="text-green-500 mx-auto mb-3" />
+               <p className="font-bold text-green-700 dark:text-green-300">送信しました</p>
+               <button onClick={() => setSendResult('idle')} className="mt-4 text-xs text-gray-500 underline">続けて送信する</button>
+            </div>
+         ) : (
+            <form onSubmit={handleSendMessage} className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                     <label className="block text-xs font-bold text-gray-500 mb-1">お名前 (任意)</label>
+                     <input 
+                        type="text" 
+                        value={msgName}
+                        onChange={(e) => setMsgName(e.target.value)}
+                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
+                     />
+                  </div>
+                  <div>
+                     <label className="block text-xs font-bold text-gray-500 mb-1">連絡先 (任意)</label>
+                     <input 
+                        type="text" 
+                        value={msgContact}
+                        onChange={(e) => setMsgContact(e.target.value)}
+                        placeholder="Email / Twitter等"
+                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
+                     />
+                  </div>
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">メッセージ <span className="text-red-500">*</span></label>
+                  <textarea 
+                     value={msgBody}
+                     onChange={(e) => setMsgBody(e.target.value)}
+                     required
+                     className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm h-32 resize-none"
+                     placeholder="ここに内容を入力してください..."
+                  />
+               </div>
+               
+               {sendResult === 'error' && (
+                  <p className="text-xs text-red-500 font-bold flex items-center gap-1">
+                     <AlertCircle size={12} /> 送信に失敗しました。時間をおいて試してください。
+                  </p>
+               )}
+
+               <button 
+                  type="submit" 
+                  disabled={isSending || !msgBody}
+                  className="w-full py-3 bg-pink-600 text-white font-bold rounded-xl hover:bg-pink-700 transition-colors shadow-lg shadow-pink-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
+               >
+                  {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 送信する
+               </button>
+            </form>
+         )}
+      </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.2.6
+         Version 2.3.0
       </div>
     </div>
   );

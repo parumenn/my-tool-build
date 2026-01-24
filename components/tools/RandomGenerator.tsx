@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dices, RefreshCw, Copy, Check, RotateCcw } from 'lucide-react';
 
@@ -48,7 +49,7 @@ const RandomGenerator: React.FC = () => {
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
           <Dices className="text-rose-500" />
-          乱数生成
+          カスタムサイコロ
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">

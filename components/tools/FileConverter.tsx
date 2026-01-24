@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload, FileText, Copy, Check, Download, ArrowRight, AlertTriangle } from 'lucide-react';
 
@@ -115,8 +116,9 @@ const FileConverter: React.FC = () => {
               <Upload className="text-orange-500" />
               ファイルをBase64に変換
             </h2>
-            <p className="text-gray-500 mb-6">
-              サーバーを使わずにファイルをテキストデータ(Base64)に変換します。
+            <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+              社内規定などでファイルを外部に持ち出せない方の為にサーバーを使わずにファイルをテキストデータ(Base64)に変換し、テキストからファイルを生成します。
+              テキストの生成/テキストからファイルの生成もブラウザ内臓メモリで処理するためサーバーにはデータが送信されません。
             </p>
 
             {error && (

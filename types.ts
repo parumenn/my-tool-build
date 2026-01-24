@@ -5,6 +5,8 @@ export interface Tool {
   name: string;
   path: string;
   description: string;
+  longDescription?: string; // Enhanced description for SEO
+  keywords?: string[]; // Specific keywords for meta tags
   icon: LucideIcon;
   color: string;
   darkColor?: string; // Color for dark mode
