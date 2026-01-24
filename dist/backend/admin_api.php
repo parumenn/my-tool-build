@@ -5,6 +5,7 @@ ini_set('display_errors', 0);
 
 $start_time = microtime(true);
 
+// CORS / Headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, X-Admin-Token");
@@ -12,6 +13,20 @@ header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
+}
+
+// getallheaders Polyfill for Nginx/FPM
+if (!function_exists('getallheaders')) {
+    function getallheaders() {
+        $headers = [];
+        foreach ($_SERVER as $name => $value) {
+            if (substr($name, 0, 5) == 'HTTP_') {
+                $headerName = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))));
+                $headers[$headerName] = $value;
+            }
+        }
+        return $headers;
+    }
 }
 
 // Composerのオートローダー読み込み（存在する場合のみ）
@@ -72,6 +87,7 @@ function save_json($file, $data) {
 
 function verify_token($token) {
     global $TOKENS_FILE;
+    if (empty($token)) return false;
     $tokens = load_json($TOKENS_FILE);
     return isset($tokens[$token]) && $tokens[$token] > time();
 }
@@ -81,42 +97,65 @@ function verify_token($token) {
 function send_alert_email($subject, $body) {
     global $config, $has_phpmailer;
 
-    // ライブラリがない、または設定が不十分な場合はエラー文字列を返す
-    if (!$has_phpmailer) return 'PHPMailerライブラリが見つかりません。サーバーで "composer require phpmailer/phpmailer" を実行してください。';
-    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return 'PHPMailerクラスが見つかりません。';
-    
-    if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['alert_email'])) {
-        return 'SMTP設定が未完了です。ホスト、ユーザー、通知先アドレスを入力してください。';
+    $to = $config['alert_email'];
+    if (empty($to)) {
+        return '通知先アドレスが設定されていません。';
     }
 
-    try {
-        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+    // 1. Try PHPMailer (SMTP) if available and configured
+    if ($has_phpmailer && !empty($config['smtp_host']) && !empty($config['smtp_user'])) {
+        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return 'PHPMailerクラスが見つかりません。';
+        
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
 
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host       = $config['smtp_host'];
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $config['smtp_user'];
-        $mail->Password   = $config['smtp_pass'];
-        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = $config['smtp_port'];
-        $mail->CharSet    = 'UTF-8';
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host       = $config['smtp_host'];
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $config['smtp_user'];
+            $mail->Password   = $config['smtp_pass'];
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = $config['smtp_port'];
+            $mail->CharSet    = 'UTF-8';
 
-        // Recipients
-        $mail->setFrom($config['smtp_user'], 'OmniTools Admin');
-        $mail->addAddress($config['alert_email']);
+            // Recipients
+            $mail->setFrom($config['smtp_user'], 'OmniTools Admin');
+            $mail->addAddress($to);
 
-        // Content
-        $mail->isHTML(false);
-        $mail->Subject = "[OmniTools Alert] " . $subject;
-        $mail->Body    = $body;
+            // Content
+            $mail->isHTML(false);
+            $mail->Subject = "[OmniTools Alert] " . $subject;
+            $mail->Body    = $body;
 
-        $mail->send();
+            $mail->send();
+            return true;
+        } catch (\Exception $e) {
+            // SMTP failure, will fall back to mail() below if possible, or return error
+            // Don't return here, attempt fallback
+            $smtpError = $mail->ErrorInfo;
+        }
+    }
+
+    // 2. Fallback to PHP native mail()
+    // This works on servers with local sendmail/postfix configured, even without PHPMailer library
+    $sender = 'noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost');
+    $headers = "From: OmniTools <{$sender}>\r\n";
+    $headers .= "Reply-To: {$sender}\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
+    $headers .= "Content-Type: text/plain; charset=UTF-8";
+
+    if (@mail($to, "[OmniTools] " . $subject, $body, $headers)) {
+        // Fallback success
         return true;
-    } catch (\Exception $e) {
-        // エラー詳細を返す
-        return '送信エラー: ' . $mail->ErrorInfo;
     }
+
+    // 3. Both failed
+    if (!$has_phpmailer) {
+        return 'PHPMailerライブラリがなく、標準のmail()関数による送信も失敗しました。サーバーで "composer require phpmailer/phpmailer" を実行するか、PHPのメール設定(sendmail)を確認してください。';
+    }
+    
+    return 'メール送信に失敗しました。SMTP設定を確認してください。' . (isset($smtpError) ? " (SMTP Error: $smtpError)" : "");
 }
 
 // --- 1. Log Access (Public) ---
@@ -229,7 +268,9 @@ if ($action === 'login') {
 
 // --- Protected Routes Middleware ---
 $headers = getallheaders();
-$token = $headers['X-Admin-Token'] ?? '';
+// Fix for cases where headers might have different casing or keys
+$token = $headers['X-Admin-Token'] ?? $headers['x-admin-token'] ?? $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
+
 if (!verify_token($token)) {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized']);
