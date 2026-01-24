@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { 
   Menu, QrCode, FileText, AlignLeft, Image as ImageIcon, Binary, 
   Network, Activity, Timer, RefreshCwOff, FileDiff, Wallet, Sun, Moon, 
@@ -7,7 +9,7 @@ import {
   KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
   Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
   ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays
+  CalendarDays, Share2
 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -52,6 +54,7 @@ import PdfTools from './components/tools/PdfTools';
 import HtmlEditor from './components/tools/HtmlEditor';
 import SqlPlayground from './components/tools/SqlPlayground';
 import DateCalculator from './components/tools/DateCalculator';
+import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
 import { Tool } from './types';
 
 // --- Global Contexts ---
@@ -74,6 +77,15 @@ export const TOOLS: Tool[] = [
     icon: QrCode,
     color: 'text-blue-500',
     darkColor: 'text-blue-400',
+  },
+  {
+    id: 'subnet',
+    name: 'IPサブネット計算機',
+    path: '/subnet',
+    description: 'IPアドレスのビット可視化、ネットワーク包含判定、ホスト数計算ができるエンジニア向けツールです。',
+    icon: Network,
+    color: 'text-cyan-600',
+    darkColor: 'text-cyan-400',
   },
   {
     id: 'date',
@@ -367,8 +379,8 @@ export const TOOLS: Tool[] = [
     id: 'ip',
     name: 'IPアドレス確認',
     path: '/ip',
-    description: 'あなたの現在のグローバルIPアドレスと接続情報を確認します。',
-    icon: Network,
+    description: 'あなたの現在のグローバルIPアドレス(IPv4/IPv6)と接続情報を確認します。ポート開放確認も可能です。',
+    icon: Share2,
     color: 'text-sky-500',
     darkColor: 'text-sky-400',
   },
@@ -434,6 +446,57 @@ const useAddedTools = () => {
   return { addedTools, toggleAddedTool, reorderAddedTools };
 };
 
+// --- SEO Component ---
+const SEOMetadata = () => {
+  const location = useLocation();
+  const currentTool = TOOLS.find(t => t.path === location.pathname);
+  
+  // Default Metadata
+  let title = 'まいつーる - Web Utility Suite';
+  let description = 'QRコード生成、画像変換、家計簿、PDF編集など、インストール不要で使える便利な無料Webツール集。ブラウザだけですぐに使えます。';
+  
+  if (currentTool) {
+    title = `${currentTool.name} | まいつーる`;
+    description = currentTool.description;
+  } else if (location.pathname === '/multiview') {
+    title = 'ワークスペース | まいつーる';
+    description = '複数のツールを1画面で同時に起動して効率的に作業できるワークスペース機能です。';
+  } else if (location.pathname === '/settings') {
+    title = '設定 | まいつーる';
+    description = 'まいつーるの表示設定やデータのバックアップ・復元を行います。';
+  }
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": title,
+    "description": description,
+    "applicationCategory": "UtilityApplication",
+    "operatingSystem": "Web Browser",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "JPY"
+    }
+  };
+
+  return (
+    <Helmet>
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary" />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      <script type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </script>
+    </Helmet>
+  );
+};
+
 // --- Layout & Main Component ---
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -458,6 +521,9 @@ const Layout: React.FC = () => {
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds }}>
+      {/* Dynamic SEO Injection */}
+      <SEOMetadata />
+
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
         <Sidebar 
           tools={sidebarTools} 
@@ -468,16 +534,10 @@ const Layout: React.FC = () => {
 
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
           {/* Header */}
-          <header className="bg-white/80 dark:bg-dark-lighter/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10 transition-colors">
+          <header className="bg-white/80 dark:bg-dark-lighter/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10 transition-colors">
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                <Menu size={24} />
-              </button>
               
-              <div className="text-sm breadcrumbs text-gray-500 dark:text-gray-400 hidden sm:flex items-center">
+              <div className="text-sm breadcrumbs text-gray-500 dark:text-gray-400 hidden lg:flex items-center">
                 <span className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">まいつーる</span>
                 {isMultiview ? (
                    <>
@@ -503,9 +563,18 @@ const Layout: React.FC = () => {
                 ) : null}
               </div>
               
-              {/* Mobile Title */}
-              <div className="sm:hidden font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  {isMultiview ? 'ワークスペース' : (currentTool ? currentTool.name : (location.pathname === '/settings' ? '設定' : 'まいつーる'))}
+              {/* Mobile Title (Simplified with Menu Button) */}
+              <div className="lg:hidden font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <button 
+                    onClick={() => setSidebarOpen(true)}
+                    className="mr-1 p-1 -ml-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <Menu size={24} />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="text-blue-500" size={20} />
+                    まいつーる
+                  </div>
               </div>
             </div>
 
@@ -522,7 +591,8 @@ const Layout: React.FC = () => {
 
           {/* Main Content */}
           <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
-            <div className="max-w-7xl mx-auto h-full pb-32">
+            {/* Added padding-bottom for mobile nav visibility */}
+            <div className="max-w-7xl mx-auto h-full pb-24 lg:pb-32">
               <Routes>
                 <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={toggleAddedTool} onReorder={reorderAddedTools} />} />
                 <Route path="/settings" element={<Settings />} />
@@ -563,6 +633,7 @@ const Layout: React.FC = () => {
                 <Route path="/tasks" element={<TaskManager />} />
                 <Route path="/pdf" element={<PdfTools />} />
                 <Route path="/date" element={<DateCalculator />} />
+                <Route path="/subnet" element={<IpSubnetVisualizer />} />
               </Routes>
 
               {/* Ad Banner */}
