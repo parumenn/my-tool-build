@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, Calendar, LogOut, Loader2, 
   Activity, BarChart3, Settings, Eye, Clock, Smartphone, Globe, KeyRound,
-  RefreshCw, CheckCircle2, AlertTriangle, XCircle, Timer, Link as LinkIcon
+  RefreshCw, CheckCircle2, AlertTriangle, XCircle, Timer, Link as LinkIcon,
+  Download, Upload, Database, Server
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -25,6 +26,14 @@ interface AccessLog {
   referer?: string;
   status?: number;
   response_time?: number; // ms
+}
+
+interface SmtpConfig {
+    smtp_host: string;
+    smtp_port: number;
+    smtp_user: string;
+    smtp_pass?: string;
+    alert_email: string;
 }
 
 interface DashboardStats {
@@ -55,6 +64,16 @@ const AdminPage: React.FC = () => {
   const [newPwd, setNewPwd] = useState('');
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdError, setPwdError] = useState('');
+
+  // SMTP Settings State
+  const [smtpConfig, setSmtpConfig] = useState<SmtpConfig>({
+      smtp_host: '', smtp_port: 587, smtp_user: '', alert_email: '', smtp_pass: ''
+  });
+  const [smtpMsg, setSmtpMsg] = useState('');
+  const [smtpLoading, setSmtpLoading] = useState(false);
+
+  // Backup State
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +114,9 @@ const AdminPage: React.FC = () => {
         const data = await res.json();
         setMessages(data.messages || []);
         setStats(data.stats);
+        if (data.config) {
+            setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''})); // Don't show password
+        }
       } else {
         logout();
       }
@@ -132,6 +154,87 @@ const AdminPage: React.FC = () => {
     } catch (e) {
         setPwdError('通信エラー');
     }
+  };
+
+  const handleUpdateSmtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setSmtpMsg('');
+      setSmtpLoading(true);
+      if (!token) return;
+
+      try {
+          const res = await fetch('./backend/admin_api.php?action=update_smtp', {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'X-Admin-Token': token
+              },
+              body: JSON.stringify(smtpConfig)
+          });
+          const data = await res.json();
+          setSmtpMsg(data.message || '更新しました');
+      } catch (e) {
+          setSmtpMsg('更新に失敗しました');
+      } finally {
+          setSmtpLoading(false);
+      }
+  };
+
+  const handleBackupData = async () => {
+    if (!token) return;
+    try {
+        const res = await fetch('./backend/admin_api.php?action=backup_data', {
+            headers: { 'X-Admin-Token': token }
+        });
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `server_data_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            alert('バックアップに失敗しました');
+        }
+    } catch (e) {
+        alert('通信エラー');
+    }
+  };
+
+  const handleRestoreData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!token || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    
+    if (!confirm('本当に復元しますか？現在のサーバー上のログやパスワード設定が、このバックアップファイルの内容で上書きされます。')) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const jsonData = JSON.parse(ev.target?.result as string);
+            const res = await fetch('./backend/admin_api.php?action=restore_data', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Admin-Token': token
+                },
+                body: JSON.stringify({ data: jsonData })
+            });
+            
+            if (res.ok) {
+                alert('復元が完了しました。ページをリロードします。');
+                window.location.reload();
+            } else {
+                alert('復元に失敗しました。');
+            }
+        } catch (err) {
+            alert('ファイル形式が不正です。');
+        }
+    };
+    reader.readAsText(file);
   };
 
   const logout = () => {
@@ -398,51 +501,136 @@ const AdminPage: React.FC = () => {
 
              {/* --- SETTINGS TAB --- */}
              {activeTab === 'settings' && (
-                <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in">
-                   <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
-                      <Settings size={24} className="text-gray-400" />
-                      管理者設定
-                   </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
                    
-                   <div className="mb-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm rounded-xl border border-yellow-100 dark:border-yellow-800 flex items-start gap-3">
-                      <ShieldAlert size={20} className="shrink-0 mt-0.5" />
-                      <div>
-                         <p className="font-bold mb-1">セキュリティに関する注意</p>
-                         <p>パスワードは定期的に変更してください。8文字以上の推測されにくいパスワードを推奨します。</p>
-                      </div>
+                   {/* SMTP Settings */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                            <Server size={24} className="text-orange-500" />
+                            メール通知設定
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            不正アクセス検知などの通知を受け取るメールサーバー(SMTP)の設定です。<br/>
+                            Gmail等の場合、アプリパスワードが必要です。
+                        </p>
+                        
+                        <form onSubmit={handleUpdateSmtp} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
+                                <input type="text" value={smtpConfig.smtp_host} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} placeholder="smtp.gmail.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Port</label>
+                                <input type="number" value={smtpConfig.smtp_port} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} placeholder="587" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">User / Email</label>
+                                <input type="text" value={smtpConfig.smtp_user} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} placeholder="example@gmail.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Password (App Password)</label>
+                                <input type="password" value={smtpConfig.smtp_pass} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="********" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">通知先アドレス</label>
+                                <input type="text" value={smtpConfig.alert_email} onChange={(e) => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} placeholder="my-email@example.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                            </div>
+
+                            {smtpMsg && <p className="text-sm font-bold text-green-600">{smtpMsg}</p>}
+
+                            <button 
+                                type="submit" 
+                                disabled={smtpLoading}
+                                className="w-full py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 transition-colors flex justify-center items-center gap-2"
+                            >
+                                {smtpLoading ? <Loader2 className="animate-spin" size={16} /> : '保存してテスト送信'}
+                            </button>
+                        </form>
                    </div>
 
-                   <form onSubmit={handleChangePassword} className="space-y-6">
-                      <div>
-                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">現在のパスワード</label>
-                         <input 
-                           type="password" 
-                           value={currentPwd}
-                           onChange={(e) => setCurrentPwd(e.target.value)}
-                           className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
-                         />
-                      </div>
-                      <div>
-                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">新しいパスワード</label>
-                         <input 
-                           type="password" 
-                           value={newPwd}
-                           onChange={(e) => setNewPwd(e.target.value)}
-                           className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
-                         />
-                      </div>
+                   {/* Server Data Backup/Restore */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                            <Database size={24} className="text-indigo-500" />
+                            サーバーデータ管理
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            サーバー上の設定・ログ・メッセージデータをバックアップまたは復元します。
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <button 
+                                onClick={handleBackupData}
+                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow flex items-center justify-center gap-2"
+                            >
+                                <Download size={20} /> バックアップをダウンロード
+                            </button>
+                            
+                            <div className="relative">
+                                <input 
+                                    type="file" 
+                                    accept=".json"
+                                    ref={fileInputRef}
+                                    onChange={handleRestoreData}
+                                    className="hidden"
+                                />
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full py-3 bg-white dark:bg-gray-700 border-2 border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-300 font-bold rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Upload size={20} /> データを復元
+                                </button>
+                            </div>
+                        </div>
+                   </div>
 
-                      {pwdMsg && <p className="text-green-600 font-bold text-sm flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full"></div> {pwdMsg}</p>}
-                      {pwdError && <p className="text-red-500 font-bold text-sm flex items-center gap-2"><ShieldAlert size={14} /> {pwdError}</p>}
+                   {/* Password Change */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
+                       <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                          <Settings size={24} className="text-gray-400" />
+                          管理者設定
+                       </h3>
+                       
+                       <div className="mb-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm rounded-xl border border-yellow-100 dark:border-yellow-800 flex items-start gap-3">
+                          <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+                          <div>
+                             <p className="font-bold mb-1">セキュリティに関する注意</p>
+                             <p>パスワードは定期的に変更してください。8文字以上の推測されにくいパスワードを推奨します。</p>
+                          </div>
+                       </div>
 
-                      <button 
-                        type="submit" 
-                        disabled={!currentPwd || !newPwd}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                         <KeyRound size={18} /> パスワードを変更
-                      </button>
-                   </form>
+                       <form onSubmit={handleChangePassword} className="space-y-6">
+                          <div>
+                             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">現在のパスワード</label>
+                             <input 
+                               type="password" 
+                               value={currentPwd}
+                               onChange={(e) => setCurrentPwd(e.target.value)}
+                               className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                             />
+                          </div>
+                          <div>
+                             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">新しいパスワード</label>
+                             <input 
+                               type="password" 
+                               value={newPwd}
+                               onChange={(e) => setNewPwd(e.target.value)}
+                               className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                             />
+                          </div>
+
+                          {pwdMsg && <p className="text-green-600 font-bold text-sm flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full"></div> {pwdMsg}</p>}
+                          {pwdError && <p className="text-red-500 font-bold text-sm flex items-center gap-2"><ShieldAlert size={14} /> {pwdError}</p>}
+
+                          <button 
+                            type="submit" 
+                            disabled={!currentPwd || !newPwd}
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                             <KeyRound size={18} /> パスワードを変更
+                          </button>
+                       </form>
+                   </div>
                 </div>
              )}
            </>

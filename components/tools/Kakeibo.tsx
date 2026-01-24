@@ -129,10 +129,19 @@ const Kakeibo: React.FC = () => {
           <div className={`${isWorkspace ? 'h-32' : 'h-64'}`}>
             {categoryData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <RePie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={isWorkspace ? 50 : 80}>
-                  {categoryData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                <RePie>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={isWorkspace ? 50 : 80}
+                  >
+                    {categoryData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
                   <Tooltip formatter={(value: number) => formatYen(value)} contentStyle={{borderRadius: '8px', border: 'none'}} />
                 </RePie>
               </ResponsiveContainer>

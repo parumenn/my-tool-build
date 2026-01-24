@@ -1,4 +1,11 @@
 <?php
+// Load Composer's autoloader
+require 'vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 $start_time = microtime(true); // Start timing
 
 header("Access-Control-Allow-Origin: *");
@@ -22,10 +29,15 @@ $TOKENS_FILE     = $DATA_DIR . '/active_tokens.json';
 $ACCESS_LOG_FILE = $DATA_DIR . '/access_log.json';
 $CONFIG_FILE     = $DATA_DIR . '/admin_config.json';
 
-// Initial Setup: Create config with default password "admin123" if not exists
+// Initial Setup
 if (!file_exists($CONFIG_FILE)) {
     $defaultConfig = [
-        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT)
+        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
+        'smtp_host' => '',
+        'smtp_port' => 587,
+        'smtp_user' => '',
+        'smtp_pass' => '',
+        'alert_email' => ''
     ];
     file_put_contents($CONFIG_FILE, json_encode($defaultConfig, JSON_PRETTY_PRINT));
 }
@@ -60,12 +72,50 @@ function verify_token($token) {
     return isset($tokens[$token]) && $tokens[$token] > time();
 }
 
+// --- Mail Helper Function ---
+function send_alert_email($subject, $body) {
+    global $config;
+
+    // Check if SMTP settings are configured
+    if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['alert_email'])) {
+        return false;
+    }
+
+    $mail = new PHPMailer(true);
+
+    try {
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host       = $config['smtp_host'];
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $config['smtp_user'];
+        $mail->Password   = $config['smtp_pass'];
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = $config['smtp_port'];
+        $mail->CharSet    = 'UTF-8';
+
+        // Recipients
+        $mail->setFrom($config['smtp_user'], 'OmniTools Admin');
+        $mail->addAddress($config['alert_email']);
+
+        // Content
+        $mail->isHTML(false);
+        $mail->Subject = "[OmniTools Alert] " . $subject;
+        $mail->Body    = $body;
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        // Log error internally if needed
+        // error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+        return false;
+    }
+}
+
 // --- 1. Log Access (Public) ---
 if ($action === 'log_access') {
-    // Calculate server-side processing duration (approximate) or use client provided duration
     $duration = microtime(true) - $start_time;
     
-    // Simple access logging
     $log = [
         'timestamp' => time(),
         'date' => date('Y-m-d H:i:s'),
@@ -74,13 +124,12 @@ if ($action === 'log_access') {
         'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
         'referer' => $input['referer'] ?? '',
         'status' => $input['status'] ?? 200,
-        'response_time' => isset($input['load_time']) ? round($input['load_time'], 2) : round($duration * 1000, 2) // ms
+        'response_time' => isset($input['load_time']) ? round($input['load_time'], 2) : round($duration * 1000, 2)
     ];
 
     $logs = load_json($ACCESS_LOG_FILE);
     array_unshift($logs, $log);
     
-    // Limit log size to 5000 entries
     if (count($logs) > 5000) {
         $logs = array_slice($logs, 0, 5000);
     }
@@ -130,7 +179,18 @@ if ($action === 'login') {
         return $attempt['ip'] === $ip;
     });
 
+    // --- SECURITY ALERT: Brute Force Detected ---
     if (count($myAttempts) >= $MAX_ATTEMPTS) {
+        // Send email only if it's the specific threshold attempt to avoid spamming on every click
+        if (count($myAttempts) === $MAX_ATTEMPTS) {
+            $subject = "不正アクセス検知 (Login Lockout)";
+            $body = "管理者画面へのログイン試行回数が上限を超えました。\n\n" .
+                    "IP Address: {$ip}\n" .
+                    "Time: " . date('Y-m-d H:i:s') . "\n" .
+                    "User Agent: " . ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown');
+            send_alert_email($subject, $body);
+        }
+
         http_response_code(429);
         echo json_encode(['error' => '試行回数が上限を超えました。15分後に再試行してください。']);
         exit;
@@ -139,13 +199,11 @@ if ($action === 'login') {
     // Verify Password
     $password = $input['password'] ?? '';
     if (password_verify($password, $config['password_hash'])) {
-        // Success
         $token = bin2hex(random_bytes(16));
         $tokens = load_json($TOKENS_FILE);
         $tokens[$token] = $now + 86400; // 24 hours
         save_json($TOKENS_FILE, $tokens);
         
-        // Clear attempts
         $attemptsData = array_filter($attemptsData, function($attempt) use ($ip) {
             return $attempt['ip'] !== $ip;
         });
@@ -153,7 +211,6 @@ if ($action === 'login') {
 
         echo json_encode(['token' => $token]);
     } else {
-        // Fail
         $attemptsData[] = ['ip' => $ip, 'time' => $now];
         save_json($ATTEMPTS_FILE, $attemptsData);
         
@@ -177,7 +234,6 @@ if ($action === 'fetch_dashboard') {
     $messages = load_json($MESSAGES_FILE);
     $logs = load_json($ACCESS_LOG_FILE);
     
-    // Basic Analytics
     $now = time();
     $todayStart = strtotime('today midnight');
     $weekStart = strtotime('-7 days midnight');
@@ -188,7 +244,7 @@ if ($action === 'fetch_dashboard') {
         'week_pv' => 0,
         'realtime_5min' => 0,
         'by_path' => [],
-        'recent_logs' => array_slice($logs, 0, 100) // Return only latest 100 for table
+        'recent_logs' => array_slice($logs, 0, 100)
     ];
 
     foreach ($logs as $log) {
@@ -197,7 +253,6 @@ if ($action === 'fetch_dashboard') {
         if ($ts >= $weekStart) $stats['week_pv']++;
         if ($ts >= $now - 300) $stats['realtime_5min']++;
         
-        // Path stats (Top 10)
         $path = $log['path'] ?? '/';
         if (!isset($stats['by_path'][$path])) $stats['by_path'][$path] = 0;
         $stats['by_path'][$path]++;
@@ -206,9 +261,18 @@ if ($action === 'fetch_dashboard') {
     arsort($stats['by_path']);
     $stats['by_path'] = array_slice($stats['by_path'], 0, 10);
 
+    // Return partial config (exclude password hash) for settings form
+    $safeConfig = [
+        'smtp_host' => $config['smtp_host'] ?? '',
+        'smtp_port' => $config['smtp_port'] ?? 587,
+        'smtp_user' => $config['smtp_user'] ?? '',
+        'alert_email' => $config['alert_email'] ?? ''
+    ];
+
     echo json_encode([
         'messages' => $messages,
-        'stats' => $stats
+        'stats' => $stats,
+        'config' => $safeConfig
     ]);
     exit;
 }
@@ -232,6 +296,62 @@ if ($action === 'change_password') {
     
     $config['password_hash'] = password_hash($new, PASSWORD_DEFAULT);
     file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
+    
+    echo json_encode(['status' => 'success']);
+    exit;
+}
+
+// --- 5.5 Update SMTP Settings (Protected) ---
+if ($action === 'update_smtp') {
+    // Note: Password field is optional (only update if provided)
+    $config['smtp_host'] = $input['smtp_host'];
+    $config['smtp_port'] = intval($input['smtp_port']);
+    $config['smtp_user'] = $input['smtp_user'];
+    $config['alert_email'] = $input['alert_email'];
+    
+    if (!empty($input['smtp_pass'])) {
+        $config['smtp_pass'] = $input['smtp_pass'];
+    }
+
+    file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
+    
+    // Try sending a test email
+    $testResult = send_alert_email("Test Mail", "これはSMTP設定のテストメールです。");
+    
+    if ($testResult) {
+        echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました']);
+    } else {
+        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テストメールの送信に失敗しました']);
+    }
+    exit;
+}
+
+// --- 6. Backup Data (Protected) ---
+if ($action === 'backup_data') {
+    $backup = [
+        'config' => load_json($CONFIG_FILE),
+        'access_log' => load_json($ACCESS_LOG_FILE),
+        'messages' => load_json($MESSAGES_FILE),
+        'timestamp' => date('Y-m-d H:i:s')
+    ];
+    
+    header('Content-Type: application/json');
+    echo json_encode($backup);
+    exit;
+}
+
+// --- 7. Restore Data (Protected) ---
+if ($action === 'restore_data') {
+    $data = $input['data'] ?? null;
+    if (!$data) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No data provided']);
+        exit;
+    }
+    
+    if (isset($data['config'])) save_json($CONFIG_FILE, $data['config']);
+    if (isset($data['access_log'])) save_json($ACCESS_LOG_FILE, $data['access_log']);
+    if (isset($data['messages'])) save_json($MESSAGES_FILE, $data['messages']);
     
     echo json_encode(['status' => 'success']);
     exit;
