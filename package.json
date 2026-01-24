@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && mkdir -p dist/backend && cp backend/*.php dist/backend/",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
