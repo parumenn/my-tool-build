@@ -49,6 +49,14 @@ const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('admin_token'));
   const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'messages' | 'settings'>('dashboard');
   
+  // Refs to track state inside interval closures without staleness
+  const activeTabRef = useRef(activeTab);
+  const configLoadedRef = useRef(false);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+  
   // Login State
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -91,7 +99,7 @@ const AdminPage: React.FC = () => {
       if (res.ok && data.token) {
         setToken(data.token);
         sessionStorage.setItem('admin_token', data.token);
-        fetchDashboard(data.token);
+        // Initial fetch handled by useEffect
       } else {
         setLoginError(data.error || 'ログインに失敗しました');
       }
@@ -102,9 +110,8 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const fetchDashboard = async (currentToken: string) => {
-    // Silent update if stats exist, else show loading
-    if (!stats) setDataLoading(true);
+  const fetchDashboard = async (currentToken: string, isBackground = false) => {
+    if (!isBackground) setDataLoading(true);
     
     try {
       const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', {
@@ -114,8 +121,14 @@ const AdminPage: React.FC = () => {
         const data = await res.json();
         setMessages(data.messages || []);
         setStats(data.stats);
+        
+        // Fix: Only update config if it hasn't been loaded yet OR we are NOT in settings tab.
+        // This prevents overwriting user input while they are typing.
         if (data.config) {
-            setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''})); // Don't show password
+            if (!configLoadedRef.current || activeTabRef.current !== 'settings') {
+                setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''}));
+                configLoadedRef.current = true;
+            }
         }
       } else {
         logout();
@@ -123,7 +136,7 @@ const AdminPage: React.FC = () => {
     } catch (e) {
       console.error(e);
     } finally {
-      setDataLoading(false);
+      if (!isBackground) setDataLoading(false);
     }
   };
 
@@ -242,13 +255,14 @@ const AdminPage: React.FC = () => {
     sessionStorage.removeItem('admin_token');
     setMessages([]);
     setStats(null);
+    configLoadedRef.current = false;
   };
 
   useEffect(() => {
     if (token) {
-      fetchDashboard(token);
+      fetchDashboard(token, false);
       // Auto refresh stats every 5 seconds for real-time feel
-      const interval = setInterval(() => fetchDashboard(token), 5000);
+      const interval = setInterval(() => fetchDashboard(token, true), 5000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -416,7 +430,7 @@ const AdminPage: React.FC = () => {
                       <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                          <Activity size={20} className="text-indigo-500" /> アクセスログ (最新100件)
                       </h3>
-                      <button onClick={() => fetchDashboard(token!)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
+                      <button onClick={() => fetchDashboard(token!, false)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
                          <RefreshCw size={12} /> 更新
                       </button>
                    </div>
