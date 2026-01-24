@@ -1,6 +1,14 @@
 <?php
-// Run this script via Cron (e.g., 0 23 * * * php /path/to/daily_report.php)
-require __DIR__ . '/vendor/autoload.php';
+// JSONレスポンスなどは使わないが、念のためエラー抑制
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+ini_set('display_errors', 0);
+
+// Composer autoload check
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require __DIR__ . '/vendor/autoload.php';
+} else {
+    exit("PHPMailer library not found. Please run 'composer require phpmailer/phpmailer'.\n");
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -54,8 +62,12 @@ foreach ($topPaths as $path => $count) {
 $body .= "\n--\nOmniTools Server";
 
 // Send Email
-$mail = new PHPMailer(true);
 try {
+    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        exit("PHPMailer class not found.\n");
+    }
+
+    $mail = new PHPMailer(true);
     $mail->isSMTP();
     $mail->Host       = $config['smtp_host'];
     $mail->SMTPAuth   = true;

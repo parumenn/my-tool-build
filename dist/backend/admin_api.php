@@ -1,12 +1,9 @@
 <?php
-// Load Composer's autoloader
-require 'vendor/autoload.php';
+// JSONレスポンスを破壊するPHPのエラー出力を抑制
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+ini_set('display_errors', 0);
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
-
-$start_time = microtime(true); // Start timing
+$start_time = microtime(true);
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
@@ -15,6 +12,13 @@ header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
+}
+
+// Composerのオートローダー読み込み（存在する場合のみ）
+$has_phpmailer = false;
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require __DIR__ . '/vendor/autoload.php';
+    $has_phpmailer = true;
 }
 
 // Configuration
@@ -74,23 +78,25 @@ function verify_token($token) {
 
 // --- Mail Helper Function ---
 function send_alert_email($subject, $body) {
-    global $config;
+    global $config, $has_phpmailer;
 
-    // Check if SMTP settings are configured
+    // ライブラリがない、または設定が不十分な場合は何もしない
+    if (!$has_phpmailer) return false;
+    if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) return false;
     if (empty($config['smtp_host']) || empty($config['smtp_user']) || empty($config['alert_email'])) {
         return false;
     }
 
-    $mail = new PHPMailer(true);
-
     try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
         // Server settings
         $mail->isSMTP();
         $mail->Host       = $config['smtp_host'];
         $mail->SMTPAuth   = true;
         $mail->Username   = $config['smtp_user'];
         $mail->Password   = $config['smtp_pass'];
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = $config['smtp_port'];
         $mail->CharSet    = 'UTF-8';
 
@@ -105,9 +111,8 @@ function send_alert_email($subject, $body) {
 
         $mail->send();
         return true;
-    } catch (Exception $e) {
-        // Log error internally if needed
-        // error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+    } catch (\Exception $e) {
+        // ログ出力など必要であればここで行う
         return false;
     }
 }
@@ -321,7 +326,7 @@ if ($action === 'update_smtp') {
     if ($testResult) {
         echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました']);
     } else {
-        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テストメールの送信に失敗しました']);
+        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テストメールの送信に失敗しました（ライブラリ未導入または設定ミス）']);
     }
     exit;
 }
