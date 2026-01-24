@@ -49,13 +49,8 @@ const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('admin_token'));
   const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'messages' | 'settings'>('dashboard');
   
-  // Refs to track state inside interval closures without staleness
-  const activeTabRef = useRef(activeTab);
+  // Refs
   const configLoadedRef = useRef(false);
-
-  useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
   
   // Login State
   const [password, setPassword] = useState('');
@@ -78,6 +73,7 @@ const AdminPage: React.FC = () => {
       smtp_host: '', smtp_port: 587, smtp_user: '', alert_email: '', smtp_pass: ''
   });
   const [smtpMsg, setSmtpMsg] = useState('');
+  const [smtpMsgType, setSmtpMsgType] = useState<'success' | 'warning' | 'error'>('success');
   const [smtpLoading, setSmtpLoading] = useState(false);
 
   // Backup State
@@ -122,13 +118,10 @@ const AdminPage: React.FC = () => {
         setMessages(data.messages || []);
         setStats(data.stats);
         
-        // Fix: Only update config if it hasn't been loaded yet OR we are NOT in settings tab.
-        // This prevents overwriting user input while they are typing.
-        if (data.config) {
-            if (!configLoadedRef.current || activeTabRef.current !== 'settings') {
-                setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''}));
-                configLoadedRef.current = true;
-            }
+        // Config: Only load ONCE to prevent overwriting user edits during auto-refresh.
+        if (data.config && !configLoadedRef.current) {
+            setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''}));
+            configLoadedRef.current = true;
         }
       } else {
         logout();
@@ -185,8 +178,15 @@ const AdminPage: React.FC = () => {
               body: JSON.stringify(smtpConfig)
           });
           const data = await res.json();
+          
+          if (data.status === 'warning') {
+              setSmtpMsgType('warning');
+          } else {
+              setSmtpMsgType('success');
+          }
           setSmtpMsg(data.message || '更新しました');
       } catch (e) {
+          setSmtpMsgType('error');
           setSmtpMsg('更新に失敗しました');
       } finally {
           setSmtpLoading(false);
@@ -550,7 +550,16 @@ const AdminPage: React.FC = () => {
                                 <input type="text" value={smtpConfig.alert_email} onChange={(e) => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} placeholder="my-email@example.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
                             </div>
 
-                            {smtpMsg && <p className="text-sm font-bold text-green-600">{smtpMsg}</p>}
+                            {smtpMsg && (
+                                <div className={`p-3 rounded-lg text-sm font-bold ${
+                                    smtpMsgType === 'warning' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    smtpMsgType === 'error' ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300' :
+                                    'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300'
+                                }`}>
+                                    {smtpMsgType === 'warning' && <span className="mr-1">⚠️</span>}
+                                    {smtpMsg}
+                                </div>
+                            )}
 
                             <button 
                                 type="submit" 

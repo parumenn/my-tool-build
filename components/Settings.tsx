@@ -264,7 +264,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.3.0
+         Version 2.3.1
       </div>
     </div>
   );
