@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 interface Message { id: string; timestamp: string; ip: string; name: string; contact: string; message: string; }
-interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; }
+interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; duration?: number; }
 interface DosPattern { count: number; seconds: number; block_minutes: number; }
 interface AdminConfig {
   smtp_host: string; smtp_port: number; smtp_user: string; smtp_pass?: string; alert_email: string;
@@ -386,7 +386,7 @@ const AdminPage: React.FC = () => {
               <div className="overflow-x-auto">
                  <table className="w-full text-sm text-left">
                     <thead className="bg-gray-100 dark:bg-gray-900/50 text-[10px] uppercase font-black text-gray-400 tracking-wider">
-                       <tr><th className="px-6 py-4">日時</th><th className="px-6 py-4">パス</th><th className="px-6 py-4">IP</th><th className="px-6 py-4">ステータス</th></tr>
+                       <tr><th className="px-6 py-4">日時</th><th className="px-6 py-4">パス</th><th className="px-6 py-4">IP</th><th className="px-6 py-4">Load</th><th className="px-6 py-4">ステータス</th></tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                        {stats.recent_logs.map((log, i) => (
@@ -394,6 +394,11 @@ const AdminPage: React.FC = () => {
                              <td className="px-6 py-4 font-mono text-[11px] whitespace-nowrap">{log.date}</td>
                              <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400 truncate max-w-[200px]">{log.path}</td>
                              <td className="px-6 py-4 font-mono text-[11px] text-gray-500">{log.ip}</td>
+                             <td className="px-6 py-4">
+                                <span className={`font-mono text-xs font-bold ${log.duration && log.duration > 1000 ? 'text-red-500' : 'text-gray-400'}`}>
+                                    {log.duration ? `${log.duration}ms` : '--'}
+                                </span>
+                             </td>
                              <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
                           </tr>
                        ))}

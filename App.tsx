@@ -1,64 +1,64 @@
 
-import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
-  Menu, QrCode, FileText, AlignLeft, Image as ImageIcon, Binary, 
+  Menu, QrCode, AlignLeft, Image as ImageIcon, Binary, 
   Network, Activity, Timer, RefreshCw, FileDiff, Wallet, Sun, Moon, 
-  LayoutGrid, Settings as SettingsIcon, Plus, Check, Grid2X2, StickyNote,
-  KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
-  Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
-  ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette, Pencil, Watch,
-  ShieldAlert, Lock
+  LayoutGrid, Grid2X2, StickyNote, KeyRound, Scale, Clock, Palette, 
+  FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
+  Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
+  BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
+  Pipette, ShieldAlert, Watch
 } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
-import AdminPage from './components/admin/AdminPage';
+import LoadingSkeleton from './components/LoadingSkeleton';
 
-// ツールコンポーネントのインポート
-import QRCodeGenerator from './components/tools/QRCodeGenerator';
-import FileConverter from './components/tools/FileConverter';
-import CharacterCounter from './components/tools/CharacterCounter';
-import ImageResizer from './components/tools/ImageResizer';
-import IpChecker from './components/tools/IpChecker';
-import SpeedTest from './components/tools/SpeedTest';
-import TimerTool from './components/tools/TimerTool';
-import Kakeibo from './components/tools/Kakeibo';
-import Notepad from './components/tools/Notepad';
-import PasswordGenerator from './components/tools/PasswordGenerator';
-import ColorPickerTool from './components/tools/ColorPickerTool';
-import PdfTools from './components/tools/PdfTools';
-import ServerLocation from './components/tools/ServerLocation';
-import BinaryConverter from './components/tools/BinaryConverter';
-import CalculatorTool from './components/tools/CalculatorTool';
-import Scoreboard from './components/tools/Scoreboard';
-import UnitConverter from './components/tools/UnitConverter';
-import RandomGenerator from './components/tools/RandomGenerator';
-import AspectRatioCalculator from './components/tools/AspectRatioCalculator';
-import UuidGenerator from './components/tools/UuidGenerator';
-import CaseConverter from './components/tools/CaseConverter';
-import Roulette from './components/tools/Roulette';
-import TextConverter from './components/tools/TextConverter';
-import ImageConverter from './components/tools/ImageConverter';
-import HashGenerator from './components/tools/HashGenerator';
-import RegexChecker from './components/tools/RegexChecker';
-import Flashcards from './components/tools/Flashcards';
-import TaskManager from './components/tools/TaskManager';
-import HtmlEditor from './components/tools/HtmlEditor';
-import SqlPlayground from './components/tools/SqlPlayground';
-import DateCalculator from './components/tools/DateCalculator';
-import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
-import ColorPalette from './components/tools/ColorPalette';
-import JsonFormatter from './components/tools/JsonFormatter';
-import MarkdownEditor from './components/tools/MarkdownEditor';
-import ImageWatermarker from './components/tools/ImageWatermarker';
-import ExifRemover from './components/tools/ExifRemover';
-import TextDiff from './components/tools/TextDiff';
-import TimestampConverter from './components/tools/TimestampConverter';
-import MultiToolViewer from './components/tools/MultiToolViewer';
+// ツールコンポーネントの遅延読み込み (React.lazy)
+const AdminPage = lazy(() => import('./components/admin/AdminPage'));
+const QRCodeGenerator = lazy(() => import('./components/tools/QRCodeGenerator'));
+const FileConverter = lazy(() => import('./components/tools/FileConverter'));
+const CharacterCounter = lazy(() => import('./components/tools/CharacterCounter'));
+const ImageResizer = lazy(() => import('./components/tools/ImageResizer'));
+const IpChecker = lazy(() => import('./components/tools/IpChecker'));
+const SpeedTest = lazy(() => import('./components/tools/SpeedTest'));
+const TimerTool = lazy(() => import('./components/tools/TimerTool'));
+const Kakeibo = lazy(() => import('./components/tools/Kakeibo'));
+const Notepad = lazy(() => import('./components/tools/Notepad'));
+const PasswordGenerator = lazy(() => import('./components/tools/PasswordGenerator'));
+const ColorPickerTool = lazy(() => import('./components/tools/ColorPickerTool'));
+const PdfTools = lazy(() => import('./components/tools/PdfTools'));
+const ServerLocation = lazy(() => import('./components/tools/ServerLocation'));
+const BinaryConverter = lazy(() => import('./components/tools/BinaryConverter'));
+const CalculatorTool = lazy(() => import('./components/tools/CalculatorTool'));
+const Scoreboard = lazy(() => import('./components/tools/Scoreboard'));
+const UnitConverter = lazy(() => import('./components/tools/UnitConverter'));
+const RandomGenerator = lazy(() => import('./components/tools/RandomGenerator'));
+const AspectRatioCalculator = lazy(() => import('./components/tools/AspectRatioCalculator'));
+const UuidGenerator = lazy(() => import('./components/tools/UuidGenerator'));
+const CaseConverter = lazy(() => import('./components/tools/CaseConverter'));
+const Roulette = lazy(() => import('./components/tools/Roulette'));
+const TextConverter = lazy(() => import('./components/tools/TextConverter'));
+const ImageConverter = lazy(() => import('./components/tools/ImageConverter'));
+const HashGenerator = lazy(() => import('./components/tools/HashGenerator'));
+const RegexChecker = lazy(() => import('./components/tools/RegexChecker'));
+const Flashcards = lazy(() => import('./components/tools/Flashcards'));
+const TaskManager = lazy(() => import('./components/tools/TaskManager'));
+const HtmlEditor = lazy(() => import('./components/tools/HtmlEditor'));
+const SqlPlayground = lazy(() => import('./components/tools/SqlPlayground'));
+const DateCalculator = lazy(() => import('./components/tools/DateCalculator'));
+const IpSubnetVisualizer = lazy(() => import('./components/tools/IpSubnetVisualizer'));
+const ColorPalette = lazy(() => import('./components/tools/ColorPalette'));
+const JsonFormatter = lazy(() => import('./components/tools/JsonFormatter'));
+const MarkdownEditor = lazy(() => import('./components/tools/MarkdownEditor'));
+const ImageWatermarker = lazy(() => import('./components/tools/ImageWatermarker'));
+const ExifRemover = lazy(() => import('./components/tools/ExifRemover'));
+const TextDiff = lazy(() => import('./components/tools/TextDiff'));
+const TimestampConverter = lazy(() => import('./components/tools/TimestampConverter'));
+const MultiToolViewer = lazy(() => import('./components/tools/MultiToolViewer'));
 
 import { Tool } from './types';
 
@@ -93,7 +93,7 @@ export const TOOLS: Tool[] = [
   { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'タイマー付き得点板', icon: Trophy, color: 'text-blue-700', lightBg: 'bg-blue-50', longDescription: 'スポーツやゲームで使える多機能スコアボード. タイマー機能付き。', keywords: ['得点板', 'スコアボード', 'スポーツ'] },
   { id: 'unit', name: '単位変換', path: '/unit', description: '長さ・重さ・温度・面積', icon: Scale, color: 'text-fuchsia-500', lightBg: 'bg-fuchsia-50', longDescription: '長さ、重さ、温度、面積など、日常で使う様々な単位を相互変換します。', keywords: ['単位変換', '単位計算', '換算'] },
   { id: 'random', name: 'ランダム生成', path: '/random', description: '数字のランダム生成', icon: Dices, color: 'text-rose-500', lightBg: 'bg-rose-50', longDescription: '指定した範囲内で乱数を生成。重複の可否も設定可能です。', keywords: ['乱数生成', 'ランダム', '数字'] },
-  { id: 'ratio', name: 'アスペクト比計算', path: '/ratio', description: '比率と解像度の計算', icon: BoxSelect, color: 'text-cyan-500', lightBg: 'bg-cyan-50', longDescription: '縦横のサイズからアスペクト比を算出。FHDや4Kなどのプリセットも充実。', keywords: ['アスペクト比', '解像度', '比率計算'] },
+  { id: 'ratio', name: 'アスペクト比計算', path: '/ratio', description: '比率と解像度の計算', icon: BoxSelect, color: 'text-cyan-500', lightBg: 'bg-cyan-50', longDescription: '縦横のサイズからアスペクト比を算出。FHDや4Kなどのプリセットも充実. ', keywords: ['アスペクト比', '解像度', '比率計算'] },
   { id: 'uuid', name: 'UUID生成', path: '/uuid', description: 'v4 UUIDを一括生成', icon: Fingerprint, color: 'text-violet-500', lightBg: 'bg-violet-50', longDescription: '開発で必要なUUID(v4)を瞬時に、かつ一括で生成します。', keywords: ['UUID生成', '開発ツール', 'GUID'] },
   { id: 'case', name: 'ケース変換', path: '/case', description: 'キャメル・スネーク等', icon: Type, color: 'text-orange-500', lightBg: 'bg-orange-50', longDescription: 'テキストのケース（キャメルケース、スネークケース、ケバブケース等）を一括変換。', keywords: ['ケース変換', '命名規則', '開発'] },
   { id: 'roulette', name: 'ルーレット', path: '/roulette', description: '項目自由なルーレット', icon: Disc, color: 'text-pink-500', lightBg: 'bg-pink-50', longDescription: 'ランチの選択やゲームの抽選に。項目を自由にカスタマイズできるルーレット。', keywords: ['ルーレット', '抽選', 'おみくじ'] },
@@ -116,42 +116,30 @@ export const TOOLS: Tool[] = [
   { id: 'timestamp', name: 'Unix時間変換', path: '/timestamp', description: 'タイムスタンプ相互変換', icon: Clock, color: 'text-slate-500', lightBg: 'bg-slate-100', longDescription: 'Unixタイムスタンプと日時形式を瞬時に相互変換。', keywords: ['Unix時間', 'タイムスタンプ', '日付変換'] }
 ];
 
-/**
- * 非ブロッキング・アクセスロガー:
- * モバイル回線での「詰まり」を解消するため、navigator.sendBeaconを使用します。
- * これによりバックエンドの応答を待たずにUI操作が可能になります。
- */
 const AccessLogger: React.FC<{ onBlocked: (blocked: boolean) => void }> = ({ onBlocked }) => {
   const location = useLocation();
+  const startTimeRef = useRef(performance.now());
   
   useEffect(() => {
+    startTimeRef.current = performance.now();
     const url = './backend/admin_api.php?action=log_access';
-    const payload = JSON.stringify({
-      path: location.pathname,
-      referer: document.referrer,
-      status: 200
-    });
+    const timer = setTimeout(() => {
+        const duration = Math.round(performance.now() - startTimeRef.current);
+        const payload = JSON.stringify({
+          path: location.pathname,
+          referer: document.referrer,
+          status: 200,
+          duration: duration
+        });
+        if (navigator.sendBeacon) navigator.sendBeacon(url, payload);
+        else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+    }, 0);
 
-    // モバイルでの体感速度向上のため、sendBeaconを優先使用
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, payload);
-    } else {
-      // フォールバック（古いブラウザ用）
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true
-      });
-    }
-
-    // ブロックチェック（これのみ非同期でバックグラウンド実行）
     fetch(url, { method: 'HEAD' }).then(res => {
       if (res.status === 403 || res.status === 429) onBlocked(true);
     }).catch(() => {});
-    
+    return () => clearTimeout(timer);
   }, [location.pathname, onBlocked]);
-
   return null;
 };
 
@@ -175,7 +163,7 @@ const SEOManager: React.FC = () => {
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [isBlocked, setIsBlocked] = useState(false); // IP遮断フラグ
+  const [isBlocked, setIsBlocked] = useState(false);
   const [addedTools, setAddedTools] = useState<string[]>(() => {
     const saved = localStorage.getItem('addedTools');
     return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
@@ -209,25 +197,17 @@ const Layout: React.FC = () => {
   const isAdmin = location.pathname === ADMIN_PATH;
   const sidebarTools = addedTools.map(id => TOOLS.find(t => t.id === id)).filter((t): t is Tool => t !== undefined);
 
-  // IP遮断時の表示
   if (isBlocked) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white font-sans transition-colors duration-500">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white font-sans">
       <div className="max-w-md w-full text-center space-y-6">
-        <div className="inline-flex p-6 bg-red-500/20 rounded-full text-red-500 mb-4 animate-pulse">
-           <ShieldAlert size={64} />
-        </div>
+        <div className="inline-flex p-6 bg-red-500/20 rounded-full text-red-500 mb-4 animate-pulse"><ShieldAlert size={64} /></div>
         <h2 className="text-3xl font-black">アクセス制限</h2>
-        <div className="h-1 w-20 bg-red-500 mx-auto rounded-full"></div>
-        <p className="text-slate-400 text-lg leading-relaxed">
-           セキュリティ上の理由により、お使いのIPアドレスからのアクセスは制限されています。<br/>
-           過剰なリクエスト送信が検知されたか、管理者によって制限されています。
-        </p>
-        <p className="text-[10px] text-slate-600 font-mono">エラーコード: 403_アクセス拒否</p>
+        <p className="text-slate-400 text-lg leading-relaxed">セキュリティ上の理由によりアクセスが制限されています。</p>
       </div>
     </div>
   );
 
-  if (isAdmin) return <AdminPage />;
+  if (isAdmin) return <Suspense fallback={<div className="h-screen bg-gray-900 flex items-center justify-center text-white">Loading Admin...</div>}><AdminPage /></Suspense>;
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected: false }}>
@@ -238,70 +218,61 @@ const Layout: React.FC = () => {
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
           <header className="bg-white/95 dark:bg-dark-lighter/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-20 shrink-0">
              <div className="flex items-center gap-4">
-                <div className="lg:hidden">
-                    <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"><Menu size={24} /></button>
-                </div>
-                <Link to="/" className="font-black text-lg md:text-xl tracking-tight flex items-center gap-2">
-                    <LayoutGrid className="text-blue-500" size={20} />
-                    <span>まいつーる</span>
-                </Link>
+                <div className="lg:hidden"><button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 rounded-full"><Menu size={24} /></button></div>
+                <Link to="/" className="font-black text-lg md:text-xl tracking-tight flex items-center gap-2"><LayoutGrid className="text-blue-500" size={20} /><span>まいつーる</span></Link>
                 {currentTool && <span className="hidden sm:inline font-normal text-gray-400">/ {currentTool.name}</span>}
              </div>
-             <div className="flex items-center gap-2">
-                <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">
-                    {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-                </button>
-             </div>
+             <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button>
           </header>
 
           <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar">
             <div className="max-w-7xl mx-auto h-full pb-20">
-              <Routes>
-                <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={setAddedTools} />} />
-                <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
-                <Route path="/settings" element={<Settings />} />
-                
-                {/* ツールルート */}
-                <Route path="/qrcode" element={<QRCodeGenerator />} />
-                <Route path="/count" element={<CharacterCounter />} />
-                <Route path="/picker" element={<ColorPickerTool />} />
-                <Route path="/password" element={<PasswordGenerator />} />
-                <Route path="/kakeibo" element={<Kakeibo />} />
-                <Route path="/pdf" element={<PdfTools />} />
-                <Route path="/resize" element={<ImageResizer />} />
-                <Route path="/convert" element={<FileConverter />} />
-                <Route path="/ip" element={<IpChecker />} />
-                <Route path="/speed" element={<SpeedTest />} />
-                <Route path="/server-loc" element={<ServerLocation />} />
-                <Route path="/binary" element={<BinaryConverter />} />
-                <Route path="/timer" element={<TimerTool />} />
-                <Route path="/notepad" element={<Notepad />} />
-                <Route path="/calculator" element={<CalculatorTool />} />
-                <Route path="/scoreboard" element={<Scoreboard />} />
-                <Route path="/unit" element={<UnitConverter />} />
-                <Route path="/random" element={<RandomGenerator />} />
-                <Route path="/ratio" element={<AspectRatioCalculator />} />
-                <Route path="/uuid" element={<UuidGenerator />} />
-                <Route path="/case" element={<CaseConverter />} />
-                <Route path="/roulette" element={<Roulette />} />
-                <Route path="/text-conv" element={<TextConverter />} />
-                <Route path="/image-conv" element={<ImageConverter />} />
-                <Route path="/hash" element={<HashGenerator />} />
-                <Route path="/regex" element={<RegexChecker />} />
-                <Route path="/flashcards" element={<Flashcards />} />
-                <Route path="/tasks" element={<TaskManager />} />
-                <Route path="/html" element={<HtmlEditor />} />
-                <Route path="/sql" element={<SqlPlayground />} />
-                <Route path="/date" element={<DateCalculator />} />
-                <Route path="/subnet" element={<IpSubnetVisualizer />} />
-                <Route path="/palette" element={<ColorPalette />} />
-                <Route path="/json" element={<JsonFormatter />} />
-                <Route path="/markdown" element={<MarkdownEditor />} />
-                <Route path="/watermarker" element={<ImageWatermarker />} />
-                <Route path="/exif" element={<ExifRemover />} />
-                <Route path="/diff" element={<TextDiff />} />
-                <Route path="/timestamp" element={<TimestampConverter />} />
-              </Routes>
+              <Suspense fallback={<LoadingSkeleton />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={setAddedTools} />} />
+                  <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/qrcode" element={<QRCodeGenerator />} />
+                  <Route path="/count" element={<CharacterCounter />} />
+                  <Route path="/picker" element={<ColorPickerTool />} />
+                  <Route path="/password" element={<PasswordGenerator />} />
+                  <Route path="/kakeibo" element={<Kakeibo />} />
+                  <Route path="/pdf" element={<PdfTools />} />
+                  <Route path="/resize" element={<ImageResizer />} />
+                  <Route path="/convert" element={<FileConverter />} />
+                  <Route path="/ip" element={<IpChecker />} />
+                  <Route path="/speed" element={<SpeedTest />} />
+                  <Route path="/server-loc" element={<ServerLocation />} />
+                  <Route path="/binary" element={<BinaryConverter />} />
+                  <Route path="/timer" element={<TimerTool />} />
+                  <Route path="/notepad" element={<Notepad />} />
+                  <Route path="/calculator" element={<CalculatorTool />} />
+                  <Route path="/scoreboard" element={<Scoreboard />} />
+                  <Route path="/unit" element={<UnitConverter />} />
+                  <Route path="/random" element={<RandomGenerator />} />
+                  <Route path="/ratio" element={<AspectRatioCalculator />} />
+                  <Route path="/uuid" element={<UuidGenerator />} />
+                  <Route path="/case" element={<CaseConverter />} />
+                  <Route path="/roulette" element={<Roulette />} />
+                  <Route path="/text-conv" element={<TextConverter />} />
+                  <Route path="/image-conv" element={<ImageConverter />} />
+                  <Route path="/hash" element={<HashGenerator />} />
+                  <Route path="/regex" element={<RegexChecker />} />
+                  <Route path="/flashcards" element={<Flashcards />} />
+                  <Route path="/tasks" element={<TaskManager />} />
+                  <Route path="/html" element={<HtmlEditor />} />
+                  <Route path="/sql" element={<SqlPlayground />} />
+                  <Route path="/date" element={<DateCalculator />} />
+                  <Route path="/subnet" element={<IpSubnetVisualizer />} />
+                  <Route path="/palette" element={<ColorPalette />} />
+                  <Route path="/json" element={<JsonFormatter />} />
+                  <Route path="/markdown" element={<MarkdownEditor />} />
+                  <Route path="/watermarker" element={<ImageWatermarker />} />
+                  <Route path="/exif" element={<ExifRemover />} />
+                  <Route path="/diff" element={<TextDiff />} />
+                  <Route path="/timestamp" element={<TimestampConverter />} />
+                </Routes>
+              </Suspense>
             </div>
           </main>
         </div>

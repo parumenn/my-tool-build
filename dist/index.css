@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,8 +7,6 @@
 * {
   -webkit-tap-highlight-color: transparent; /* タップ時の青い枠を消す */
 }
-
-/* 削除: overscroll-behavior-y: none はモバイルのリロード操作を禁止してしまうため削除 */
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
@@ -32,6 +31,14 @@
 }
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .pattern-grid {

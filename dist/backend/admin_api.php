@@ -1,3 +1,4 @@
+
 <?php
 // JSONレスポンスを破壊するPHPのエラー出力を抑制
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
@@ -191,7 +192,15 @@ if ($action === 'login') {
 
 if ($action === 'log_access') {
     $logs = load_json($ACCESS_LOG_FILE);
-    array_unshift($logs, ['timestamp' => microtime(true), 'date' => date('Y-m-d H:i:s'), 'ip' => $ip, 'path' => $input['path'] ?? '/', 'ua' => $_SERVER['HTTP_USER_AGENT'], 'status' => $input['status'] ?? 200]);
+    array_unshift($logs, [
+        'timestamp' => microtime(true), 
+        'date' => date('Y-m-d H:i:s'), 
+        'ip' => $ip, 
+        'path' => $input['path'] ?? '/', 
+        'ua' => $_SERVER['HTTP_USER_AGENT'], 
+        'status' => $input['status'] ?? 200,
+        'duration' => $input['duration'] ?? 0 // 所要時間を保存
+    ]);
     save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
     echo json_encode(['status' => 'ok']);
     exit;
