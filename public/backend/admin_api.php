@@ -179,16 +179,16 @@ $req_count = count($track[$current_ip]);
 
 if ($req_count > $MAX_REQ_PER_MINUTE) {
     // IP遮断
-    $blocked_ips[$current_ip] = ['reason' => 'DOS攻撃を検知', 'time' => date('Y-m-d H:i:s'), 'timestamp' => $now];
+    $blocked_ips[$current_ip] = ['reason' => 'DOS攻撃（過剰なリクエスト）を検知', 'time' => date('Y-m-d H:i:s'), 'timestamp' => $now];
     save_json($BLOCKED_IPS_FILE, $blocked_ips);
     
     // 管理者へのメール通知
-    $subject = "セキュリティアラート: IPを遮断しました (DOS攻撃)";
-    $body = "DOS攻撃の疑いがあるため、以下のIPを自動的に遮断しました。\n\nIPアドレス: {$current_ip}\nアクセス頻度: {$req_count} リクエスト/分\n検知時刻: " . date('Y-m-d H:i:s') . "\n\n管理画面から解除が可能です。";
+    $subject = "セキュリティアラート: IPを自動遮断しました (DOS保護)";
+    $body = "過剰なリクエスト送信が検知されたため、以下のIPアドレスをサイト全体で遮断しました。\n\n対象IP: {$current_ip}\nアクセス頻度: {$req_count} リクエスト/分\n遮断日時: " . date('Y-m-d H:i:s') . "\n\n管理パネルから解除可能です。";
     send_alert_email($subject, $body);
     
     http_response_code(429);
-    echo json_encode(['error' => 'リクエストが多すぎます。IPアドレスが遮断されました。']);
+    echo json_encode(['error' => 'リクエストが多すぎます。セキュリティ保護のためIPアドレスが遮断されました。']);
     exit;
 }
 save_json($REQ_TRACK_FILE, $track);
@@ -208,7 +208,7 @@ if ($action === 'log_access') {
         'date' => $date_with_ms, 
         'ip' => $current_ip, 
         'path' => $input['path'] ?? '/', 
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '不明', 
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '不明なブラウザ', 
         'referer' => $input['referer'] ?? '', 
         'status' => $input['status'] ?? 200, 
         'response_time' => round((microtime(true) - $start_time) * 1000, 3) 
@@ -216,6 +216,7 @@ if ($action === 'log_access') {
     $logs = load_json($ACCESS_LOG_FILE);
     array_unshift($logs, $log);
     save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
+    echo json_encode(['status' => '成功']);
     exit;
 }
 
@@ -224,7 +225,7 @@ if ($action === 'send') {
     $messages = load_json($MESSAGES_FILE);
     array_unshift($messages, ['id' => uniqid(), 'timestamp' => date('Y-m-d H:i:s'), 'ip' => $current_ip, 'name' => $input['name'] ?? '匿名ユーザー', 'contact' => $input['contact'] ?? '', 'message' => htmlspecialchars($input['message'])]);
     save_json($MESSAGES_FILE, $messages);
-    echo json_encode(['status' => 'success']);
+    echo json_encode(['status' => '成功']);
     exit;
 }
 
@@ -253,7 +254,7 @@ $headers = getallheaders();
 $token = $headers['X-Admin-Token'] ?? $headers['x-admin-token'] ?? $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
 $tokens = load_json($TOKENS_FILE);
 if (!isset($tokens[$token]) || $tokens[$token] < $now) {
-    http_response_code(403); echo json_encode(['error' => '認証に失敗しました']); exit;
+    http_response_code(403); echo json_encode(['error' => 'セッションが無効です。再度ログインしてください。']); exit;
 }
 
 if ($action === 'fetch_dashboard') {
@@ -274,23 +275,23 @@ if ($action === 'fetch_dashboard') {
     if (isset($blocked_ips[$ip_to_unblock])) {
         unset($blocked_ips[$ip_to_unblock]);
         save_json($BLOCKED_IPS_FILE, $blocked_ips);
-        echo json_encode(['status' => 'success']);
+        echo json_encode(['status' => '成功']);
     } else {
-        http_response_code(404); echo json_encode(['error' => '指定されたIPは見つかりませんでした']);
+        http_response_code(404); echo json_encode(['error' => '対象のIPアドレスが見つかりませんでした']);
     }
 } elseif ($action === 'update_smtp') {
     $config['smtp_host'] = trim($input['smtp_host']); $config['smtp_port'] = intval($input['smtp_port']);
     $config['smtp_user'] = trim($input['smtp_user']); $config['alert_email'] = trim($input['alert_email']);
     if (!empty($input['smtp_pass'])) $config['smtp_pass'] = $input['smtp_pass'];
     save_json($CONFIG_FILE, $config);
-    $res = send_alert_email("SMTPテスト", "設定が正しく完了しました。", $config);
-    echo json_encode($res === true ? ['status' => 'success'] : ['status' => 'error', 'message' => $res]);
+    $res = send_alert_email("通知設定テスト", "アラート通知設定が正しく完了しました。", $config);
+    echo json_encode($res === true ? ['status' => '成功'] : ['status' => 'エラー', 'message' => $res]);
 } elseif ($action === 'change_password') {
     if (!password_verify($input['current_password'], $config['password_hash'])) {
         http_response_code(400); echo json_encode(['error' => '現在のパスワードが一致しません']); exit;
     }
     $config['password_hash'] = password_hash($input['new_password'], PASSWORD_DEFAULT);
     save_json($CONFIG_FILE, $config);
-    echo json_encode(['status' => 'success']);
+    echo json_encode(['status' => '成功']);
 }
 ?>

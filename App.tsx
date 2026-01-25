@@ -117,8 +117,8 @@ export const TOOLS: Tool[] = [
 ];
 
 /**
- * AccessLogger & Block Checker: 
- * 全ての遷移をバックエンドに通知し、もしIPが遮断されていればアプリをロックする
+ * アクセスロガー & ブロックチェッカー: 
+ * すべての遷移をバックエンドに通知し、IPが遮断されていればアプリをロックする
  */
 const AccessLogger: React.FC<{ onBlocked: (blocked: boolean) => void }> = ({ onBlocked }) => {
   const location = useLocation();
@@ -200,7 +200,7 @@ const Layout: React.FC = () => {
 
   // IP遮断時の表示
   if (isBlocked) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white font-sans">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white font-sans transition-colors duration-500">
       <div className="max-w-md w-full text-center space-y-6">
         <div className="inline-flex p-6 bg-red-500/20 rounded-full text-red-500 mb-4 animate-pulse">
            <ShieldAlert size={64} />
@@ -209,9 +209,9 @@ const Layout: React.FC = () => {
         <div className="h-1 w-20 bg-red-500 mx-auto rounded-full"></div>
         <p className="text-slate-400 text-lg leading-relaxed">
            セキュリティ上の理由により、お使いのIPアドレスからのアクセスは制限されています。<br/>
-           心当たりがない場合は、ネットワーク管理者へお問い合わせください。
+           過剰なリクエスト送信が検知されたか、管理者によって制限されています。
         </p>
-        <p className="text-[10px] text-slate-600 font-mono">Error Code: 403_ACCESS_DENIED</p>
+        <p className="text-[10px] text-slate-600 font-mono">エラーコード: 403_アクセス拒否</p>
       </div>
     </div>
   );

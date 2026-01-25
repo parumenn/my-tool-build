@@ -4,7 +4,7 @@ import { Tool } from '../../types';
 import { Grid2X2, Columns, Layout, Plus, X, Monitor, Grid3X3, Smartphone, ChevronDown, Download } from 'lucide-react';
 import { WorkspaceContext } from '../WorkspaceContext';
 
-// Import Tool Components
+// 工具コンポーネントのインポート
 import QRCodeGenerator from './QRCodeGenerator';
 import CharacterCounter from './CharacterCounter';
 import BinaryConverter from './BinaryConverter';
@@ -28,7 +28,7 @@ import PdfTools from './PdfTools';
 import HtmlEditor from './HtmlEditor';
 import ColorPickerTool from './ColorPickerTool';
 
-// Map ID to Component
+// IDとコンポーネントの紐付け
 const TOOL_COMPONENTS: Record<string, React.FC> = {
   qrcode: QRCodeGenerator,
   count: CharacterCounter,
@@ -54,7 +54,7 @@ const TOOL_COMPONENTS: Record<string, React.FC> = {
   picker: ColorPickerTool,
 };
 
-// Filter only compatible tools (some might be too large)
+// ワークスペースに対応するツール
 const COMPATIBLE_TOOLS = [
     'qrcode', 'count', 'binary', 'ip', 'timer', 'notepad', 
     'kakeibo', 'calculator', 'scoreboard', 'unit', 'random', 
@@ -150,7 +150,7 @@ const MultiToolViewer: React.FC<MultiToolViewerProps> = ({ tools }) => {
              </div>
              
              <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">
-                 {isDragOver ? 'ドロップして追加' : 'アプリを追加'}
+                 {isDragOver ? 'ここにドロップ' : 'アプリを追加'}
              </p>
              <p className="text-xs text-gray-400 mb-4 hidden md:block">左のメニューからドラッグ＆ドロップ</p>
              
@@ -161,7 +161,7 @@ const MultiToolViewer: React.FC<MultiToolViewerProps> = ({ tools }) => {
                   onChange={(e) => handleSetTool(index, e.target.value)}
                   value=""
                 >
-                    <option value="" disabled>リストから選択...</option>
+                    <option value="" disabled>ツールを選択...</option>
                     {tools.filter(t => COMPATIBLE_TOOLS.includes(t.id)).map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
