@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tool } from '../../types';
 import { Grid2X2, Columns, Layout, Plus, X, Monitor, Grid3X3, Smartphone, ChevronDown, Download } from 'lucide-react';
@@ -25,6 +26,7 @@ import Flashcards from './Flashcards';
 import TaskManager from './TaskManager';
 import PdfTools from './PdfTools';
 import HtmlEditor from './HtmlEditor';
+import ColorPickerTool from './ColorPickerTool';
 
 // Map ID to Component
 const TOOL_COMPONENTS: Record<string, React.FC> = {
@@ -49,6 +51,7 @@ const TOOL_COMPONENTS: Record<string, React.FC> = {
   tasks: TaskManager,
   pdf: PdfTools,
   html: HtmlEditor,
+  picker: ColorPickerTool,
 };
 
 // Filter only compatible tools (some might be too large)
@@ -56,7 +59,7 @@ const COMPATIBLE_TOOLS = [
     'qrcode', 'count', 'binary', 'ip', 'timer', 'notepad', 
     'kakeibo', 'calculator', 'scoreboard', 'unit', 'random', 
     'ratio', 'uuid', 'case', 'roulette', 'text-conv', 'hash',
-    'flashcards', 'tasks', 'pdf', 'html'
+    'flashcards', 'tasks', 'pdf', 'html', 'picker'
 ];
 
 interface MultiToolViewerProps {

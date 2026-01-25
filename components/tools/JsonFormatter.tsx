@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileJson, AlignLeft, Minimize2, Copy, Check, Trash2 } from 'lucide-react';
 
@@ -48,15 +49,16 @@ const JsonFormatter: React.FC = () => {
            <div className="flex flex-col h-full">
               <div className="flex justify-between items-center mb-2">
                  <label className="font-bold text-gray-700 dark:text-gray-300">入力 (JSON)</label>
-                 <button onClick={() => setInput('')} className="text-xs text-red-500 flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded">
+                 <button onClick={() => setInput('')} className="text-xs text-red-500 font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded">
                     <Trash2 size={12} /> クリア
                  </button>
               </div>
               <textarea 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="flex-1 w-full min-h-[400px] p-4 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 font-mono text-sm focus:ring-2 focus:ring-yellow-400 text-gray-900 dark:text-white placeholder-gray-400"
+                className="flex-1 w-full min-h-[400px] p-4 rounded-xl border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-yellow-400 text-gray-900 dark:text-white placeholder-gray-400"
                 placeholder='{"key": "value"}'
+                spellCheck={false}
               />
            </div>
 
@@ -64,10 +66,10 @@ const JsonFormatter: React.FC = () => {
               <div className="flex justify-between items-center mb-2">
                  <label className="font-bold text-gray-700 dark:text-gray-300">出力</label>
                  <div className="flex gap-2">
-                    <button onClick={formatJson} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+                    <button onClick={formatJson} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
                        <AlignLeft size={12} /> 整形
                     </button>
-                    <button onClick={minifyJson} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
+                    <button onClick={minifyJson} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-lg font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white">
                        <Minimize2 size={12} /> 圧縮
                     </button>
                  </div>
@@ -76,7 +78,7 @@ const JsonFormatter: React.FC = () => {
                  <textarea 
                    readOnly
                    value={output}
-                   className={`w-full h-full min-h-[400px] p-4 rounded-xl border ${error ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-300 dark:border-slate-600 bg-gray-800 text-green-400'} font-mono text-sm focus:outline-none`}
+                   className={`w-full h-full min-h-[400px] p-4 rounded-xl border ${error ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-300 dark:border-slate-700 bg-slate-900 text-green-400'} font-mono text-sm focus:outline-none`}
                    placeholder="結果がここに表示されます"
                  />
                  {error && (

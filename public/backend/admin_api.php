@@ -3,7 +3,7 @@
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 ini_set('display_errors', 0);
 
-// 日本時間に設定
+// 日本時間に設定 (Important: Set this before any date/time functions)
 date_default_timezone_set('Asia/Tokyo');
 
 $start_time = microtime(true);
@@ -403,8 +403,29 @@ if (!verify_token($token)) {
 
 // --- 4. Get Dashboard Data (Protected) ---
 if ($action === 'fetch_dashboard') {
+    // If ?init=1 query param is present, log the access
+    // This is used for "Admin Screen Access Log" request
+    if (isset($_GET['init']) && $_GET['init'] === '1') {
+        $ip = get_client_ip();
+        $logs = load_json($ACCESS_LOG_FILE);
+        $log = [
+            'timestamp' => time(),
+            'date' => date('Y-m-d H:i:s'),
+            'ip' => $ip,
+            'path' => '[ADMIN DASHBOARD]',
+            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
+            'referer' => '',
+            'status' => 200,
+            'response_time' => 0
+        ];
+        array_unshift($logs, $log);
+        if (count($logs) > 5000) $logs = array_slice($logs, 0, 5000);
+        save_json($ACCESS_LOG_FILE, $logs);
+    } else {
+        $logs = load_json($ACCESS_LOG_FILE);
+    }
+
     $messages = load_json($MESSAGES_FILE);
-    $logs = load_json($ACCESS_LOG_FILE);
     
     $now = time();
     $todayStart = strtotime('today midnight');

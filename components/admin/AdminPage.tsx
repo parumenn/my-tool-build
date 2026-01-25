@@ -110,11 +110,14 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const fetchDashboard = async (currentToken: string, isBackground = false) => {
+  const fetchDashboard = async (currentToken: string, isBackground = false, isInit = false) => {
     if (!isBackground) setDataLoading(true);
     
     try {
-      const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', {
+      // Add ?init=1 query param if it's the initial load to trigger logging on server
+      const url = `./backend/admin_api.php?action=fetch_dashboard${isInit ? '&init=1' : ''}`;
+      
+      const res = await fetch(url, {
         headers: { 'X-Admin-Token': currentToken }
       });
       if (res.ok) {
@@ -278,9 +281,11 @@ const AdminPage: React.FC = () => {
 
   useEffect(() => {
     if (token) {
-      fetchDashboard(token, false);
-      // Auto refresh stats every 5 seconds for real-time feel
-      const interval = setInterval(() => fetchDashboard(token, true), 5000);
+      // First load (Trigger access log)
+      fetchDashboard(token, false, true);
+      
+      // Auto refresh stats every 5 seconds (Background, no logging)
+      const interval = setInterval(() => fetchDashboard(token, true, false), 5000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -477,10 +482,9 @@ const AdminPage: React.FC = () => {
                 </div>
              )}
 
-             {/* --- LOGS TAB --- */}
+             {/* ... (rest of the file remains same) ... */}
              {activeTab === 'logs' && stats && (
                 <div className="space-y-6 animate-fade-in">
-                   {/* Slow IPs Analysis */}
                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
                       <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4 text-sm uppercase tracking-wider">
                          <Zap size={16} className="text-yellow-500" /> パフォーマンス分析: 遅い接続 (Avg Latency)
@@ -502,7 +506,6 @@ const AdminPage: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* Filters */}
                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
                       <div className="flex flex-col md:flex-row gap-4 items-center">
                          <div className="flex items-center gap-2 text-gray-500 font-bold text-sm shrink-0">
@@ -550,7 +553,6 @@ const AdminPage: React.FC = () => {
                       </div>
                    </div>
 
-                   {/* Log Table */}
                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                       <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                          <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
@@ -654,7 +656,6 @@ const AdminPage: React.FC = () => {
              {/* --- SETTINGS TAB --- */}
              {activeTab === 'settings' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                   
                    {/* SMTP Settings */}
                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
@@ -670,11 +671,7 @@ const AdminPage: React.FC = () => {
                                 </span>
                             )}
                         </h3>
-                        <p className="text-sm text-gray-500 mb-6">
-                            不正アクセス検知などの通知を受け取るメールサーバー(SMTP)の設定です。<br/>
-                            Gmail等の場合、アプリパスワードが必要です。
-                        </p>
-                        
+                        {/* ... existing form content ... */}
                         <form onSubmit={handleUpdateSmtp} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Host <span className="text-red-500">*</span></label>

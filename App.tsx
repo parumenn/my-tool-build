@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { 
@@ -9,7 +9,7 @@ import {
   KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
   Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
   ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays, Share2, Globe, Shield, X, AlertCircle
+  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette
 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -57,6 +57,7 @@ import SqlPlayground from './components/tools/SqlPlayground';
 import DateCalculator from './components/tools/DateCalculator';
 import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
 import ServerLocation from './components/tools/ServerLocation';
+import ColorPickerTool from './components/tools/ColorPickerTool';
 import { Tool } from './types';
 
 // Admin Path Configuration
@@ -76,6 +77,7 @@ export const AppContext = createContext<{
 // --- Tool Definitions ---
 export const TOOLS: Tool[] = [
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力するだけで、瞬時にQRコードを作成・ダウンロードできます。', icon: QrCode, color: 'text-blue-500', darkColor: 'text-blue-400' },
+  { id: 'picker', name: 'カラーピッカー', path: '/picker', description: '高度な色選択、変換(RGB/HSL/CMYK)、画像からの色抽出(スポイト)ができます。', icon: Pipette, color: 'text-pink-600', darkColor: 'text-pink-400' },
   { id: 'server-loc', name: 'サーバー位置情報', path: '/server-loc', description: 'ドメインやIPアドレスから、サーバーの物理的な位置（国・地域）を特定し地図上に表示します。', icon: Globe, color: 'text-indigo-500', darkColor: 'text-indigo-400' },
   { id: 'subnet', name: 'IPサブネット計算機', path: '/subnet', description: 'IPアドレスのビット可視化、ネットワーク包含判定、ホスト数計算ができるエンジニア向けツールです。', icon: Network, color: 'text-cyan-600', darkColor: 'text-cyan-400' },
   { id: 'date', name: '日付・期間計算', path: '/date', description: '二つの日付の期間や、ある日付から数日後の日付を計算します。', icon: CalendarDays, color: 'text-indigo-600', darkColor: 'text-indigo-400' },
@@ -168,114 +170,23 @@ const AccessLogger: React.FC = () => {
 
     const logAccess = async () => {
         try {
-            // Basic performance metric (not perfect for SPA client navigation but good for initial load)
             const loadTime = performance.now();
-            
             await fetch('./backend/admin_api.php?action=log_access', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     path: location.pathname,
                     referer: document.referrer,
-                    status: 200, // Client side view is success by default
+                    status: 200,
                     load_time: loadTime
                 })
             });
-        } catch (e) {
-            // silent fail
-        }
+        } catch (e) {}
     };
     logAccess();
   }, [location.pathname]);
 
   return null;
-};
-
-// --- Terms of Service Modal ---
-const TermsModal: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const agreed = localStorage.getItem('tos_agreed');
-    if (!agreed) {
-      setIsOpen(true);
-    }
-  }, []);
-
-  const handleAgree = () => {
-    localStorage.setItem('tos_agreed', 'true');
-    setIsOpen(false);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-fade-in">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <Shield className="text-blue-500" />
-            利用規約および個人情報の取り扱いについて
-          </h2>
-        </div>
-        
-        <div className="p-6 overflow-y-auto text-sm text-gray-600 dark:text-gray-300 space-y-6 leading-relaxed">
-          <section>
-            <h3 className="font-bold text-gray-800 dark:text-white mb-2">1. 取得する情報および収集方法</h3>
-            <p>当サイトでは、サービスの提供およびセキュリティ向上のため、以下の情報を自動的に収集します。</p>
-            <ul className="list-disc list-inside mt-1 ml-2 text-xs text-gray-500 dark:text-gray-400">
-              <li>アクセスログ: IPアドレス、ブラウザの種類（User Agent）、閲覧日時、遷移元URL。</li>
-              <li>Cookie（クッキー）: ユーザーの識別および利便性向上のために使用します。</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-gray-800 dark:text-white mb-2">2. 利用目的</h3>
-            <p>収集した情報は、以下の目的でのみ利用します。</p>
-            <ul className="list-disc list-inside mt-1 ml-2 text-xs text-gray-500 dark:text-gray-400">
-              <li>不正アクセスの検知・防止: サーバー攻撃、スパム行為、およびその他の不正行為からサイトを保護するため。</li>
-              <li>サービスの維持・改善: ページの読み込み速度の最適化、コンテンツの質向上、および不具合改修のため。</li>
-              <li>法令に基づく対応: 警察、裁判所、またはその他の公的機関から法的な要請があった場合、法令に基づきログを開示することがあります。</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-gray-800 dark:text-white mb-2">3. Cookieの利用同意と無効化</h3>
-            <p>ユーザーは、当サイトを利用することでCookieの使用に同意したものとみなされます。ユーザーはブラウザの設定によりCookieを無効化できます。ただし、Cookieを無効にした場合、当サイトの一部機能が正常に動作しない可能性があり、これによって生じた不便や損害について、当サイトは一切の責任を負いません。</p>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-gray-800 dark:text-white mb-2">4. 禁止事項</h3>
-            <p>ユーザーは、当サイトの利用にあたり、以下の行為を行ってはなりません。</p>
-            <ul className="list-disc list-inside mt-1 ml-2 text-xs text-gray-500 dark:text-gray-400">
-              <li>本サイトの解析（逆コンパイル、逆アセンブル等）、改ざん、または修正行為。</li>
-              <li>短時間での過度な連続アクセス（DoS攻撃等）、サーバーへの過度な負荷をかける行為。</li>
-              <li>サイトの脆弱性を突く行為や、不正なスクリプトを実行する行為。</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-gray-800 dark:text-white mb-2">5. 免責事項</h3>
-            <p>当サイトの利用に関して、以下の事項について当サイトは一切の責任を負いません。</p>
-            <ul className="list-disc list-inside mt-1 ml-2 text-xs text-gray-500 dark:text-gray-400">
-              <li>情報の正確性: ログの記録や提供する情報に万一漏れや誤りがあった場合でも、それにより生じた損害。</li>
-              <li>通信環境: ユーザー側の通信機器、ソフトウェア、または通信回線の不備に起因するトラブル。</li>
-              <li>包括的免責: その他、本サイトの利用を通じてユーザーまたは第三者が被ったいかなる損害（直接的・間接的を問いません）についてもき、一切の賠償責任を負わないものとします。</li>
-            </ul>
-          </section>
-        </div>
-
-        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end">
-          <button 
-            onClick={handleAgree}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95"
-          >
-            同意して利用する
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 // --- Layout & Main Component ---
@@ -284,15 +195,20 @@ const Layout: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { addedTools, toggleAddedTool, reorderAddedTools } = useAddedTools();
   const location = useLocation();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // App Global State
+  // --- Scroll Position Reset on Route Change ---
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
+
   const [showAds, setShowAds] = useState(() => localStorage.getItem('showAds') !== 'false');
   const [adBlockDetected, setAdBlockDetected] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('showAds', String(showAds));
-    
-    // Dynamically Load Google AdSense Script if ads are enabled
     if (showAds && !adBlockDetected) {
       const scriptId = 'adsense-script';
       if (!document.getElementById(scriptId)) {
@@ -301,10 +217,7 @@ const Layout: React.FC = () => {
         script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8961158026153736";
         script.async = true;
         script.crossOrigin = "anonymous";
-        script.onerror = () => {
-            console.log("AdSense script failed to load (likely blocked by AdBlock). Disabling ads for this session.");
-            setAdBlockDetected(true);
-        };
+        script.onerror = () => setAdBlockDetected(true);
         document.head.appendChild(script);
       }
     }
@@ -324,7 +237,6 @@ const Layout: React.FC = () => {
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected }}>
-      <TermsModal />
       <AccessLogger />
       
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
@@ -336,59 +248,59 @@ const Layout: React.FC = () => {
         />
 
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-          <header className="bg-white/80 dark:bg-dark-lighter/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10 transition-colors">
+          <header className="bg-white/95 dark:bg-dark-lighter/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-20 transition-colors shrink-0">
             <div className="flex items-center gap-4">
               <div className="text-sm breadcrumbs text-gray-500 dark:text-gray-400 hidden lg:flex items-center">
-                <span className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">まいつーる</span>
+                <span className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors font-bold">まいつーる</span>
                 {isMultiview ? (
                    <>
-                    <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <span className="mx-2 opacity-50">/</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                         <Grid2X2 size={16} />
                         ワークスペース
                     </span>
                    </>
                 ) : currentTool ? (
                   <>
-                    <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                        <currentTool.icon size={16} />
+                    <span className="mx-2 opacity-50">/</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                        <currentTool.icon size={16} className={currentTool.color} />
                         {currentTool.name}
                     </span>
                   </>
                 ) : location.pathname === '/settings' ? (
                   <>
-                    <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-100">設定</span>
+                    <span className="mx-2 opacity-50">/</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-100">設定</span>
                   </>
                 ) : null}
               </div>
               <div className="lg:hidden font-bold text-gray-800 dark:text-white flex items-center gap-2">
                   <button 
                     onClick={() => setSidebarOpen(true)}
-                    className="mr-1 p-1 -ml-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    className="mr-1 p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors active:scale-90"
                   >
                     <Menu size={24} />
                   </button>
-                  <div className="flex items-center gap-2">
-                    <LayoutGrid className="text-blue-500" size={20} />
-                    まいつーる
+                  <div className="flex items-center gap-1.5">
+                    <LayoutGrid className="text-blue-500" size={18} />
+                    <span className="text-lg tracking-tight">まいつーる</span>
                   </div>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <button 
                 onClick={toggleTheme}
-                className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors active:scale-90"
                 title="ダークモード切替"
               >
-                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </button>
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
-            <div className="max-w-7xl mx-auto h-full pb-24 lg:pb-32">
+          <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative no-scrollbar">
+            <div className="max-w-7xl mx-auto h-full pb-20 lg:pb-10">
               <Routes>
                 <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={toggleAddedTool} onReorder={reorderAddedTools} />} />
                 <Route path={ADMIN_PATH} element={<AdminPage />} />
@@ -410,6 +322,7 @@ const Layout: React.FC = () => {
                 <Route path="/notepad" element={<Notepad />} />
                 <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
                 <Route path="/color" element={<ColorPalette />} />
+                <Route path="/picker" element={<ColorPickerTool />} />
                 <Route path="/json" element={<JsonFormatter />} />
                 <Route path="/markdown" element={<MarkdownEditor />} />
                 <Route path="/html" element={<HtmlEditor />} />

@@ -3,35 +3,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Native App Feel Fixes */
+* {
+  -webkit-tap-highlight-color: transparent; /* タップ時の青い枠を消す */
+}
+
+html, body {
+  overscroll-behavior-y: none; /* 引っ張り更新のような挙動を抑制してアプリ感を出す */
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4px;
+  border-radius: 10px;
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .pattern-grid {
@@ -47,4 +50,13 @@
                     linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
                     linear-gradient(45deg, transparent 75%, #1e293b 75%), 
                     linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+}
+
+/* No Scrollbar Utility */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
