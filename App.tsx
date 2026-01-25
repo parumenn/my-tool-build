@@ -2,15 +2,15 @@
 import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Menu, LayoutGrid, Sun, Moon } from 'lucide-react';
+import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
 
-// 重いコンポーネントの遅延読み込みを徹底
+// 重いコンポーネントの遅延読み込み
 const SidebarContent = lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarContent })));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Settings = lazy(() => import('./components/Settings'));
 
-// ツールコンポーネントの定義（これらは各URLにアクセスした時だけダウンロードされる）
+// ツールコンポーネント
 const QRCodeGenerator = lazy(() => import('./components/tools/QRCodeGenerator'));
 const CharacterCounter = lazy(() => import('./components/tools/CharacterCounter'));
 const ColorPickerTool = lazy(() => import('./components/tools/ColorPickerTool'));
@@ -61,7 +61,16 @@ const Layout: React.FC = () => {
     return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
   });
   const [showAds, setShowAds] = useState(true);
+  const [showConsent, setShowConsent] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 初回訪問チェック
+  useEffect(() => {
+    const consented = localStorage.getItem('maitool_consented');
+    if (!consented) {
+      setShowConsent(true);
+    }
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -69,13 +78,70 @@ const Layout: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const handleConsent = () => {
+    localStorage.setItem('maitool_consented', 'true');
+    setShowConsent(false);
+  };
+
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  const isJP = (navigator.language || (navigator as any).userLanguage)?.toLowerCase().includes('ja');
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds }}>
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100">
         
-        {/* サイドバーの「外枠」: プログラムのロードを待たずに即座に描画 */}
+        {/* 初回同意ポップアップ */}
+        {showConsent && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+            <div className="bg-white dark:bg-dark-lighter w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-scale-up">
+              <div className="bg-blue-600 p-8 text-white text-center relative">
+                <div className="bg-white/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/30">
+                  <ShieldCheck size={40} />
+                </div>
+                <h2 className="text-2xl font-black mb-2">{isJP ? 'まいつーるへようこそ' : 'Welcome to OmniTools'}</h2>
+                <p className="text-blue-100 text-sm font-medium">{isJP ? 'プライバシーに配慮した便利なWebツール集' : 'Privacy-first web utility suite'}</p>
+              </div>
+              
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0 h-fit"><CheckCircle2 size={20} /></div>
+                    <div>
+                      <p className="font-black text-sm text-slate-800 dark:text-white">{isJP ? 'データはすべてブラウザ内に保存' : 'All data stays in your browser'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                        {isJP ? '入力されたデータがサーバーに送信・保存されることはありません。安心してお使いいただけます。' : 'Input data is processed locally and never sent to our servers. Your privacy is protected.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 h-fit"><Zap size={20} /></div>
+                    <div>
+                      <p className="font-black text-sm text-slate-800 dark:text-white">{isJP ? '広告表示へのご理解' : 'Ad Support'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                        {isJP ? '本サービスを無料で維持するため、広告を表示しています。あらかじめご了承ください。' : 'To keep this service free and sustainable, we display ads. We appreciate your understanding.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <button 
+                    onClick={handleConsent}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+                  >
+                    {isJP ? '同意して利用を開始する' : 'Agree and Get Started'}
+                  </button>
+                  <p className="text-center text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-bold">
+                    By clicking, you agree to our local storage usage
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* サイドバー */}
         <aside className={`
           fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-dark-lighter border-r border-gray-200 dark:border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block
           ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}

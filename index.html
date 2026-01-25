@@ -2,15 +2,10 @@
 <!DOCTYPE html>
 <html lang="ja">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#3b82f6" />
-    <meta name="description" content="まいつーるは、40種類以上のWebツールをインストール不要・無料で提供するWebサービスです。ブラウザ完結設計。" />
-    
-    <title>まいつーる - 無料便利Webツール集</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
-    
-    <!-- InMobi Choice. Consent Manager Tag v3.0 (for TCF 2.2) -->
+    <!-- 
+      The Moneytizer CMP (InMobi Choice) 
+      GDPR準拠のため、他のスクリプトより前に実行される必要があります
+    -->
     <script type="text/javascript" async=true>
     (function() {
       var host = "www.themoneytizer.com";
@@ -25,6 +20,10 @@
       element.src = url;
 
       firstScript.parentNode.insertBefore(element, firstScript);
+
+      // 日本からのアクセス判定（UI言語切り替え用）
+      var userLang = navigator.language || navigator.userLanguage;
+      var isJP = userLang && userLang.toLowerCase().indexOf('ja') !== -1;
 
       function makeStub() {
         var TCF_LOCATOR_NAME = '__tcfapiLocator';
@@ -79,7 +78,12 @@
             }
           } else {
             if(args[0] === 'init' && typeof args[3] === 'object') {
-              args[3] = Object.assign(args[3], { tag_version: 'V3' });
+              // 日本語アクセスの場合はUI言語をjaに設定
+              var initOptions = { tag_version: 'V3' };
+              if (isJP) {
+                initOptions.language = 'ja';
+              }
+              args[3] = Object.assign(args[3], initOptions);
             }
             queue.push(args);
           }
@@ -171,8 +175,15 @@
       }
     })();
     </script>
-    <!-- End InMobi Choice. Consent Manager Tag v3.0 (for TCF 2.2) -->
 
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="まいつーるは、40種類以上のWebツールをインストール不要・無料で提供するWebサービスです。ブラウザ完結設計。" />
+    
+    <title>まいつーる - 無料便利Webツール集</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+    
     <!-- CSSを最優先で読み込み、App Shellを表示 -->
         
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -224,7 +235,6 @@
 </head>
   <body class="bg-gray-50 text-slate-800 antialiased dark:bg-dark dark:text-gray-100 transition-colors duration-200">
     <div id="root">
-      <!-- JavaScriptが読み込まれる前に表示されるHTML（先行ロード外観） -->
       <div class="flex h-screen bg-gray-50 overflow-hidden">
         <div class="hidden lg:block w-64 bg-white border-r border-gray-200">
           <div class="h-16 border-b flex items-center px-4">
