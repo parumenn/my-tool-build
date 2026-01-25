@@ -198,7 +198,7 @@ const Settings: React.FC = () => {
       {/* Contact Admin */}
       <div className="bg-white dark:bg-dark-lighter p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-            <Mail size={20} className="text-pink-500" />
+            <Mail size={20} className="text-pink-500 dark:text-pink-400" />
             管理者へ連絡
          </h3>
          <p className="text-xs text-gray-500 mb-6">
@@ -255,7 +255,7 @@ const Settings: React.FC = () => {
                <button 
                   type="submit" 
                   disabled={isSending || !msgBody}
-                  className="w-full py-3 bg-pink-600 text-white font-bold rounded-xl hover:bg-pink-700 transition-colors shadow-lg shadow-pink-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3 bg-pink-600 dark:bg-pink-500 hover:bg-pink-700 dark:hover:bg-pink-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-pink-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
                >
                   {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 送信する
                </button>
@@ -264,7 +264,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.3.4
+         Version 2.3.6
       </div>
     </div>
   );

@@ -3,6 +3,9 @@
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 ini_set('display_errors', 0);
 
+// 日本時間に設定
+date_default_timezone_set('Asia/Tokyo');
+
 // Composer autoload check
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require __DIR__ . '/vendor/autoload.php';

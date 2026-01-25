@@ -3,6 +3,9 @@
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 ini_set('display_errors', 0);
 
+// 日本時間に設定
+date_default_timezone_set('Asia/Tokyo');
+
 $start_time = microtime(true);
 
 // CORS / Headers
@@ -39,7 +42,10 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 // Configuration
 $DATA_DIR = __DIR__ . '/data';
 if (!file_exists($DATA_DIR)) {
-    mkdir($DATA_DIR, 0777, true);
+    if (!mkdir($DATA_DIR, 0777, true)) {
+        // 権限エラーでディレクトリが作れない場合
+        error_log("Failed to create data directory");
+    }
 }
 
 $MESSAGES_FILE   = $DATA_DIR . '/messages.json';
@@ -82,7 +88,10 @@ function load_json($file) {
 }
 
 function save_json($file, $data) {
-    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    // データの保存を試みる
+    if (file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT)) === false) {
+        error_log("Failed to write to $file");
+    }
 }
 
 function verify_token($token) {
@@ -94,7 +103,6 @@ function verify_token($token) {
 
 /**
  * Minimal SMTP Client for environments without Composer/PHPMailer
- * Supports STARTTLS (port 587) and SSL (port 465)
  */
 class MinimalSMTP {
     private $host;
@@ -208,7 +216,8 @@ function send_alert_email($subject, $body, $configOverride = null) {
             'has_to' => !empty($to),
             'has_host' => !empty($host),
             'has_user' => !empty($user),
-            'port' => $port
+            'port' => $port,
+            'received_host' => $host // 受信したホスト値をデバッグ出力
         ]);
         return "設定不備: 必須項目が足りません。($debugInfo)";
     }
@@ -350,6 +359,23 @@ if ($action === 'login') {
         $tokens[$token] = $now + 86400; // 24 hours
         save_json($TOKENS_FILE, $tokens);
         
+        // ログイン成功時にアクセスログにも記録
+        $logs = load_json($ACCESS_LOG_FILE);
+        $log = [
+            'timestamp' => time(),
+            'date' => date('Y-m-d H:i:s'),
+            'ip' => $ip,
+            'path' => '[ADMIN LOGIN]',
+            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
+            'referer' => '',
+            'status' => 200,
+            'response_time' => 0
+        ];
+        array_unshift($logs, $log);
+        if (count($logs) > 5000) $logs = array_slice($logs, 0, 5000);
+        save_json($ACCESS_LOG_FILE, $logs);
+
+        // ログイン試行履歴をクリア
         $attemptsData = array_filter($attemptsData, function($attempt) use ($ip) {
             return $attempt['ip'] !== $ip;
         });
@@ -449,25 +475,27 @@ if ($action === 'change_password') {
 
 // --- 5.5 Update SMTP Settings (Protected) ---
 if ($action === 'update_smtp') {
-    // 値の更新
-    if (isset($input['smtp_host'])) $config['smtp_host'] = $input['smtp_host'];
+    // 値の更新 (trimを追加して空白を除去)
+    if (isset($input['smtp_host'])) $config['smtp_host'] = trim($input['smtp_host']);
     if (isset($input['smtp_port'])) $config['smtp_port'] = intval($input['smtp_port']);
-    if (isset($input['smtp_user'])) $config['smtp_user'] = $input['smtp_user'];
-    if (isset($input['alert_email'])) $config['alert_email'] = $input['alert_email'];
+    if (isset($input['smtp_user'])) $config['smtp_user'] = trim($input['smtp_user']);
+    if (isset($input['alert_email'])) $config['alert_email'] = trim($input['alert_email']);
     
     if (!empty($input['smtp_pass'])) {
         $config['smtp_pass'] = $input['smtp_pass'];
     }
 
-    file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
-    
+    // ファイル書き込みチェック
+    $writeResult = file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
+    $writeError = ($writeResult === false) ? " (Config Save Failed: Permission Denied)" : "";
+
     // 更新した設定を使ってテスト送信
     $testResult = send_alert_email("Test Mail", "SMTP設定のテストメールです。\n正しく設定されています。", $config);
     
     if ($testResult === true) {
-        echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました']);
+        echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました' . $writeError]);
     } else {
-        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テスト送信に失敗しました: ' . $testResult]);
+        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テスト送信に失敗しました: ' . $testResult . $writeError]);
     }
     exit;
 }

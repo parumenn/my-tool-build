@@ -11,8 +11,14 @@ interface DashboardProps {
   onReorder: (newOrder: string[]) => void;
 }
 
+interface DragItemData {
+    index: number;
+    type: 'added' | 'other';
+    id: string;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded, onReorder }) => {
-  const dragItem = useRef<number | null>(null);
+  const dragItem = useRef<DragItemData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter tools that are in the "Added" list
@@ -35,19 +41,20 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
     : myApps;
 
   // --- Drag and Drop Handlers ---
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, position: number) => {
-    dragItem.current = position;
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number, type: 'added' | 'other', toolId: string) => {
+    dragItem.current = { index, type, id: toolId };
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("tool_id", toolId);
   };
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, position: number) => {
-    // Real-time swapping logic
-    if (dragItem.current !== null && dragItem.current !== position && !searchTerm) {
+    // Only perform real-time swap if sorting within "My Apps"
+    if (dragItem.current && dragItem.current.type === 'added' && dragItem.current.index !== position && !searchTerm) {
       const copyList = [...addedTools];
-      const draggedId = copyList[dragItem.current];
+      const draggedId = copyList[dragItem.current.index];
       
       // Remove from old index
-      copyList.splice(dragItem.current, 1);
+      copyList.splice(dragItem.current.index, 1);
       // Insert at new index
       copyList.splice(position, 0, draggedId);
       
@@ -55,24 +62,42 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
       onReorder(copyList);
       
       // Update drag index to track the item's new position
-      dragItem.current = position;
+      dragItem.current.index = position;
     }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+      e.preventDefault();
+      // Handle drop from "Other Tools" to "My Apps"
+      if (dragItem.current && dragItem.current.type === 'other' && !searchTerm) {
+          const draggedId = dragItem.current.id;
+          
+          // Ensure we don't duplicate (though filtering handles display)
+          if (!addedTools.includes(draggedId)) {
+              const newOrder = [...addedTools];
+              // Insert at the specific drop index
+              newOrder.splice(dropIndex, 0, draggedId);
+              onReorder(newOrder);
+          }
+      }
+      dragItem.current = null;
   };
 
   const handleDragEnd = () => {
     dragItem.current = null;
   };
 
-  const renderToolCard = (tool: Tool, isDraggable: boolean = false, index: number = 0) => {
+  const renderToolCard = (tool: Tool, isAddedGroup: boolean, index: number) => {
      return (
         <div
           key={tool.id}
-          draggable={isDraggable && !searchTerm} // Disable drag when searching
-          onDragStart={(e) => isDraggable && !searchTerm && handleDragStart(e, index)}
-          onDragEnter={(e) => isDraggable && !searchTerm && handleDragEnter(e, index)}
+          draggable={!searchTerm} // Always draggable unless searching
+          onDragStart={(e) => !searchTerm && handleDragStart(e, index, isAddedGroup ? 'added' : 'other', tool.id)}
+          onDragEnter={(e) => isAddedGroup && !searchTerm && handleDragEnter(e, index)}
+          onDragOver={(e) => e.preventDefault()} // Allow drop
+          onDrop={(e) => isAddedGroup && !searchTerm && handleDrop(e, index)}
           onDragEnd={handleDragEnd}
-          onDragOver={(e) => e.preventDefault()}
-          className={`group relative bg-white dark:bg-dark-lighter rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col ${isDraggable && !searchTerm ? 'cursor-move active:cursor-grabbing' : ''}`}
+          className={`group relative bg-white dark:bg-dark-lighter rounded-xl md:rounded-2xl p-3 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col ${!searchTerm ? 'cursor-move active:cursor-grabbing' : ''}`}
         >
           <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br ${tool.color.replace('text-', 'from-').replace(/500|600|700/, '100')} dark:opacity-10 to-transparent opacity-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-150 duration-500 pointer-events-none`}></div>
           
@@ -81,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
               <tool.icon size={20} className="md:w-6 md:h-6" />
             </div>
             <div className="flex gap-2 pointer-events-auto">
-               {isDraggable && !searchTerm && <GripVertical className="text-gray-300 cursor-grab hidden lg:block" />}
+               {!searchTerm && <GripVertical className="text-gray-300 cursor-grab hidden lg:block" />}
                <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -102,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
           
           <Link 
             to={tool.path} 
-            className={`flex-1 block after:absolute after:inset-0 after:z-0 ${isDraggable ? 'md:after:hidden' : ''}`}
+            className={`flex-1 block after:absolute after:inset-0 after:z-0 ${!searchTerm ? 'md:after:hidden' : ''}`}
           >
             <h3 className="text-xs sm:text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-1 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 md:line-clamp-1">
               {tool.name}
@@ -128,7 +153,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
         </h2>
         <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-emerald-700 dark:text-emerald-300 text-[10px] md:text-xs font-bold border border-emerald-100 dark:border-emerald-800 mb-4 md:mb-6">
            <ShieldCheck size={12} className="md:w-3.5 md:h-3.5" />
-           <span>完全プライベート: データはサーバーには送信されず端末に保存されローカルで動作します</span>
+           <span>データ保護: 入力されたデータはサーバーに送信されず端末に保存されローカルで動作します</span>
         </div>
         
         {/* Search Bar */}
@@ -147,18 +172,28 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
       </div>
 
       {/* My Apps Section */}
-      {displayedMyApps.length > 0 && (
-        <div className="mb-8 md:mb-12">
-          <h3 className="text-base md:text-lg font-bold text-gray-700 dark:text-gray-300 mb-3 md:mb-4 px-2 flex items-center gap-2">
-             <span className="w-1.5 h-5 md:w-2 md:h-6 bg-blue-500 rounded-full"></span>
-             マイアプリ
-             {!searchTerm && <span className="text-xs font-normal text-gray-400 ml-auto hidden lg:inline">ドラッグで並び替え</span>}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-             {displayedMyApps.map((tool, index) => renderToolCard(tool, true, index))}
-          </div>
-        </div>
-      )}
+      <div className="mb-8 md:mb-12">
+        <h3 className="text-base md:text-lg font-bold text-gray-700 dark:text-gray-300 mb-3 md:mb-4 px-2 flex items-center gap-2">
+            <span className="w-1.5 h-5 md:w-2 md:h-6 bg-blue-500 rounded-full"></span>
+            マイアプリ
+            {!searchTerm && <span className="text-xs font-normal text-gray-400 ml-auto hidden lg:inline">ドラッグで並び替え</span>}
+        </h3>
+        
+        {displayedMyApps.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {displayedMyApps.map((tool, index) => renderToolCard(tool, true, index))}
+            </div>
+        ) : (
+            /* Empty State for My Apps (Drop Target) */
+            <div 
+                className="col-span-full py-10 text-center text-gray-400 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border-2 border-dashed border-blue-200 dark:border-blue-800 text-sm md:text-base"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, 0)}
+            >
+                {searchTerm ? '見つかりませんでした' : '下のリストからツールをドラッグして追加できます'}
+            </div>
+        )}
+      </div>
 
       {/* All Tools Section */}
       <div className="mb-12">
@@ -167,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
              その他のツール
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {otherTools.map((tool) => renderToolCard(tool, false))}
+            {otherTools.map((tool, index) => renderToolCard(tool, false, index))}
             {otherTools.length === 0 && (
                <div className="col-span-full py-10 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-sm md:text-base">
                   {searchTerm ? '見つかりませんでした' : 'すべてのツールがマイアプリに追加されています'}

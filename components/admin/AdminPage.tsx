@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, Calendar, LogOut, Loader2, 
   Activity, BarChart3, Settings, Eye, Clock, Smartphone, Globe, KeyRound,
   RefreshCw, CheckCircle2, AlertTriangle, XCircle, Timer, Link as LinkIcon,
-  Download, Upload, Database, Server, Package
+  Download, Upload, Database, Server, Package, Filter, Search, Zap
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -62,6 +62,9 @@ const AdminPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [hasPhpMailer, setHasPhpMailer] = useState(false);
+
+  // Log Filter State
+  const [logFilter, setLogFilter] = useState({ ip: '', path: '', status: '' });
 
   // Password Change State
   const [currentPwd, setCurrentPwd] = useState('');
@@ -167,6 +170,19 @@ const AdminPage: React.FC = () => {
   const handleUpdateSmtp = async (e: React.FormEvent) => {
       e.preventDefault();
       setSmtpMsg('');
+      
+      // Frontend Validation
+      if (!smtpConfig.smtp_host.trim()) {
+          setSmtpMsgType('error');
+          setSmtpMsg('SMTP Hostが入力されていません。');
+          return;
+      }
+      if (!smtpConfig.smtp_user.trim()) {
+          setSmtpMsgType('error');
+          setSmtpMsg('User / Emailが入力されていません。');
+          return;
+      }
+
       setSmtpLoading(true);
       if (!token) return;
 
@@ -268,6 +284,42 @@ const AdminPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [token]);
+
+  // --- Logic for Filtered Logs & Slow IPs ---
+  const filteredLogs = useMemo(() => {
+      if (!stats?.recent_logs) return [];
+      return stats.recent_logs.filter(log => {
+          const matchIp = log.ip.includes(logFilter.ip);
+          const matchPath = log.path.toLowerCase().includes(logFilter.path.toLowerCase());
+          const matchStatus = logFilter.status ? log.status?.toString() === logFilter.status : true;
+          return matchIp && matchPath && matchStatus;
+      });
+  }, [stats?.recent_logs, logFilter]);
+
+  const slowIps = useMemo(() => {
+      if (!stats?.recent_logs) return [];
+      const ipMap = new Map<string, { count: number, totalTime: number, maxTime: number }>();
+      
+      stats.recent_logs.forEach(log => {
+          if (!log.response_time) return;
+          const current = ipMap.get(log.ip) || { count: 0, totalTime: 0, maxTime: 0 };
+          ipMap.set(log.ip, {
+              count: current.count + 1,
+              totalTime: current.totalTime + log.response_time,
+              maxTime: Math.max(current.maxTime, log.response_time)
+          });
+      });
+
+      return Array.from(ipMap.entries())
+          .map(([ip, data]) => ({
+              ip,
+              avgTime: data.totalTime / data.count,
+              maxTime: data.maxTime,
+              count: data.count
+          }))
+          .sort((a, b) => b.avgTime - a.avgTime) // Sort by avg response time desc
+          .slice(0, 4); // Top 4
+  }, [stats?.recent_logs]);
 
   // Helper for Status Badge
   const StatusBadge = ({ code }: { code?: number }) => {
@@ -427,58 +479,142 @@ const AdminPage: React.FC = () => {
 
              {/* --- LOGS TAB --- */}
              {activeTab === 'logs' && stats && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in">
-                   <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                      <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                         <Activity size={20} className="text-indigo-500" /> アクセスログ (最新100件)
+                <div className="space-y-6 animate-fade-in">
+                   {/* Slow IPs Analysis */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                      <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4 text-sm uppercase tracking-wider">
+                         <Zap size={16} className="text-yellow-500" /> パフォーマンス分析: 遅い接続 (Avg Latency)
                       </h3>
-                      <button onClick={() => fetchDashboard(token!, false)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
-                         <RefreshCw size={12} /> 更新
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                         {slowIps.map((data, i) => (
+                            <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                               <div className="overflow-hidden">
+                                  <div className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{data.ip}</div>
+                                  <div className="text-[10px] text-gray-400">{data.count} requests</div>
+                               </div>
+                               <div className="text-right">
+                                  <div className="font-bold text-red-500">{Math.round(data.avgTime)}ms</div>
+                                  <div className="text-[10px] text-gray-400">max: {data.maxTime}ms</div>
+                               </div>
+                            </div>
+                         ))}
+                         {slowIps.length === 0 && <p className="text-xs text-gray-400 col-span-full">データ不足</p>}
+                      </div>
                    </div>
-                   <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left text-gray-600 dark:text-gray-300">
-                         <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
-                            <tr>
-                               <th className="px-6 py-3">Time</th>
-                               <th className="px-6 py-3">Status</th>
-                               <th className="px-6 py-3">Path / Referer</th>
-                               <th className="px-6 py-3">IP / UA</th>
-                               <th className="px-6 py-3">Load</th>
-                            </tr>
-                         </thead>
-                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {stats.recent_logs.map((log, i) => (
-                               <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                  <td className="px-6 py-3 whitespace-nowrap text-xs text-gray-500">{log.date}</td>
-                                  <td className="px-6 py-3">
-                                     <StatusBadge code={log.status} />
-                                  </td>
-                                  <td className="px-6 py-3">
-                                     <div className="flex flex-col">
-                                        <span className={`text-xs font-bold ${log.path === '/admin' || log.path.includes('secure') ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>
-                                           {log.path}
-                                        </span>
-                                        {log.referer && (
-                                           <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5 truncate max-w-[200px]" title={log.referer}>
-                                              <LinkIcon size={8} /> {log.referer.replace(/^https?:\/\//, '')}
-                                           </span>
-                                        )}
-                                     </div>
-                                  </td>
-                                  <td className="px-6 py-3">
-                                     <div className="font-mono text-xs text-indigo-600 dark:text-indigo-400">{log.ip}</div>
-                                     <div className="text-[10px] text-gray-400 max-w-xs truncate" title={log.ua}>
-                                        {log.ua}
-                                     </div>
-                                  </td>
-                                  <td className="px-6 py-3 text-xs font-mono text-gray-500">
-                                     {log.response_time ? `${log.response_time}ms` : '-'}
-                                  </td>
+
+                   {/* Filters */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                      <div className="flex flex-col md:flex-row gap-4 items-center">
+                         <div className="flex items-center gap-2 text-gray-500 font-bold text-sm shrink-0">
+                            <Filter size={16} /> 絞り込み
+                         </div>
+                         <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="relative">
+                               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                               <input 
+                                 type="text" 
+                                 placeholder="IPアドレス" 
+                                 value={logFilter.ip}
+                                 onChange={(e) => setLogFilter({...logFilter, ip: e.target.value})}
+                                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-1 focus:ring-indigo-500"
+                               />
+                            </div>
+                            <div className="relative">
+                               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                               <input 
+                                 type="text" 
+                                 placeholder="パス (例: /admin)" 
+                                 value={logFilter.path}
+                                 onChange={(e) => setLogFilter({...logFilter, path: e.target.value})}
+                                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-1 focus:ring-indigo-500"
+                               />
+                            </div>
+                            <select
+                               value={logFilter.status}
+                               onChange={(e) => setLogFilter({...logFilter, status: e.target.value})}
+                               className="w-full p-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-1 focus:ring-indigo-500"
+                            >
+                               <option value="">全てのステータス</option>
+                               <option value="200">200 (Success)</option>
+                               <option value="403">403 (Forbidden)</option>
+                               <option value="404">404 (Not Found)</option>
+                               <option value="500">500 (Error)</option>
+                            </select>
+                         </div>
+                         <button 
+                           onClick={() => setLogFilter({ip: '', path: '', status: ''})}
+                           className="text-xs text-gray-400 hover:text-red-500 whitespace-nowrap"
+                         >
+                            クリア
+                         </button>
+                      </div>
+                   </div>
+
+                   {/* Log Table */}
+                   <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                      <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                         <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            <Activity size={20} className="text-indigo-500" /> アクセスログ ({filteredLogs.length}件)
+                         </h3>
+                         <button onClick={() => fetchDashboard(token!, false)} className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded hover:bg-gray-200 flex items-center gap-1">
+                            <RefreshCw size={12} /> 更新
+                         </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                         <table className="w-full text-sm text-left text-gray-600 dark:text-gray-300">
+                            <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase font-bold text-gray-500 dark:text-gray-400">
+                               <tr>
+                                  <th className="px-6 py-3">Time</th>
+                                  <th className="px-6 py-3">Status</th>
+                                  <th className="px-6 py-3">Path / Referer</th>
+                                  <th className="px-6 py-3">IP / UA</th>
+                                  <th className="px-6 py-3">Load</th>
                                </tr>
-                            ))}
-                         </tbody>
-                      </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                               {filteredLogs.map((log, i) => (
+                                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                     <td className="px-6 py-3 whitespace-nowrap text-xs text-gray-500">{log.date}</td>
+                                     <td className="px-6 py-3">
+                                        <StatusBadge code={log.status} />
+                                     </td>
+                                     <td className="px-6 py-3">
+                                        <div className="flex flex-col">
+                                           <span className={`text-xs font-bold ${log.path === '/admin' || log.path.includes('secure') ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>
+                                              {log.path}
+                                           </span>
+                                           {log.referer && (
+                                              <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5 truncate max-w-[200px]" title={log.referer}>
+                                                 <LinkIcon size={8} /> {log.referer.replace(/^https?:\/\//, '')}
+                                              </span>
+                                           )}
+                                        </div>
+                                     </td>
+                                     <td className="px-6 py-3">
+                                        <div 
+                                          className="font-mono text-xs text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline"
+                                          onClick={() => setLogFilter({...logFilter, ip: log.ip})}
+                                          title="このIPで絞り込む"
+                                        >{log.ip}</div>
+                                        <div className="text-[10px] text-gray-400 max-w-xs truncate" title={log.ua}>
+                                           {log.ua}
+                                        </div>
+                                     </td>
+                                     <td className="px-6 py-3 text-xs font-mono text-gray-500">
+                                        {log.response_time ? `${log.response_time}ms` : '-'}
+                                     </td>
+                                  </tr>
+                               ))}
+                               {filteredLogs.length === 0 && (
+                                  <tr>
+                                     <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                                        条件に一致するログはありません
+                                     </td>
+                                  </tr>
+                               )}
+                            </tbody>
+                         </table>
+                      </div>
                    </div>
                 </div>
              )}
@@ -541,24 +677,54 @@ const AdminPage: React.FC = () => {
                         
                         <form onSubmit={handleUpdateSmtp} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Host</label>
-                                <input type="text" value={smtpConfig.smtp_host} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} placeholder="smtp.gmail.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Host <span className="text-red-500">*</span></label>
+                                <input 
+                                    type="text" 
+                                    value={smtpConfig.smtp_host} 
+                                    onChange={(e) => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} 
+                                    placeholder="例: smtp.gmail.com" 
+                                    className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" 
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Port</label>
-                                <input type="number" value={smtpConfig.smtp_port} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} placeholder="587" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">SMTP Port <span className="text-red-500">*</span></label>
+                                <input 
+                                    type="number" 
+                                    value={smtpConfig.smtp_port} 
+                                    onChange={(e) => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} 
+                                    placeholder="587" 
+                                    className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" 
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">User / Email</label>
-                                <input type="text" value={smtpConfig.smtp_user} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} placeholder="example@gmail.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">User / Email <span className="text-red-500">*</span></label>
+                                <input 
+                                    type="text" 
+                                    value={smtpConfig.smtp_user} 
+                                    onChange={(e) => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} 
+                                    placeholder="例: example@gmail.com" 
+                                    className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Password (App Password)</label>
-                                <input type="password" value={smtpConfig.smtp_pass} onChange={(e) => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="********" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                                <input 
+                                    type="password" 
+                                    value={smtpConfig.smtp_pass} 
+                                    onChange={(e) => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} 
+                                    placeholder="変更する場合のみ入力" 
+                                    className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">通知先アドレス</label>
-                                <input type="text" value={smtpConfig.alert_email} onChange={(e) => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} placeholder="my-email@example.com" className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" />
+                                <input 
+                                    type="text" 
+                                    value={smtpConfig.alert_email} 
+                                    onChange={(e) => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} 
+                                    placeholder="例: my-email@example.com" 
+                                    className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-600" 
+                                />
                             </div>
 
                             {smtpMsg && (
@@ -575,7 +741,7 @@ const AdminPage: React.FC = () => {
                             <button 
                                 type="submit" 
                                 disabled={smtpLoading}
-                                className="w-full py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 transition-colors flex justify-center items-center gap-2"
+                                className="w-full py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
                             >
                                 {smtpLoading ? <Loader2 className="animate-spin" size={16} /> : '保存してテスト送信'}
                             </button>
