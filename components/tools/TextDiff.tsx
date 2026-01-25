@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { FileDiff, Split, AlignLeft } from 'lucide-react';
+import { FileDiff, Split, AlignLeft, Info, ShieldCheck, Zap } from 'lucide-react';
 import * as Diff from 'diff';
 
 const TextDiff: React.FC = () => {
@@ -21,7 +22,7 @@ const TextDiff: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-10 pb-20">
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
@@ -105,6 +106,20 @@ const TextDiff: React.FC = () => {
           </div>
         )}
       </div>
+
+      <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />テキストDiff（差分比較）の活用法</h2>
+         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-cyan-600" />修正箇所の見落としを防ぐ</h3>
+               <p>当ツールは、2つのテキスト（旧バージョンと新バージョン）を比較し、どこが追加され、どこが削除されたかを視覚的に分かりやすく表示します。プログラミングのコード比較だけでなく、契約書の改定チェックや、ライティング原稿の校正など、ビジネスシーンでの「間違い探し」を自動化します。</p>
+            </div>
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-cyan-600" />機密テキストも安全</h3>
+               <p>比較処理はお客様のブラウザ内で完結するため、入力した機密情報が当サイトのサーバーに送信されることはありません。外部のオンラインツールを使う際に懸念される情報漏洩のリスクをゼロに抑え、セキュアな作業環境を提供します。</p>
+            </div>
+         </div>
+      </article>
     </div>
   );
 };

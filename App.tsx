@@ -1,69 +1,68 @@
 
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { HelmetProvider } from 'react-helmet-async';
+import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { 
   Menu, QrCode, FileText, AlignLeft, Image as ImageIcon, Binary, 
-  Network, Activity, Timer, RefreshCwOff, FileDiff, Wallet, Sun, Moon, 
+  Network, Activity, Timer, RefreshCw, FileDiff, Wallet, Sun, Moon, 
   LayoutGrid, Settings as SettingsIcon, Plus, Check, Grid2X2, StickyNote,
   KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
   Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
   ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette
+  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette, Pencil, Watch
 } from 'lucide-react';
+
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
-import AdBanner from './components/AdBanner';
 import AdminPage from './components/admin/AdminPage';
 
-// Tools
+// Tools Components
 import QRCodeGenerator from './components/tools/QRCodeGenerator';
 import FileConverter from './components/tools/FileConverter';
 import CharacterCounter from './components/tools/CharacterCounter';
 import ImageResizer from './components/tools/ImageResizer';
-import BinaryConverter from './components/tools/BinaryConverter';
 import IpChecker from './components/tools/IpChecker';
 import SpeedTest from './components/tools/SpeedTest';
 import TimerTool from './components/tools/TimerTool';
-import ImageConverter from './components/tools/ImageConverter';
-import TextDiff from './components/tools/TextDiff';
 import Kakeibo from './components/tools/Kakeibo';
 import Notepad from './components/tools/Notepad';
-import MultiToolViewer from './components/tools/MultiToolViewer';
 import PasswordGenerator from './components/tools/PasswordGenerator';
-import UnitConverter from './components/tools/UnitConverter';
-import TimestampConverter from './components/tools/TimestampConverter';
-import ColorPalette from './components/tools/ColorPalette';
-import JsonFormatter from './components/tools/JsonFormatter';
-import MarkdownEditor from './components/tools/MarkdownEditor';
-import ImageWatermarker from './components/tools/ImageWatermarker';
+import ColorPickerTool from './components/tools/ColorPickerTool';
+import PdfTools from './components/tools/PdfTools';
+import ServerLocation from './components/tools/ServerLocation';
+import BinaryConverter from './components/tools/BinaryConverter';
 import CalculatorTool from './components/tools/CalculatorTool';
 import Scoreboard from './components/tools/Scoreboard';
+import UnitConverter from './components/tools/UnitConverter';
 import RandomGenerator from './components/tools/RandomGenerator';
 import AspectRatioCalculator from './components/tools/AspectRatioCalculator';
 import UuidGenerator from './components/tools/UuidGenerator';
 import CaseConverter from './components/tools/CaseConverter';
 import Roulette from './components/tools/Roulette';
 import TextConverter from './components/tools/TextConverter';
-import ExifRemover from './components/tools/ExifRemover';
+import ImageConverter from './components/tools/ImageConverter';
 import HashGenerator from './components/tools/HashGenerator';
 import RegexChecker from './components/tools/RegexChecker';
 import Flashcards from './components/tools/Flashcards';
 import TaskManager from './components/tools/TaskManager';
-import PdfTools from './components/tools/PdfTools';
 import HtmlEditor from './components/tools/HtmlEditor';
 import SqlPlayground from './components/tools/SqlPlayground';
 import DateCalculator from './components/tools/DateCalculator';
 import IpSubnetVisualizer from './components/tools/IpSubnetVisualizer';
-import ServerLocation from './components/tools/ServerLocation';
-import ColorPickerTool from './components/tools/ColorPickerTool';
+import ColorPalette from './components/tools/ColorPalette';
+import JsonFormatter from './components/tools/JsonFormatter';
+import MarkdownEditor from './components/tools/MarkdownEditor';
+import ImageWatermarker from './components/tools/ImageWatermarker';
+import ExifRemover from './components/tools/ExifRemover';
+import TextDiff from './components/tools/TextDiff';
+import TimestampConverter from './components/tools/TimestampConverter';
+import MultiToolViewer from './components/tools/MultiToolViewer';
+
 import { Tool } from './types';
 
-// Admin Path Configuration
 const ADMIN_PATH = '/secure-panel-7x9v2';
 
-// --- Global Contexts ---
 export const AppContext = createContext<{
   showAds: boolean;
   setShowAds: (v: boolean) => void;
@@ -74,279 +73,167 @@ export const AppContext = createContext<{
   adBlockDetected: false,
 });
 
-// --- Tool Definitions ---
 export const TOOLS: Tool[] = [
-  { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力するだけで、瞬時にQRコードを作成・ダウンロードできます。', icon: QrCode, color: 'text-blue-500', darkColor: 'text-blue-400' },
-  { id: 'picker', name: 'カラーピッカー', path: '/picker', description: '高度な色選択、変換(RGB/HSL/CMYK)、画像からの色抽出(スポイト)ができます。', icon: Pipette, color: 'text-pink-600', darkColor: 'text-pink-400' },
-  { id: 'server-loc', name: 'サーバー位置情報', path: '/server-loc', description: 'ドメインやIPアドレスから、サーバーの物理的な位置（国・地域）を特定し地図上に表示します。', icon: Globe, color: 'text-indigo-500', darkColor: 'text-indigo-400' },
-  { id: 'subnet', name: 'IPサブネット計算機', path: '/subnet', description: 'IPアドレスのビット可視化、ネットワーク包含判定、ホスト数計算ができるエンジニア向けツールです。', icon: Network, color: 'text-cyan-600', darkColor: 'text-cyan-400' },
-  { id: 'date', name: '日付・期間計算', path: '/date', description: '二つの日付の期間や、ある日付から数日後の日付を計算します。', icon: CalendarDays, color: 'text-indigo-600', darkColor: 'text-indigo-400' },
-  { id: 'sql', name: 'オンラインSQL', path: '/sql', description: 'ブラウザ上でSQLクエリを実行・練習できるプレイグラウンドです。', icon: Database, color: 'text-blue-600', darkColor: 'text-blue-400' },
-  { id: 'flashcards', name: '暗記カード', path: '/flashcards', description: '単語帳やテスト勉強に。オリジナルの暗記カードを作成して学習できます。', icon: BookOpen, color: 'text-blue-600', darkColor: 'text-blue-400' },
-  { id: 'tasks', name: 'タスク管理', path: '/tasks', description: 'シンプルで使いやすいToDoリスト。優先度設定や完了管理が可能です。', icon: ListTodo, color: 'text-teal-600', darkColor: 'text-teal-400' },
-  { id: 'pdf', name: 'PDFツール', path: '/pdf', description: 'PDFの結合、パスワード解除、ページ回転/削除などの簡易編集を行います。', icon: FileStack, color: 'text-red-600', darkColor: 'text-red-400' },
-  { id: 'roulette', name: 'ルーレット', path: '/roulette', description: '迷った時の抽選に。項目を自由に設定できるシンプルなルーレットです。', icon: Disc, color: 'text-pink-500', darkColor: 'text-pink-400' },
-  { id: 'password', name: 'パスワード生成', path: '/password', description: '履歴保存機能付き。安全で強力なランダムパスワードを生成します。', icon: KeyRound, color: 'text-emerald-600', darkColor: 'text-emerald-400' },
-  { id: 'text-conv', name: '全角・半角変換', path: '/text-conv', description: '英数字やカタカナの全角・半角を相互に一括変換します。', icon: ArrowRightLeft, color: 'text-indigo-500', darkColor: 'text-indigo-400' },
-  { id: 'uuid', name: 'UUID生成', path: '/uuid', description: '一意の識別子(UUID v4)を瞬時に生成・コピーできる開発者向けツールです。', icon: Fingerprint, color: 'text-violet-500', darkColor: 'text-violet-400' },
-  { id: 'random', name: 'カスタムサイコロ', path: '/random', description: '指定した範囲でランダムな数値を生成します。抽選やサイコロ代わりにも。', icon: Dices, color: 'text-rose-500', darkColor: 'text-rose-400' },
-  { id: 'exif', name: 'Exif削除', path: '/exif', description: '画像の位置情報などのメタデータを削除し、プライバシーを保護します。', icon: ImageOff, color: 'text-red-500', darkColor: 'text-red-400' },
-  { id: 'ratio', name: 'アスペクト比計算', path: '/ratio', description: '画像や動画の比率計算、リサイズ時の解像度算出に役立つツールです。', icon: BoxSelect, color: 'text-cyan-500', darkColor: 'text-cyan-400' },
-  { id: 'case', name: 'ケース変換', path: '/case', description: 'テキストをキャメルケース、スネークケース、大文字小文字などに一括変換します。', icon: Type, color: 'text-orange-500', darkColor: 'text-orange-400' },
-  { id: 'watermark', name: '画像透かし合成', path: '/watermark', description: '画像に著作権表示などのテキストやロゴ画像を透かしとして合成します。', icon: Stamp, color: 'text-sky-600', darkColor: 'text-sky-400' },
-  { id: 'hash', name: 'ハッシュ生成', path: '/hash', description: 'テキストからSHA-256などのハッシュ値を生成します。', icon: Hash, color: 'text-slate-600', darkColor: 'text-slate-400' },
-  { id: 'calculator', name: '電卓', path: '/calculator', description: '履歴機能付きの使いやすい電卓です。キーボード操作にも対応しています。', icon: Calculator, color: 'text-orange-500', darkColor: 'text-orange-400' },
-  { id: 'regex', name: '正規表現チェッカー', path: '/regex', description: '正規表現のテストとリアルタイムハイライト確認ができます。', icon: Search, color: 'text-teal-500', darkColor: 'text-teal-400' },
-  { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'スポーツやゲームで使えるシンプルな得点板。タイマー機能も搭載。', icon: Trophy, color: 'text-amber-500', darkColor: 'text-amber-400' },
-  { id: 'file', name: 'ファイル共有 (Base64)', path: '/file', description: 'ファイルをテキストデータ(Base64)に変換し、共有・復元します。', icon: FileText, color: 'text-orange-500', darkColor: 'text-orange-400' },
-  { id: 'json', name: 'JSON整形・検証', path: '/json', description: 'JSONデータの整形、圧縮、構文チェックを行います。', icon: FileJson, color: 'text-yellow-500', darkColor: 'text-yellow-400' },
-  { id: 'markdown', name: 'Markdownエディタ', path: '/markdown', description: 'リアルタイムプレビュー付きのシンプルなMarkdownエディタです。', icon: FileType, color: 'text-slate-700', darkColor: 'text-slate-300' },
-  { id: 'html', name: 'HTMLエディタ', path: '/html', description: 'リアルタイムプレビューとXSS対策を備えたセキュアなHTMLエディタです。', icon: Code, color: 'text-orange-600', darkColor: 'text-orange-400' },
-  { id: 'color', name: 'カラーパレット', path: '/color', description: 'ランダムな配色パターンを生成し、HEX/RGBコードを取得できます。', icon: Palette, color: 'text-indigo-500', darkColor: 'text-indigo-400' },
-  { id: 'count', name: '文字数カウント', path: '/count', description: 'リアルタイムで文字数や行数をカウントし、文字種別の分析グラフを表示します。', icon: AlignLeft, color: 'text-green-500', darkColor: 'text-green-400' },
-  { id: 'diff', name: 'テキストDiff', path: '/diff', description: '2つのテキストの差分を、行単位または単語単位で比較・ハイライトします。', icon: FileDiff, color: 'text-cyan-600', darkColor: 'text-cyan-400' },
-  { id: 'resize', name: '画像リサイズ', path: '/resize', description: 'ブラウザ上で画像のサイズを変更し、アスペクト比を維持して保存できます。', icon: ImageIcon, color: 'text-purple-500', darkColor: 'text-purple-400' },
-  { id: 'convert', name: '画像形式変換', path: '/convert', description: '画像をPNG, JPEG, WEBP, ICO形式に相互変換します。', icon: RefreshCwOff, color: 'text-pink-500', darkColor: 'text-pink-400' },
-  { id: 'kakeibo', name: 'まいつーる家計簿', path: '/kakeibo', description: 'カレンダー、サブスク管理、目標設定を備えた多機能な家計簿ツールです。', icon: Wallet, color: 'text-yellow-600', darkColor: 'text-yellow-400' },
-  { id: 'notepad', name: 'オンラインメモ帳', path: '/notepad', description: '自動保存機能付きの多機能メモ帳です。Notionのように使えます。', icon: StickyNote, color: 'text-lime-600', darkColor: 'text-lime-400' },
-  { id: 'unit', name: '単位変換', path: '/unit', description: '長さ、重さ、温度、面積などの単位を簡単に相互変換できます。', icon: Scale, color: 'text-fuchsia-500', darkColor: 'text-fuchsia-400' },
-  { id: 'binary', name: '2進数変換', path: '/binary', description: '10進数と2進数を相互変換します。小数の計算にも対応しています。', icon: Binary, color: 'text-teal-500', darkColor: 'text-teal-400' },
-  { id: 'timestamp', name: 'Unix時間変換', path: '/timestamp', description: 'Unix Timestampと日付形式を相互に変換します。開発者向けツールです。', icon: Clock, color: 'text-slate-600', darkColor: 'text-slate-400' },
-  { id: 'ip', name: 'IPアドレス確認', path: '/ip', description: 'あなたの現在のグローバルIPアドレス(IPv4/IPv6)と接続情報を確認します。', icon: Share2, color: 'text-sky-500', darkColor: 'text-sky-400' },
-  { id: 'speed', name: '回線スピードテスト', path: '/speed', description: 'ダウンロード/アップロード速度を簡易計測し、ネットワーク品質をチェックします。', icon: Activity, color: 'text-red-500', darkColor: 'text-red-400' },
-  { id: 'timer', name: 'タイマー＆ストップウォッチ', path: '/timer', description: 'ポモドーロ、ラップ計測、通常タイマーを統合した時間管理ツールです。', icon: Timer, color: 'text-rose-500', darkColor: 'text-rose-400' },
+  { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50', longDescription: '安全で高速なオンラインQRコード作成ツール。商用利用無料で、生成データはサーバーに保存されません。', keywords: ['QRコード作成', '無料', '高画質'] },
+  { id: 'count', name: '文字数カウンター', path: '/count', description: 'リアルタイムで文字数・行数をカウント', icon: AlignLeft, color: 'text-green-500', lightBg: 'bg-green-50', longDescription: 'レポートやSNS投稿に便利な高機能文字数カウント。ひらがな・漢字の比率分析も。', keywords: ['文字数カウント', '原稿用紙換算'] },
+  { id: 'picker', name: 'カラーピッカー', path: '/picker', description: 'RGB/HSL/CMYK変換・画像から抽出', icon: Pipette, color: 'text-pink-600', lightBg: 'bg-pink-50', longDescription: 'Web制作に最適なカラーピッカー。スポイト機能で画像から色を抽出できます。', keywords: ['カラーピッカー', 'HEX変換', 'スポイト'] },
+  { id: 'password', name: 'パスワード生成', path: '/password', description: '強力なランダムパスワードを生成', icon: KeyRound, color: 'text-emerald-600', lightBg: 'bg-emerald-50', longDescription: '強力で安全なパスワードをブラウザで生成。記号の有無や履歴保存にも対応。', keywords: ['パスワード生成', 'セキュリティ', 'ランダム'] },
+  { id: 'kakeibo', name: 'まいつーる家計簿', path: '/kakeibo', description: '登録不要の多機能家計簿', icon: Wallet, color: 'text-yellow-600', lightBg: 'bg-yellow-50', longDescription: 'ブラウザ保存で安心の無料家計簿。円グラフ分析、サブスク管理、目標設定機能。', keywords: ['家計簿', '節約', '無料ツール'] },
+  { id: 'pdf', name: 'PDFツール', path: '/pdf', description: '結合・解除・ページ回転', icon: FileStack, color: 'text-red-600', lightBg: 'bg-red-50', longDescription: 'ブラウザ完結型のPDF編集。結合、パスワード解除、回転、白塗りが安全に行えます。', keywords: ['PDF結合', 'PDF編集', 'PDF解除'] },
+  { id: 'resize', name: '画像リサイズ', path: '/resize', description: 'アスペクト比維持でサイズ変更', icon: ImageIcon, color: 'text-purple-500', lightBg: 'bg-purple-50', longDescription: '比率を保ったまま画像のピクセルサイズを変更。ブログやSNS投稿の軽量化に。', keywords: ['画像リサイズ', 'サイズ変更', '画像軽量化'] },
+  { id: 'convert', name: 'Base64変換', path: '/convert', description: 'ファイルとBase64の相互変換', icon: FileType, color: 'text-orange-500', lightBg: 'bg-orange-50', longDescription: '画像やファイルをBase64テキストに変換。開発時のデータURI作成に便利です。', keywords: ['Base64変換', 'エンコード', 'デコード'] },
+  { id: 'ip', name: 'IP確認・ポート', path: '/ip', description: '自分のIP確認とポート開放テスト', icon: Network, color: 'text-sky-500', lightBg: 'bg-sky-50', longDescription: 'グローバルIPアドレスの即時確認と、特定ポートの外部開放チェック。', keywords: ['IP確認', 'ポート開放', 'ネットワーク'] },
+  { id: 'speed', name: 'スピードテスト', path: '/speed', description: '回線速度の計測', icon: Activity, color: 'text-rose-500', lightBg: 'bg-rose-50', longDescription: 'インターネット回線のダウンロード・アップロード速度をリアルタイム計測。', keywords: ['スピードテスト', '回線速度', 'ネット診断'] },
+  { id: 'server-loc', name: 'サーバー位置情報', path: '/server-loc', description: 'ドメインから位置を特定', icon: Globe, color: 'text-indigo-500', lightBg: 'bg-indigo-50', longDescription: 'IPやドメインからサーバーの物理的な所在地をマップ表示。トレースルート対応。', keywords: ['サーバー場所', 'ドメイン検索', 'IP住所'] },
+  { id: 'binary', name: '2進数変換', path: '/binary', description: '10進数と2進数の相互変換', icon: Binary, color: 'text-teal-500', lightBg: 'bg-teal-50', longDescription: 'プログラミングに便利な10進数・2進数・16進数の相互変換ツール。', keywords: ['2進数変換', 'バイナリ', 'プログラミング'] },
+  { id: 'timer', name: 'タイマー', path: '/timer', description: 'タイマー・SW・ポモドーロ', icon: Timer, color: 'text-rose-600', lightBg: 'bg-rose-50', longDescription: '多機能タイマー。集中力を高めるポモドーロやストップウォッチ機能を搭載。', keywords: ['タイマー', 'ポモドーロ', '集中'] },
+  { id: 'notepad', name: 'メモ帳', path: '/notepad', description: 'リッチテキスト対応のメモ', icon: StickyNote, color: 'text-lime-600', lightBg: 'bg-lime-50', longDescription: 'ブラウザ保存の多機能メモ帳。コードハイライトやリッチテキスト編集に対応。', keywords: ['オンラインメモ', 'メモ帳', 'テキスト編集'] },
+  { id: 'calculator', name: '計算機', path: '/calculator', description: '履歴付きシンプル計算機', icon: Calculator, color: 'text-orange-600', lightBg: 'bg-orange-50', longDescription: '計算履歴が残るシンプルなWeb電卓。直感的な操作が可能です。', keywords: ['電卓', '計算機', 'オンライン電卓'] },
+  { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'タイマー付き得点板', icon: Trophy, color: 'text-blue-700', lightBg: 'bg-blue-50', longDescription: 'スポーツやゲームで使える多機能スコアボード。タイマー機能付き。', keywords: ['得点板', 'スコアボード', 'スポーツ'] },
+  { id: 'unit', name: '単位変換', path: '/unit', description: '長さ・重さ・温度・面積', icon: Scale, color: 'text-fuchsia-500', lightBg: 'bg-fuchsia-50', longDescription: '長さ、重さ、温度、面積など、日常で使う様々な単位を相互変換します。', keywords: ['単位変換', '単位計算', '換算'] },
+  { id: 'random', name: 'ランダム生成', path: '/random', description: '数字のランダム生成', icon: Dices, color: 'text-rose-500', lightBg: 'bg-rose-50', longDescription: '指定した範囲内で乱数を生成。重複の可否も設定可能です。', keywords: ['乱数生成', 'ランダム', '数字'] },
+  { id: 'ratio', name: 'アスペクト比計算', path: '/ratio', description: '比率と解像度の計算', icon: BoxSelect, color: 'text-cyan-500', lightBg: 'bg-cyan-50', longDescription: '縦横のサイズからアスペクト比を算出。FHDや4Kなどのプリセットも充実。', keywords: ['アスペクト比', '解像度', '比率計算'] },
+  { id: 'uuid', name: 'UUID生成', path: '/uuid', description: 'v4 UUIDを一括生成', icon: Fingerprint, color: 'text-violet-500', lightBg: 'bg-violet-50', longDescription: '開発で必要なUUID(v4)を瞬時に、かつ一括で生成します。', keywords: ['UUID生成', '開発ツール', 'GUID'] },
+  { id: 'case', name: 'ケース変換', path: '/case', description: 'キャメル・スネーク等', icon: Type, color: 'text-orange-500', lightBg: 'bg-orange-50', longDescription: 'テキストのケース（キャメルケース、スネークケース、ケバブケース等）を一括変換。', keywords: ['ケース変換', '命名規則', '開発'] },
+  { id: 'roulette', name: 'ルーレット', path: '/roulette', description: '項目自由なルーレット', icon: Disc, color: 'text-pink-500', lightBg: 'bg-pink-50', longDescription: 'ランチの選択やゲームの抽選に。項目を自由にカスタマイズできるルーレット。', keywords: ['ルーレット', '抽選', 'おみくじ'] },
+  { id: 'text-conv', name: '全角半角変換', path: '/text-conv', description: 'テキストの形式一括変換', icon: ArrowRightLeft, color: 'text-indigo-600', lightBg: 'bg-indigo-50', longDescription: '英数字やカタカナの全角・半角をボタン一つで一括変換。', keywords: ['全角半角', '文字変換', '整形'] },
+  { id: 'image-conv', name: '画像形式変換', path: '/image-conv', description: 'PNG/JPG/WEBP/ICO変換', icon: RefreshCw, color: 'text-pink-500', lightBg: 'bg-pink-50', longDescription: '画像のファイル形式をブラウザ上で高速変換。ICO（ファビコン用）にも対応。', keywords: ['画像変換', 'PNG変換', 'WEBP変換'] },
+  { id: 'hash', name: 'ハッシュ生成', path: '/hash', description: 'SHA-256等の生成', icon: Hash, color: 'text-slate-600', lightBg: 'bg-slate-100', longDescription: 'テキストからSHA-256やSHA-512などのセキュアなハッシュ値を生成。', keywords: ['ハッシュ生成', 'SHA256', '暗号化'] },
+  { id: 'regex', name: '正規表現', path: '/regex', description: 'マッチングテスト', icon: Search, color: 'text-teal-600', lightBg: 'bg-teal-50', longDescription: '正規表現のパターンマッチングをリアルタイムでテスト・検証。', keywords: ['正規表現', 'Regex', 'テスト'] },
+  { id: 'flashcards', name: '暗記カード', path: '/flashcards', description: '自作単語帳で学習', icon: BookOpen, color: 'text-blue-500', lightBg: 'bg-blue-50', longDescription: 'ブラウザで使える自作の暗記カード。試験対策や言語学習に最適。', keywords: ['暗記', '単語帳', '学習'] },
+  { id: 'tasks', name: 'タスク管理', path: '/tasks', description: '優先度付きTODOリスト', icon: ListTodo, color: 'text-teal-500', lightBg: 'bg-teal-50', longDescription: 'シンプルで使いやすいタスク管理。ブラウザ保存なのでログイン不要。', keywords: ['TODOリスト', 'タスク管理', '効率化'] },
+  { id: 'html', name: 'HTMLエディタ', path: '/html', description: 'ライブプレビュー付き', icon: Code, color: 'text-orange-600', lightBg: 'bg-orange-50', longDescription: 'HTML/CSSを記述して即座にプレビュー。XSS保護付きで安全。', keywords: ['HTMLエディタ', 'プレビュー', 'コーディング'] },
+  { id: 'sql', name: 'オンラインSQL', path: '/sql', description: 'ブラウザでSQL練習', icon: Database, color: 'text-blue-500', lightBg: 'bg-blue-50', longDescription: 'データベース不要でSQLのクエリをブラウザ上で実行・練習。', keywords: ['SQL練習', 'データベース', 'SQL実行'] },
+  { id: 'date', name: '日付計算', path: '/date', description: '期間と日数の計算', icon: CalendarDays, color: 'text-indigo-500', lightBg: 'bg-indigo-50', longDescription: '2つの日付間の日数計算や、特定の日から○日後の日付を計算。', keywords: ['日付計算', '日数差', 'カレンダー'] },
+  { id: 'subnet', name: 'IPサブネット', path: '/subnet', description: 'サブネット分割計算', icon: Network, color: 'text-cyan-600', lightBg: 'bg-cyan-50', longDescription: 'IPアドレスとマスクからサブネット範囲を算出。エンジニア必携。', keywords: ['サブネット計算', 'IP範囲', 'ネットワーク'] },
+  { id: 'palette', name: 'カラーパレット', path: '/palette', description: '配色パレット生成', icon: Palette, color: 'text-indigo-500', lightBg: 'bg-indigo-50', longDescription: 'デザインで使える美しい配色パレットをランダムに生成。', keywords: ['配色パレット', 'デザイン', '色'] },
+  { id: 'json', name: 'JSON整形', path: '/json', description: 'JSONの整形と検証', icon: FileJson, color: 'text-yellow-500', lightBg: 'bg-yellow-50', longDescription: '読みづらいJSONファイルをきれいに整形・検証。圧縮も可能。', keywords: ['JSON整形', 'デバッグ', 'フォーマッタ'] },
+  { id: 'markdown', name: 'Markdown', path: '/markdown', description: 'エディタとプレビュー', icon: FileType, color: 'text-slate-700', lightBg: 'bg-slate-100', longDescription: 'Markdown記法をブラウザ上でリアルタイムにHTML変換・表示。', keywords: ['Markdown', 'エディタ', 'プレビュー'] },
+  { id: 'watermarker', name: '画像透かし', path: '/watermarker', description: 'ロゴや文字を合成', icon: Stamp, color: 'text-sky-500', lightBg: 'bg-sky-50', longDescription: '画像に著作権保護のための透かし（文字や画像）を合成します。', keywords: ['透かし合成', '著作権', '画像加工'] },
+  { id: 'exif', name: 'Exif削除', path: '/exif', description: '画像の位置情報を除去', icon: ImageOff, color: 'text-red-500', lightBg: 'bg-red-50', longDescription: '写真に含まれるGPS情報や個人情報を削除してプライバシーを保護。', keywords: ['Exif削除', 'プライバシー', 'GPS消去'] },
+  { id: 'diff', name: 'テキストDiff', path: '/diff', description: '文章の差分を比較', icon: FileDiff, color: 'text-cyan-700', lightBg: 'bg-cyan-50', longDescription: '2つの文章を比較して、追加・変更箇所を分かりやすく表示。', keywords: ['テキスト比較', 'Diff', '差分'] },
+  { id: 'timestamp', name: 'Unix時間変換', path: '/timestamp', description: 'タイムスタンプ相互変換', icon: Clock, color: 'text-slate-500', lightBg: 'bg-slate-100', longDescription: 'Unixタイムスタンプと日時形式を瞬時に相互変換。', keywords: ['Unix時間', 'タイムスタンプ', '日付変換'] }
 ];
 
-// --- Theme Management ---
-const useTheme = () => {
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  return { theme, toggleTheme };
-};
-
-// --- Added Tools Management ---
-const useAddedTools = () => {
-  const [addedTools, setAddedTools] = useState<string[]>(() => {
-    const saved = localStorage.getItem('addedTools');
-    return saved ? JSON.parse(saved) : ['kakeibo', 'timer', 'notepad'];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('addedTools', JSON.stringify(addedTools));
-  }, [addedTools]);
-
-  const toggleAddedTool = (id: string) => {
-    setAddedTools(prev => 
-      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
-    );
-  };
-
-  const reorderAddedTools = (newOrder: string[]) => {
-    setAddedTools(newOrder);
-  };
-
-  return { addedTools, toggleAddedTool, reorderAddedTools };
-};
-
-// --- Logger Component ---
-const AccessLogger: React.FC = () => {
+const SEOManager: React.FC = () => {
   const location = useLocation();
-  const loggedRef = React.useRef<string | null>(null);
+  const tool = TOOLS.find(t => t.path === location.pathname);
+  const siteTitle = "まいつーる - 登録不要の無料Webツール集";
+  const title = tool ? `${tool.name} | ${siteTitle}` : siteTitle;
+  const description = tool?.longDescription || "まいつーるは、日常で役立つWebツールがインストール不要・無料で使えるサイトです。";
 
-  useEffect(() => {
-    if (loggedRef.current === location.pathname) return;
-    loggedRef.current = location.pathname;
-
-    const logAccess = async () => {
-        try {
-            const loadTime = performance.now();
-            await fetch('./backend/admin_api.php?action=log_access', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    path: location.pathname,
-                    referer: document.referrer,
-                    status: 200,
-                    load_time: loadTime
-                })
-            });
-        } catch (e) {}
-    };
-    logAccess();
-  }, [location.pathname]);
-
-  return null;
+  return (
+    <Helmet>
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      {tool?.keywords && <meta name="keywords" content={tool.keywords.join(',')} />}
+      <link rel="canonical" href={`https://omnitools.example.com${location.pathname}`} />
+    </Helmet>
+  );
 };
 
-// --- Layout & Main Component ---
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
-  const { addedTools, toggleAddedTool, reorderAddedTools } = useAddedTools();
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  const [addedTools, setAddedTools] = useState<string[]>(() => {
+    const saved = localStorage.getItem('addedTools');
+    return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
+  });
+  
   const location = useLocation();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Scroll Position Reset on Route Change ---
   useEffect(() => {
-    if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-    }
+    const root = window.document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }, [location.pathname]);
 
-  const [showAds, setShowAds] = useState(() => localStorage.getItem('showAds') !== 'false');
-  const [adBlockDetected, setAdBlockDetected] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem('showAds', String(showAds));
-    if (showAds && !adBlockDetected) {
-      const scriptId = 'adsense-script';
-      if (!document.getElementById(scriptId)) {
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8961158026153736";
-        script.async = true;
-        script.crossOrigin = "anonymous";
-        script.onerror = () => setAdBlockDetected(true);
-        document.head.appendChild(script);
-      }
-    }
-  }, [showAds, adBlockDetected]);
-
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
   const currentTool = TOOLS.find(t => t.path === location.pathname);
-  const isMultiview = location.pathname === '/multiview';
   const isAdmin = location.pathname === ADMIN_PATH;
-  
-  const sidebarTools = addedTools
-    .map(id => TOOLS.find(t => t.id === id))
-    .filter((t): t is Tool => t !== undefined);
+  const sidebarTools = addedTools.map(id => TOOLS.find(t => t.id === id)).filter((t): t is Tool => t !== undefined);
 
-  if (isAdmin) {
-    return <AdminPage />;
-  }
+  if (isAdmin) return <AdminPage />;
 
   return (
-    <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected }}>
-      <AccessLogger />
-      
+    <AppContext.Provider value={{ showAds: true, setShowAds: () => {}, adBlockDetected: false }}>
+      <SEOManager />
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
-        <Sidebar 
-          tools={sidebarTools} 
-          isOpen={sidebarOpen} 
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onReorder={reorderAddedTools}
-        />
-
+        <Sidebar tools={sidebarTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} onReorder={setAddedTools} />
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-          <header className="bg-white/95 dark:bg-dark-lighter/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-20 transition-colors shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="text-sm breadcrumbs text-gray-500 dark:text-gray-400 hidden lg:flex items-center">
-                <span className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors font-bold">まいつーる</span>
-                {isMultiview ? (
-                   <>
-                    <span className="mx-2 opacity-50">/</span>
-                    <span className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                        <Grid2X2 size={16} />
-                        ワークスペース
-                    </span>
-                   </>
-                ) : currentTool ? (
-                  <>
-                    <span className="mx-2 opacity-50">/</span>
-                    <span className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                        <currentTool.icon size={16} className={currentTool.color} />
-                        {currentTool.name}
-                    </span>
-                  </>
-                ) : location.pathname === '/settings' ? (
-                  <>
-                    <span className="mx-2 opacity-50">/</span>
-                    <span className="font-bold text-gray-800 dark:text-gray-100">設定</span>
-                  </>
-                ) : null}
-              </div>
-              <div className="lg:hidden font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <button 
-                    onClick={() => setSidebarOpen(true)}
-                    className="mr-1 p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors active:scale-90"
-                  >
-                    <Menu size={24} />
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    <LayoutGrid className="text-blue-500" size={18} />
-                    <span className="text-lg tracking-tight">まいつーる</span>
-                  </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={toggleTheme}
-                className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors active:scale-90"
-                title="ダークモード切替"
-              >
-                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-              </button>
-            </div>
+          <header className="bg-white/95 dark:bg-dark-lighter/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-20 shrink-0">
+             <div className="flex items-center gap-4">
+                <div className="lg:hidden">
+                    <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"><Menu size={24} /></button>
+                </div>
+                <Link to="/" className="font-black text-lg md:text-xl tracking-tight flex items-center gap-2">
+                    <LayoutGrid className="text-blue-500" size={20} />
+                    <span>まいつーる</span>
+                </Link>
+                {currentTool && <span className="hidden sm:inline font-normal text-gray-400">/ {currentTool.name}</span>}
+             </div>
+             <div className="flex items-center gap-2">
+                <Link to="/settings" className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"><SettingsIcon size={20} /></Link>
+                <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200">
+                    {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+                </button>
+             </div>
           </header>
 
-          <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative no-scrollbar">
-            <div className="max-w-7xl mx-auto h-full pb-20 lg:pb-10">
+          <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar">
+            <div className="max-w-7xl mx-auto h-full">
               <Routes>
-                <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={toggleAddedTool} onReorder={reorderAddedTools} />} />
-                <Route path={ADMIN_PATH} element={<AdminPage />} />
+                <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={setAddedTools} />} />
+                <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
                 <Route path="/settings" element={<Settings />} />
+                
+                {/* Tools Routes */}
                 <Route path="/qrcode" element={<QRCodeGenerator />} />
-                <Route path="/password" element={<PasswordGenerator />} />
-                <Route path="/file" element={<FileConverter />} />
                 <Route path="/count" element={<CharacterCounter />} />
+                <Route path="/picker" element={<ColorPickerTool />} />
+                <Route path="/password" element={<PasswordGenerator />} />
+                <Route path="/kakeibo" element={<Kakeibo />} />
+                <Route path="/pdf" element={<PdfTools />} />
                 <Route path="/resize" element={<ImageResizer />} />
-                <Route path="/binary" element={<BinaryConverter />} />
-                <Route path="/unit" element={<UnitConverter />} />
-                <Route path="/timestamp" element={<TimestampConverter />} />
+                <Route path="/convert" element={<FileConverter />} />
                 <Route path="/ip" element={<IpChecker />} />
                 <Route path="/speed" element={<SpeedTest />} />
+                <Route path="/server-loc" element={<ServerLocation />} />
+                <Route path="/binary" element={<BinaryConverter />} />
                 <Route path="/timer" element={<TimerTool />} />
-                <Route path="/convert" element={<ImageConverter />} />
-                <Route path="/diff" element={<TextDiff />} />
-                <Route path="/kakeibo" element={<Kakeibo />} />
                 <Route path="/notepad" element={<Notepad />} />
-                <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
-                <Route path="/color" element={<ColorPalette />} />
-                <Route path="/picker" element={<ColorPickerTool />} />
-                <Route path="/json" element={<JsonFormatter />} />
-                <Route path="/markdown" element={<MarkdownEditor />} />
-                <Route path="/html" element={<HtmlEditor />} />
-                <Route path="/sql" element={<SqlPlayground />} />
-                <Route path="/watermark" element={<ImageWatermarker />} />
                 <Route path="/calculator" element={<CalculatorTool />} />
                 <Route path="/scoreboard" element={<Scoreboard />} />
+                <Route path="/unit" element={<UnitConverter />} />
                 <Route path="/random" element={<RandomGenerator />} />
                 <Route path="/ratio" element={<AspectRatioCalculator />} />
                 <Route path="/uuid" element={<UuidGenerator />} />
                 <Route path="/case" element={<CaseConverter />} />
                 <Route path="/roulette" element={<Roulette />} />
                 <Route path="/text-conv" element={<TextConverter />} />
-                <Route path="/exif" element={<ExifRemover />} />
+                <Route path="/image-conv" element={<ImageConverter />} />
                 <Route path="/hash" element={<HashGenerator />} />
                 <Route path="/regex" element={<RegexChecker />} />
                 <Route path="/flashcards" element={<Flashcards />} />
                 <Route path="/tasks" element={<TaskManager />} />
-                <Route path="/pdf" element={<PdfTools />} />
+                <Route path="/html" element={<HtmlEditor />} />
+                <Route path="/sql" element={<SqlPlayground />} />
                 <Route path="/date" element={<DateCalculator />} />
                 <Route path="/subnet" element={<IpSubnetVisualizer />} />
-                <Route path="/server-loc" element={<ServerLocation />} />
+                <Route path="/palette" element={<ColorPalette />} />
+                <Route path="/json" element={<JsonFormatter />} />
+                <Route path="/markdown" element={<MarkdownEditor />} />
+                <Route path="/watermarker" element={<ImageWatermarker />} />
+                <Route path="/exif" element={<ExifRemover />} />
+                <Route path="/diff" element={<TextDiff />} />
+                <Route path="/timestamp" element={<TimestampConverter />} />
               </Routes>
-              {showAds && !isAdmin && !adBlockDetected && <div className="mt-12"><AdBanner /></div>}
             </div>
           </main>
         </div>
@@ -355,14 +242,10 @@ const Layout: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
-  return (
-    <HelmetProvider>
-        <HashRouter>
-            <Layout />
-        </HashRouter>
-    </HelmetProvider>
-  );
-};
+const App: React.FC = () => (
+  <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Layout />
+  </HashRouter>
+);
 
 export default App;

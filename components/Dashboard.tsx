@@ -1,8 +1,8 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tool } from '../types';
-import { ArrowRight, Plus, Check, GripVertical, ShieldCheck, Search, Info } from 'lucide-react';
+import { ArrowRight, Plus, Check, ShieldCheck, Search, Info } from 'lucide-react';
 
 interface DashboardProps {
   tools: Tool[];
@@ -34,7 +34,8 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
      return (
         <div key={tool.id} className="group relative bg-white dark:bg-dark-lighter rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col min-h-[140px] md:min-h-[180px]">
           <div className="flex justify-between items-start mb-3 md:mb-4">
-            <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center ${tool.color.replace('text-', 'bg-').replace(/500|600|700/, '100')} dark:bg-gray-800 ${tool.color} dark:${tool.darkColor || tool.color}`}>
+            {/* 修正点: App.tsxで定義した明示的な背景色クラス(lightBg)を使用 */}
+            <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center ${tool.lightBg} dark:bg-gray-800 ${tool.color}`}>
               <tool.icon size={24} className="md:w-7 md:h-7" />
             </div>
             <button 
@@ -75,7 +76,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
         </div>
       </div>
 
-      <div className="px-4 space-y-10">
+      <div className="px-4 space-y-12">
         <section>
           <h3 className="text-lg md:text-xl font-black text-gray-800 dark:text-gray-200 mb-5 flex items-center gap-2 px-2">
               <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span> マイアプリ
@@ -96,6 +97,41 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {otherTools.map((tool, index) => renderToolCard(tool, false, index))}
             </div>
+        </section>
+
+        <section className="animate-fade-in pt-8">
+          <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:p-8 rounded-3xl border border-gray-100 dark:border-gray-700">
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+              <Info className="text-blue-500" size={24} /> 
+              まいつーるについて
+            </h3>
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
+              「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。
+              QRコード作成、家計簿、PDF編集、画像変換、パスワード生成など、日常や業務で役立つ40種類以上のツールをブラウザひとつで利用できます。
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm md:text-base text-gray-600 dark:text-gray-300">
+              <div className="bg-white/50 dark:bg-dark-lighter/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <h4 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-blue-500 rounded-full"></span> 主な機能カテゴリ
+                </h4>
+                <ul className="list-disc list-inside space-y-1.5 ml-1 opacity-90">
+                  <li>開発者向けツール（JSON整形、Base64、正規表現、SQL）</li>
+                  <li>画像・PDF編集（リサイズ、形式変換、結合、透かし）</li>
+                  <li>生活便利ツール（家計簿、タイマー、単位変換、QRコード）</li>
+                  <li>ネットワーク（IP確認、スピードテスト、ポート開放確認）</li>
+                </ul>
+              </div>
+              <div className="bg-white/50 dark:bg-dark-lighter/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <h4 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-emerald-500 rounded-full"></span> 安心のセキュリティ
+                </h4>
+                <p className="leading-relaxed opacity-90">
+                  当サイトの多くのツール（画像加工、家計簿、メモなど）は、データ処理をすべてお使いのブラウザ内（クライアントサイド）で行います。
+                  サーバーにファイルをアップロードしたり、個人情報を保存したりすることはありません。
+                </p>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </div>

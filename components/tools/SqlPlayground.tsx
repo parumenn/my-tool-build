@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import alasql from 'alasql';
-import { Database, Play, Trash2, Table, Terminal, RefreshCcw } from 'lucide-react';
+import { Database, Play, Trash2, Table, Terminal, RefreshCcw, Info, ShieldCheck, Zap } from 'lucide-react';
 
 const SqlPlayground: React.FC = () => {
   const [sql, setSql] = useState<string>('SELECT * FROM users');
@@ -50,8 +50,8 @@ const SqlPlayground: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col gap-6">
-      <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-full">
+    <div className="max-w-6xl mx-auto space-y-10 pb-20">
+      <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-[500px]">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 shrink-0">
            <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
              <Database className="text-blue-500" />
@@ -75,8 +75,8 @@ const SqlPlayground: React.FC = () => {
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
            <div className="flex flex-col h-full min-h-0 gap-2">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
-                 <Terminal size={16} /> SQL Editor
+              <div className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300">
+                 <Terminal size={14} /> SQL Editor
               </div>
               <textarea 
                 value={sql}
@@ -89,8 +89,8 @@ const SqlPlayground: React.FC = () => {
 
            <div className="flex flex-col h-full min-h-0 gap-2">
               <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
-                    <Table size={16} /> Result
+                 <div className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300">
+                    <Table size={14} /> Result
                  </div>
               </div>
               
@@ -123,6 +123,20 @@ const SqlPlayground: React.FC = () => {
            </div>
         </div>
       </div>
+
+      <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />オンラインSQL練習環境の活用方法</h2>
+         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-blue-500" />データベース不要で今すぐSQLを</h3>
+               <p>SQL（Structured Query Language）はデータを扱う上で必須の知識ですが、環境構築がハードルになることがあります。当ツールは、ブラウザ内にインメモリデータベースを構築するため、インストール一切不要でSELECT文やJOIN、集計関数などの動作をその場で試せます。プログラミング学習や構文の確認に最適です。</p>
+            </div>
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-blue-500" />安心・安全なサンドボックス</h3>
+               <p>すべてのクエリ実行はお使いのブラウザ内で行われ、外部のサーバーには一切接続しません。そのため、誤って重要なデータを消してしまう心配もなく、自由自在にコマンドを試すことができます。リセット機能を使えばいつでも初期状態のサンプルデータに戻すことが可能です。</p>
+            </div>
+         </div>
+      </article>
     </div>
   );
 };

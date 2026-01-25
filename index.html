@@ -1,12 +1,15 @@
+
 <!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="まいつーるは、QRコード作成、文字数カウント、家計簿、PDF編集、パスワード生成など、日常やビジネスで役立つ40種類以上のWebツールを、登録不要・無料で提供するWebユーティリティスイートです。" />
+    <meta name="keywords" content="Webツール, 便利ツール, QRコード作成, 文字数カウント, 家計簿, PDF編集, 無料, 登録不要, ブラウザ完結" />
     
     <meta name="google-adsense-account" content="ca-pub-8961158026153736">
-    <title>まいつーる - Web Utility Suite</title>
+    <title>まいつーる - 登録不要の無料Webツール集</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
     
     <!-- Highlight.js -->
@@ -17,39 +20,26 @@
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
       tailwind.config = {
-        darkMode: 'class', // Enable class-based dark mode
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
               primary: '#3b82f6',
               secondary: '#6366f1',
-              dark: '#0f172a', // Slate 900
-              'dark-lighter': '#1e293b', // Slate 800
+              dark: '#0f172a',
+              'dark-lighter': '#1e293b',
               light: '#f8fafc',
             },
             fontFamily: {
               sans: ['Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', 'sans-serif'],
             },
-            // Customize typography for dark mode visibility
             typography: (theme) => ({
               DEFAULT: {
                 css: {
-                  code: {
-                    backgroundColor: theme('colors.gray.100'),
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    fontWeight: '600',
-                  },
-                  'code::before': {
-                    content: '""',
-                  },
-                  'code::after': {
-                    content: '""',
-                  },
-                  pre: {
-                    backgroundColor: theme('colors.gray.800'),
-                    color: theme('colors.gray.100'),
-                  },
+                  code: { backgroundColor: theme('colors.gray.100'), padding: '2px 4px', borderRadius: '4px', fontWeight: '600' },
+                  'code::before': { content: '""' },
+                  'code::after': { content: '""' },
+                  pre: { backgroundColor: theme('colors.gray.800'), color: theme('colors.gray.100') },
                 },
               },
             }),
@@ -60,20 +50,22 @@
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react/": "https://esm.sh/react@18.3.1/",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
-    "react-helmet-async": "https://esm.sh/react-helmet-async@2.0.5?deps=react@18.3.1",
-    "lucide-react": "https://esm.sh/lucide-react@0.344.0?deps=react@18.3.1",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?deps=react@18.3.1,react-dom@18.3.1",
-    "recharts": "https://esm.sh/recharts@2.12.2?deps=react@18.3.1,react-dom@18.3.1",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.28.0?deps=react@19.0.0,react-dom@19.0.0",
+    "react-helmet-async": "https://esm.sh/react-helmet-async@2.0.5?deps=react@19.0.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.453.0?deps=react@19.0.0",
+    "recharts": "https://esm.sh/recharts@2.12.7?deps=react@19.0.0,react-dom@19.0.0",
     "diff": "https://esm.sh/diff@5.2.0",
     "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
     "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.0.379",
     "@pdf-lib/fontkit": "https://esm.sh/@pdf-lib/fontkit@1.1.1",
     "dompurify": "https://esm.sh/dompurify@3.0.9",
     "alasql": "https://esm.sh/alasql@4.3.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
