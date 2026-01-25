@@ -53,15 +53,18 @@ const BathProcrastinationPreventer: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <h2 className="text-3xl font-black text-gray-800 dark:text-white">風呂キャン防止システム</h2>
+              <h2 className="text-3xl font-black text-gray-800 dark:text-white leading-tight">
+                <span className="sm:hidden">風呂キャン防止<br/>ツール</span>
+                <span className="hidden sm:block">風呂キャン防止ツール</span>
+              </h2>
               {hasFailedOnce ? (
                 <div className="bg-rose-50 dark:bg-rose-900/20 px-6 py-3 rounded-2xl border border-rose-100 dark:border-rose-800">
-                  <p className="text-rose-600 dark:text-rose-400 font-black">
+                  <p className="text-rose-600 dark:text-rose-400 font-black text-sm sm:text-base">
                     だめだった...？次は絶対だよ？
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mx-auto">
+                <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mx-auto text-xs sm:text-sm md:text-base">
                   あなたの「お風呂に入る」を叶えるツールです。<br/>心の準備ができたらボタンを押してください。
                 </p>
               )}
@@ -82,12 +85,12 @@ const BathProcrastinationPreventer: React.FC = () => {
 
         {status === 'counting' && (
           <div className="animate-scale-up space-y-4 flex flex-col items-center">
-            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl uppercase tracking-[0.3em] animate-pulse">System Triggered</p>
+            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl tracking-widest animate-pulse">お風呂沸かし中...</p>
             <div className="text-[12rem] font-black text-slate-800 dark:text-white leading-none tabular-nums">
               {count}
             </div>
             <div className="flex items-center gap-2 justify-center text-gray-400 font-bold">
-               <span>心の準備して！</span>
+               <span>準備して～</span>
             </div>
           </div>
         )}
@@ -111,7 +114,7 @@ const BathProcrastinationPreventer: React.FC = () => {
               onClick={reset}
               className="text-gray-400 hover:text-cyan-600 font-bold text-sm flex items-center gap-2 pt-8 transition-colors"
             >
-              <RotateCcw size={16} /> お風呂行くの失敗しちゃった..（もう一度）
+              <RotateCcw size={16} /> お風呂行くの失敗しちゃった..<br/>（もう一度）
             </button>
           </div>
         )}
