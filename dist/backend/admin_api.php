@@ -17,7 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit(0);
 
 // Data Paths
 $DATA_DIR = __DIR__ . '/data';
-if (!file_exists($DATA_DIR)) mkdir($DATA_DIR, 0777, true);
+if (!file_exists($DATA_DIR)) {
+    mkdir($DATA_DIR, 0777, true);
+    // 外部アクセス禁止用の.htaccessを自動生成
+    file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
+}
 
 $MESSAGES_FILE    = $DATA_DIR . '/messages.json';
 $ACCESS_LOG_FILE  = $DATA_DIR . '/access_log.json';
@@ -81,17 +85,21 @@ class SimpleSMTP {
     private function read($s) { $r = ""; while($l = fgets($s, 512)) { $r .= $l; if(substr($l, 3, 1) == " ") break; } return $r; }
 }
 
-// Initialize Config
-$config = load_json($CONFIG_FILE);
-if (!isset($config['password_hash'])) {
-    $config = [
-        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
-        'smtp_host' => '', 'smtp_port' => 587, 'smtp_user' => '', 'smtp_pass' => '', 'alert_email' => '',
-        'dos_patterns' => [
-            ['count' => 30, 'seconds' => 30, 'block_minutes' => 15]
-        ],
-        'dos_notify_enabled' => true
-    ];
+// Initialize Config with Backward Compatibility
+$default_config = [
+    'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
+    'smtp_host' => '', 'smtp_port' => 587, 'smtp_user' => '', 'smtp_pass' => '', 'alert_email' => '',
+    'dos_patterns' => [
+        ['count' => 30, 'seconds' => 30, 'block_minutes' => 15]
+    ],
+    'dos_notify_enabled' => true
+];
+
+$saved_config = load_json($CONFIG_FILE);
+// 既存の設定がある場合はマージして、新しいキーがnullにならないようにする
+$config = array_merge($default_config, $saved_config);
+
+if (!file_exists($CONFIG_FILE)) {
     save_json($CONFIG_FILE, $config);
 }
 
@@ -100,7 +108,7 @@ $ip = get_client_ip();
 $now = time();
 $blocked = load_json($BLOCKED_IPS_FILE);
 
-// 期限切れブロックの解除 (永久BAN 2147483647 は除外)
+// 期限切れブロックの解除 (永久BAN 2147483640以上 は除外)
 $blocked = array_filter($blocked, function($b) use ($now) { 
     return $b['expiry'] > $now; 
 });
@@ -138,7 +146,7 @@ if ($action !== 'fetch_dashboard' && $action !== 'update_settings' && $action !=
         if (count($recent_hits) > $limit_count) {
             $is_violated = true;
             $applied_pattern = $p;
-            break; // 最初の違反で止める
+            break;
         }
     }
 
@@ -165,8 +173,8 @@ if ($action !== 'fetch_dashboard' && $action !== 'update_settings' && $action !=
         exit;
     }
     
-    // 古い記録をクリーンアップして保存
-    $max_window = 300; // 最大5分前の記録まで保持
+    // クリーンアップ
+    $max_window = 300; 
     $track[$ip]['times'] = array_filter($track[$ip]['times'], function($t) use ($now, $max_window) { 
         return $t > ($now - $max_window); 
     });
@@ -199,7 +207,7 @@ if ($action === 'log_access') {
         'path' => $input['path'] ?? '/', 
         'ua' => $_SERVER['HTTP_USER_AGENT'], 
         'status' => $input['status'] ?? 200,
-        'duration' => $input['duration'] ?? 0 // 所要時間を保存
+        'duration' => $input['duration'] ?? 0
     ]);
     save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
     echo json_encode(['status' => 'ok']);
@@ -223,13 +231,34 @@ if (!isset($tokens[$token]) || $tokens[$token] < $now) {
 }
 
 if ($action === 'fetch_dashboard') {
+    // ログデータの正規化（後方互換性のため）
+    $raw_logs = load_json($ACCESS_LOG_FILE);
+    $normalized_logs = array_map(function($log) {
+        return [
+            'timestamp' => $log['timestamp'] ?? 0,
+            'date'      => $log['date']      ?? 'N/A',
+            'ip'        => $log['ip']        ?? '0.0.0.0',
+            'path'      => $log['path']      ?? '/',
+            'ua'        => $log['ua']        ?? 'Unknown',
+            'status'    => $log['status']    ?? 200,
+            'duration'  => $log['duration']  ?? null // 以前のログには存在しない可能性がある
+        ];
+    }, $raw_logs);
+
     echo json_encode([
-        'stats' => ['total_pv' => count(load_json($ACCESS_LOG_FILE)), 'today_pv' => count(array_filter(load_json($ACCESS_LOG_FILE), function($l){return $l['timestamp'] > strtotime('today midnight');})), 'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 500)],
+        'stats' => [
+            'total_pv' => count($normalized_logs), 
+            'today_pv' => count(array_filter($normalized_logs, function($l){return $l['timestamp'] > strtotime('today midnight');})), 
+            'recent_logs' => array_slice($normalized_logs, 0, 500)
+        ],
         'messages' => load_json($MESSAGES_FILE),
         'blocked_ips' => $blocked,
         'config' => [
-            'smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email'],
-            'dos_patterns' => $config['dos_patterns'] ?? [['count' => 30, 'seconds' => 30, 'block_minutes' => 15]],
+            'smtp_host' => $config['smtp_host'], 
+            'smtp_port' => $config['smtp_port'], 
+            'smtp_user' => $config['smtp_user'], 
+            'alert_email' => $config['alert_email'],
+            'dos_patterns' => $config['dos_patterns'],
             'dos_notify_enabled' => $config['dos_notify_enabled']
         ]
     ]);
