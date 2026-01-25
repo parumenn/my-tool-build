@@ -97,8 +97,8 @@ const Kakeibo: React.FC = () => {
   const formatYen = (num: number) => `¥${num.toLocaleString()}`;
 
   return (
-    <div className={isWorkspace ? "w-full space-y-4 p-2" : "max-w-5xl mx-auto space-y-10 pb-20"}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+    <div className={`relative h-full flex flex-col ${isWorkspace ? 'w-full p-2' : 'max-w-5xl mx-auto space-y-10 pb-20'}`}>
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0 ${isWorkspace ? 'mb-2' : ''}`}>
         {!isWorkspace && (
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             <Wallet className="text-yellow-600" />
@@ -113,7 +113,7 @@ const Kakeibo: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto no-scrollbar">
+      <div className={`flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto no-scrollbar shrink-0 ${isWorkspace ? 'mb-2' : ''}`}>
         {[
            {id: 'dashboard', icon: PieChart, label: 'ホーム'},
            {id: 'calendar', icon: CalendarIcon, label: 'カレンダー'},
@@ -134,125 +134,130 @@ const Kakeibo: React.FC = () => {
         ))}
       </div>
 
-      <div className="space-y-6">
-        <div className={`grid gap-2 ${isWorkspace ? 'grid-cols-3' : 'grid-cols-1 md:grid-cols-3'}`}>
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">収入</p>
-            <p className={`${isWorkspace ? 'text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.income)}</p>
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-16">
+        <div className="space-y-4">
+          <div className={`grid gap-2 ${isWorkspace ? 'grid-cols-3' : 'grid-cols-1 md:grid-cols-3'}`}>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">収入</p>
+              <p className={`${isWorkspace ? 'text-sm sm:text-base md:text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.income)}</p>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-800">
+              <p className="text-xs text-red-600 dark:text-red-400 font-bold mb-1">支出</p>
+              <p className={`${isWorkspace ? 'text-sm sm:text-base md:text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.expense)}</p>
+            </div>
+            <div className={`p-4 rounded-2xl border ${summary.balance >= 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800' : 'bg-gray-100 border-gray-200'}`}>
+              <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">差引</p>
+              <p className={`${isWorkspace ? 'text-sm sm:text-base md:text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.balance)}</p>
+            </div>
           </div>
-          <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-800">
-            <p className="text-xs text-red-600 dark:text-red-400 font-bold mb-1">支出</p>
-            <p className={`${isWorkspace ? 'text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.expense)}</p>
-          </div>
-          <div className={`p-4 rounded-2xl border ${summary.balance >= 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800' : 'bg-gray-100 border-gray-200'}`}>
-            <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">差引</p>
-            <p className={`${isWorkspace ? 'text-lg' : 'text-3xl'} font-black text-slate-800 dark:text-white truncate`}>{formatYen(summary.balance)}</p>
-          </div>
+
+          {view === 'dashboard' && (
+             <div className={`grid gap-4 ${isWorkspace ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                <div className="bg-white dark:bg-dark-lighter p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <h3 className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wider">支出内訳</h3>
+                  <div className={`${isWorkspace ? 'h-32 md:h-40' : 'h-64'}`}>
+                    {categoryData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RePie>
+                          <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={isWorkspace ? 45 : 100}>
+                            {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatYen(value)} />
+                        </RePie>
+                      </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-[10px] text-gray-400">データがありません</div>}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-dark-lighter p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col max-h-[300px] md:max-h-[400px]">
+                  <h3 className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wider">履歴</h3>
+                  <div className="space-y-2 overflow-y-auto pr-1 flex-1 no-scrollbar">
+                    {monthTransactions.map(t => (
+                      <div key={t.id} className="flex justify-between items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${t.type === 'income' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                             {t.type === 'income' ? <TrendingUp size={14} /> : <CreditCard size={14} />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">{t.category}</p>
+                            <p className="text-[9px] text-gray-500 truncate">{t.date} {t.note}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-xs font-black ${t.type === 'income' ? 'text-blue-600' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()}</span>
+                          <button onClick={() => deleteTransaction(t.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+             </div>
+          )}
         </div>
 
-        {view === 'dashboard' && (
-           <div className={`grid gap-6 ${isWorkspace ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-              <div className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4">支出内訳</h3>
-                <div className={`${isWorkspace ? 'h-40' : 'h-64'}`}>
-                  {categoryData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RePie>
-                        <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={isWorkspace ? 60 : 100}>
-                          {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => formatYen(value)} />
-                      </RePie>
-                    </ResponsiveContainer>
-                  ) : <div className="h-full flex items-center justify-center text-xs text-gray-400">データがありません</div>}
+        {!isWorkspace && (
+          <article className="mt-12 p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+             <h2 className="text-xl font-black flex items-center gap-2 mb-6">
+                <Info className="text-blue-500" />
+                登録不要・無料家計簿ツールの使い方とメリット
+             </h2>
+             <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                   <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
+                      <ShieldCheck size={18} /> <span>プライバシー完全保護</span>
+                   </div>
+                   <p className="text-xs leading-relaxed text-gray-500">
+                      入力されたデータはすべてお使いのブラウザ内（LocalStorage）にのみ保存されます。サーバーへ送信されることは一切ないため、銀行口座やクレジットカードとの連携に不安がある方でも安心してご利用いただけます。
+                   </p>
                 </div>
-              </div>
-              <div className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col max-h-[400px]">
-                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4">履歴</h3>
-                <div className="space-y-2 overflow-y-auto pr-1 flex-1 no-scrollbar">
-                  {monthTransactions.map(t => (
-                    <div key={t.id} className="flex justify-between items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${t.type === 'income' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
-                           {t.type === 'income' ? <TrendingUp size={16} /> : <CreditCard size={16} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{t.category}</p>
-                          <p className="text-[10px] text-gray-500">{t.date} {t.note}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-black ${t.type === 'income' ? 'text-blue-600' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()}</span>
-                        <button onClick={() => deleteTransaction(t.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                   <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
+                      <Database size={18} /> <span>バックアップ・復元対応</span>
+                   </div>
+                   <p className="text-xs leading-relaxed text-gray-500">
+                      ブラウザのキャッシュを消すとデータも消えてしまいますが、設定画面からJSONファイルとしてデータのバックアップ・復元が可能です。端末を変えてもデータを引き継ぐことができます。
+                   </p>
                 </div>
-              </div>
-           </div>
+                <div className="space-y-3">
+                   <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
+                      <PieChart size={18} /> <span>自動グラフ分析</span>
+                   </div>
+                   <p className="text-xs leading-relaxed text-gray-500">
+                      入力した支出は自動でカテゴリごとに集計され、円グラフで可視化されます。「何に使いすぎているか」が一目でわかるため、効果的な節約をサポートします。
+                   </p>
+                </div>
+             </div>
+          </article>
         )}
       </div>
 
-      {!isWorkspace && (
-        <article className="mt-12 p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-           <h2 className="text-xl font-black flex items-center gap-2 mb-6">
-              <Info className="text-blue-500" />
-              登録不要・無料家計簿ツールの使い方とメリット
-           </h2>
-           <div className="grid md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
-                    <ShieldCheck size={18} /> <span>プライバシー完全保護</span>
-                 </div>
-                 <p className="text-xs leading-relaxed text-gray-500">
-                    入力されたデータはすべてお使いのブラウザ内（LocalStorage）にのみ保存されます。サーバーへ送信されることは一切ないため、銀行口座やクレジットカードとの連携に不安がある方でも安心してご利用いただけます。
-                 </p>
-              </div>
-              <div className="space-y-3">
-                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
-                    <Database size={18} /> <span>バックアップ・復元対応</span>
-                 </div>
-                 <p className="text-xs leading-relaxed text-gray-500">
-                    ブラウザのキャッシュを消すとデータも消えてしまいますが、設定画面からJSONファイルとしてデータのバックアップ・復元が可能です。端末を変えてもデータを引き継ぐことができます。
-                 </p>
-              </div>
-              <div className="space-y-3">
-                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
-                    <PieChart size={18} /> <span>自動グラフ分析</span>
-                 </div>
-                 <p className="text-xs leading-relaxed text-gray-500">
-                    入力した支出は自動でカテゴリごとに集計され、円グラフで可視化されます。「何に使いすぎているか」が一目でわかるため、効果的な節約をサポートします。
-                 </p>
-              </div>
-           </div>
-        </article>
-      )}
-
-      <button onClick={() => setIsAddModalOpen(true)} className={`fixed bg-yellow-600 text-white rounded-full shadow-2xl hover:bg-yellow-700 hover:scale-105 transition-all z-20 flex items-center justify-center ${isWorkspace ? 'bottom-4 right-4 p-3' : 'bottom-8 right-8 p-5'}`}>
-        <Plus size={isWorkspace ? 24 : 32} />
+      <button 
+        onClick={() => setIsAddModalOpen(true)} 
+        className={`${isWorkspace ? 'absolute bottom-4 right-4 p-3 shadow-lg' : 'fixed bottom-8 right-8 p-5 shadow-2xl'} bg-yellow-600 text-white rounded-full hover:bg-yellow-700 hover:scale-105 transition-all z-20 flex items-center justify-center active:scale-95`}
+      >
+        <Plus size={isWorkspace ? 20 : 32} />
       </button>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{position: 'absolute'}}>
-          <div className="bg-white dark:bg-dark-lighter rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100 dark:border-gray-700">
+        <div className={`z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in ${isWorkspace ? 'absolute inset-0' : 'fixed inset-0 bg-black/60'}`}>
+          <div className="bg-white dark:bg-dark-lighter rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-full overflow-y-auto">
             <h3 className="text-xl font-black mb-6 text-gray-800 dark:text-white">取引を追加</h3>
             <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
               <button onClick={() => setNewTrans({...newTrans, type: 'expense'})} className={`flex-1 py-2 rounded-lg font-black text-sm transition-all ${newTrans.type === 'expense' ? 'bg-white dark:bg-gray-700 text-red-600 shadow' : 'text-gray-500'}`}>支出</button>
               <button onClick={() => setNewTrans({...newTrans, type: 'income'})} className={`flex-1 py-2 rounded-lg font-black text-sm transition-all ${newTrans.type === 'income' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow' : 'text-gray-500'}`}>収入</button>
             </div>
             <div className="space-y-4">
-               <input type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white" />
+               <input type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white text-sm" />
                <input type="number" placeholder="金額" value={newTrans.amount || ''} onChange={e => setNewTrans({...newTrans, amount: Number(e.target.value)})} className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white text-2xl font-black" />
                <div className="flex flex-wrap gap-1.5">
                   {(newTrans.type === 'expense' ? CATEGORIES.expense : CATEGORIES.income).map(cat => (
-                     <button key={cat} onClick={() => setNewTrans({...newTrans, category: cat})} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${newTrans.category === cat ? 'bg-yellow-100 border-yellow-300 text-yellow-800' : 'border-gray-200 text-gray-500'}`}>{cat}</button>
+                     <button key={cat} onClick={() => setNewTrans({...newTrans, category: cat})} className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all ${newTrans.category === cat ? 'bg-yellow-100 border-yellow-300 text-yellow-800' : 'border-gray-200 text-gray-500'}`}>{cat}</button>
                   ))}
                </div>
-               <input type="text" value={newTrans.note} onChange={e => setNewTrans({...newTrans, note: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white" placeholder="備考 (任意)" />
+               <input type="text" value={newTrans.note} onChange={e => setNewTrans({...newTrans, note: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white text-sm" placeholder="備考 (任意)" />
             </div>
             <div className="flex gap-3 mt-8">
-               <button onClick={() => setIsAddModalOpen(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">戻る</button>
-               <button onClick={addTransaction} className="flex-1 py-3 bg-yellow-600 text-white font-bold rounded-xl hover:bg-yellow-700 shadow-xl shadow-yellow-100 dark:shadow-none">保存する</button>
+               <button onClick={() => setIsAddModalOpen(false)} className="flex-1 py-3 text-gray-500 text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl">戻る</button>
+               <button onClick={addTransaction} className="flex-1 py-3 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 shadow-xl shadow-yellow-100 dark:shadow-none">保存する</button>
             </div>
           </div>
         </div>
