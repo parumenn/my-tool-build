@@ -7,7 +7,7 @@ import {
   Download, Upload, Database, Server, Zap, ShieldCheck,
   TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity,
   ShieldQuestion, ToggleLeft, ToggleRight, Filter, Search, AppWindow,
-  PieChart as PieIcon, ArrowUpRight, X
+  PieChart as PieIcon, ArrowUpRight, X, ChevronRight, MousePointer2
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -205,10 +205,17 @@ const AdminPage: React.FC = () => {
 
   const logout = () => { setToken(null); sessionStorage.removeItem('admin_token'); };
 
+  const drillDownToApp = (path: string) => {
+    setLogFilterPath(path);
+    setLogFilterIp('');
+    setLogFilterDate('');
+    setActiveTab('logs');
+  };
+
   useEffect(() => {
     if (token) {
       fetchData(true);
-      const interval = setInterval(() => fetchData(false), 20000);
+      const interval = setInterval(() => fetchData(false), 1500); // 1.5秒更新
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -234,7 +241,7 @@ const AdminPage: React.FC = () => {
       <header className="bg-slate-900 text-white border-b border-white/10 h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
-          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.6.0</span></h1>
+          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.7.0</span></h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl overflow-x-auto no-scrollbar">
            {[
@@ -242,7 +249,7 @@ const AdminPage: React.FC = () => {
              { id: 'logs', label: 'ログ' },
              { id: 'messages', label: '受信箱' },
              { id: 'security', label: 'IP・DOS制限' },
-             { id: 'settings', label: '高度な設定' }
+             { id: 'settings', label: '設定・メンテ' }
            ].map(t => (
              <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>{t.label}</button>
            ))}
@@ -269,7 +276,13 @@ const AdminPage: React.FC = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  <div className="lg:col-span-2 bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <h3 className="font-black text-lg mb-8 uppercase tracking-tight">トラフィック推移 (24h)</h3>
+                    <div className="flex justify-between items-center mb-8">
+                       <h3 className="font-black text-lg uppercase tracking-tight">トラフィック推移 (LIVE)</h3>
+                       <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></div>
+                          1.5s UPDATE
+                       </div>
+                    </div>
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
@@ -277,7 +290,7 @@ const AdminPage: React.FC = () => {
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                           <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
                           <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold'}} />
-                          <Area type="monotone" dataKey="pv" stroke="#3b82f6" strokeWidth={4} fill="#3b82f6" fillOpacity={0.1} />
+                          <Area type="monotone" dataKey="pv" stroke="#3b82f6" strokeWidth={4} fill="#3b82f6" fillOpacity={0.1} animationDuration={500} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -292,7 +305,7 @@ const AdminPage: React.FC = () => {
                             <p className={`font-black truncate ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600'}`}>{log.path}</p>
                             <p className="text-gray-400 font-mono">{log.ip}</p>
                           </div>
-                          <p className="text-gray-500 font-bold ml-4">{log.date.split(' ')[1]}</p>
+                          <p className="text-gray-500 font-bold ml-4 whitespace-nowrap">{log.date.split(' ')[1]}</p>
                         </div>
                       ))}
                     </div>
@@ -315,15 +328,25 @@ const AdminPage: React.FC = () => {
                       const totalAppHits = Object.values(appStats).reduce((a, b) => a + b, 0);
                       const ratio = totalAppHits > 0 ? (count / totalAppHits * 100).toFixed(1) : '0';
                       return (
-                        <div key={appId} className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative group animate-scale-up">
-                           <button onClick={() => setMonitoredAppIds(monitoredAppIds.filter(a => a !== appId))} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} /></button>
+                        <div 
+                          key={appId} 
+                          onClick={() => drillDownToApp(app.path)}
+                          className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative group animate-scale-up cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-xl transition-all"
+                        >
+                           <button onClick={(e) => { e.stopPropagation(); setMonitoredAppIds(monitoredAppIds.filter(a => a !== appId)); }} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} /></button>
                            <div className="flex items-center gap-3 mb-6">
                               <div className={`p-3 rounded-2xl ${app.lightBg} ${app.color}`}><app.icon size={20} /></div>
-                              <div className="min-w-0"><h4 className="font-black text-sm truncate">{app.name}</h4><p className="text-[10px] text-gray-400 font-bold uppercase">{app.path}</p></div>
+                              <div className="min-w-0">
+                                 <h4 className="font-black text-sm truncate">{app.name}</h4>
+                                 <p className="text-[10px] text-gray-400 font-bold uppercase">{app.path}</p>
+                              </div>
                            </div>
                            <div className="flex justify-between items-end">
                               <div><p className="text-[10px] font-black text-gray-400 uppercase mb-1 tracking-tighter">RECENT PV</p><p className="text-3xl font-black font-mono">{count}</p></div>
-                              <div className="text-right"><p className="text-xl font-black font-mono text-emerald-600">{ratio}%</p></div>
+                              <div className="text-right">
+                                 <p className="text-[10px] font-black text-blue-500 mb-1 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">LOGS <ChevronRight size={10}/></p>
+                                 <p className="text-xl font-black font-mono text-emerald-600">{ratio}%</p>
+                              </div>
                            </div>
                         </div>
                       );
@@ -337,11 +360,29 @@ const AdminPage: React.FC = () => {
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-6">
               <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                  <div className="p-8 border-b dark:border-gray-800 bg-slate-50 dark:bg-slate-800/30 space-y-6">
-                    <div className="flex justify-between items-center"><h3 className="font-black text-xl">ログ検索とフィルタ</h3><button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button></div>
+                    <div className="flex justify-between items-center">
+                       <h3 className="font-black text-xl flex items-center gap-2"><Filter className="text-blue-500"/> ログフィルタリング</h3>
+                       <div className="flex items-center gap-4">
+                          {logFilterPath && (
+                             <button onClick={() => setLogFilterPath('')} className="text-[10px] bg-blue-100 text-blue-600 px-3 py-1 rounded-full font-black flex items-center gap-1">Path: {logFilterPath} <X size={12}/></button>
+                          )}
+                          <button onClick={() => { setLogFilterIp(''); setLogFilterPath(''); setLogFilterDate(''); }} className="text-[10px] text-gray-400 font-black hover:text-red-500 transition-colors">リセット</button>
+                          <button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button>
+                       </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                       <input type="text" placeholder="IPアドレス..." value={logFilterIp} onChange={e => setLogFilterIp(e.target.value)} className="w-full p-3 rounded-xl border dark:bg-gray-900 text-xs font-bold" />
-                       <input type="text" placeholder="パス (例: /bath)" value={logFilterPath} onChange={e => setLogFilterPath(e.target.value)} className="w-full p-3 rounded-xl border dark:bg-gray-900 text-xs font-bold" />
-                       <input type="text" placeholder="日付 (YYYY-MM-DD)" value={logFilterDate} onChange={e => setLogFilterDate(e.target.value)} className="w-full p-3 rounded-xl border dark:bg-gray-900 text-xs font-bold" />
+                       <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                          <input type="text" placeholder="IPアドレス..." value={logFilterIp} onChange={e => setLogFilterIp(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
+                       </div>
+                       <div className="relative">
+                          <AppWindow className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                          <input type="text" placeholder="パス (例: /bath)" value={logFilterPath} onChange={e => setLogFilterPath(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
+                       </div>
+                       <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                          <input type="text" placeholder="日付 (YYYY-MM-DD)" value={logFilterDate} onChange={e => setLogFilterDate(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
+                       </div>
                     </div>
                  </div>
                  <div className="overflow-x-auto">
@@ -350,20 +391,24 @@ const AdminPage: React.FC = () => {
                           <tr><th className="px-8 py-5">日時</th><th className="px-8 py-5">パス</th><th className="px-8 py-5">クライアントIP</th><th className="px-8 py-5">応答</th><th className="px-8 py-5 text-right">状態</th></tr>
                        </thead>
                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {filteredLogs.map((log, i) => (
-                             <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
-                                <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
-                                <td className="px-8 py-4">
-                                   <div className="flex items-center gap-2">
-                                      <span className={`font-black truncate max-w-[200px] ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600'}`}>{log.path}</span>
-                                      {log.path === ADMIN_PATH && <span className="text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black uppercase">Admin Access</span>}
-                                   </div>
-                                </td>
-                                <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
-                                <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
-                                <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
-                             </tr>
-                          ))}
+                          {filteredLogs.length === 0 ? (
+                             <tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold">該当するログはありません</td></tr>
+                          ) : (
+                             filteredLogs.map((log, i) => (
+                                <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
+                                   <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
+                                   <td className="px-8 py-4">
+                                      <div className="flex items-center gap-2">
+                                         <span className={`font-black truncate max-w-[200px] ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>{log.path}</span>
+                                         {log.path === ADMIN_PATH && <span className="text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black uppercase">Admin Access</span>}
+                                      </div>
+                                   </td>
+                                   <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
+                                   <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
+                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
+                                </tr>
+                             ))
+                          )}
                        </tbody>
                     </table>
                  </div>
@@ -405,25 +450,34 @@ const AdminPage: React.FC = () => {
                 </div>
 
                 {/* DOS Settings */}
-                <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6">
-                   <h3 className="font-black text-xl flex items-center gap-3"><ShieldCheck className="text-emerald-500" /> DOS攻撃対策設定</h3>
-                   <button type="button" onClick={() => { setConfig({...config, dos_notify_enabled: !config.dos_notify_enabled}); setIsDirty(true); }} className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all ${config.dos_notify_enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                      {config.dos_notify_enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />} 検知時に通知
-                   </button>
-                   <div className="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
-                      {config.dos_patterns.map((p, idx) => (
-                         <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 relative group animate-scale-up">
-                            <div className="grid grid-cols-3 gap-2">
-                               <div><label className="block text-[8px] font-black text-gray-400 uppercase">期間(秒)</label><input type="number" value={p.seconds} onChange={e => { const next = [...config.dos_patterns]; next[idx].seconds = Number(e.target.value); setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
-                               <div><label className="block text-[8px] font-black text-gray-400 uppercase">回数</label><input type="number" value={p.count} onChange={e => { const next = [...config.dos_patterns]; next[idx].count = Number(e.target.value); setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
-                               <div><label className="block text-[8px] font-black text-gray-400 uppercase">遮断(分)</label><input type="number" value={p.block_minutes} onChange={e => { const next = [...config.dos_patterns]; next[idx].block_minutes = Number(e.target.value); setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
+                <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6 flex flex-col">
+                   <div className="flex-1">
+                      <h3 className="font-black text-xl flex items-center gap-3"><ShieldCheck className="text-emerald-500" /> DOS攻撃対策設定</h3>
+                      <button type="button" onClick={() => { setConfig({...config, dos_notify_enabled: !config.dos_notify_enabled}); setIsDirty(true); }} className={`w-full flex items-center justify-center gap-2 py-3 mt-6 rounded-xl text-xs font-black transition-all ${config.dos_notify_enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                          {config.dos_notify_enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />} 検知時に通知
+                      </button>
+                      <div className="space-y-4 mt-6 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
+                          {config.dos_patterns.map((p, idx) => (
+                            <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 relative group animate-scale-up">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div><label className="block text-[8px] font-black text-gray-400 uppercase">期間(秒)</label><input type="number" value={p.seconds} onChange={e => { const next = [...config.dos_patterns]; next[idx] = {...next[idx], seconds: Number(e.target.value)}; setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
+                                  <div><label className="block text-[8px] font-black text-gray-400 uppercase">回数</label><input type="number" value={p.count} onChange={e => { const next = [...config.dos_patterns]; next[idx] = {...next[idx], count: Number(e.target.value)}; setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
+                                  <div><label className="block text-[8px] font-black text-gray-400 uppercase">遮断(分)</label><input type="number" value={p.block_minutes} onChange={e => { const next = [...config.dos_patterns]; next[idx] = {...next[idx], block_minutes: Number(e.target.value)}; setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="w-full p-2 border rounded-lg text-xs font-bold dark:bg-slate-900" /></div>
+                                </div>
+                                <button type="button" onClick={() => { const next = [...config.dos_patterns]; next.splice(idx, 1); setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                             </div>
-                            <button type="button" onClick={() => { const next = [...config.dos_patterns]; next.splice(idx, 1); setConfig({ ...config, dos_patterns: next }); setIsDirty(true); }} className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
-                         </div>
-                      ))}
-                      <button type="button" onClick={() => { setConfig({...config, dos_patterns: [...config.dos_patterns, { count: 50, seconds: 60, block_minutes: 60 }]}); setIsDirty(true); }} className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 font-black text-[10px] hover:border-emerald-500 hover:text-emerald-500 transition-all">+ 監視ルールを追加</button>
+                          ))}
+                          <button type="button" onClick={() => { setConfig({...config, dos_patterns: [...config.dos_patterns, { count: 50, seconds: 60, block_minutes: 60 }]}); setIsDirty(true); }} className="w-full py-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 font-black text-[10px] hover:border-emerald-500 hover:text-emerald-500 transition-all">+ 監視ルールを追加</button>
+                      </div>
                    </div>
-                   {isDirty && <button onClick={() => handleUpdateSettings()} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-xl text-xs shadow-xl active:scale-95 transition-all">変更を保存して適用</button>}
+                   
+                   <button 
+                     onClick={() => handleUpdateSettings()} 
+                     disabled={!isDirty}
+                     className={`w-full py-4 rounded-xl text-xs font-black shadow-xl transition-all flex items-center justify-center gap-2 ${isDirty ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                   >
+                      <ShieldCheck size={18}/> {isDirty ? '変更を保存して適用' : '変更なし'}
+                   </button>
                 </div>
               </div>
            </div>
@@ -462,12 +516,12 @@ const AdminPage: React.FC = () => {
                      </button>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400">ホスト名</label><input type="text" value={config.smtp_host} onChange={e => { setConfig({...config, smtp_host: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
-                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400">ポート</label><input type="number" value={config.smtp_port} onChange={e => { setConfig({...config, smtp_port: Number(e.target.value)}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
+                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ホスト名</label><input type="text" value={config.smtp_host} onChange={e => { setConfig({...config, smtp_host: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
+                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ポート</label><input type="number" value={config.smtp_port} onChange={e => { setConfig({...config, smtp_port: Number(e.target.value)}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
                    </div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400">ユーザー (ログインID)</label><input type="text" value={config.smtp_user} onChange={e => { setConfig({...config, smtp_user: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400">パスワード (伏せ字)</label><input type="password" value={config.smtp_pass} onChange={e => { setConfig({...config, smtp_pass: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" placeholder="入力しない場合は変更なし" /></div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400">アラート受信メールアドレス</label><input type="email" value={config.alert_email} onChange={e => { setConfig({...config, alert_email: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ユーザー (ログインID)</label><input type="text" value={config.smtp_user} onChange={e => { setConfig({...config, smtp_user: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">パスワード</label><input type="password" value={config.smtp_pass} onChange={e => { setConfig({...config, smtp_pass: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" placeholder="変更しない場合は空欄" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">通知用メールアドレス</label><input type="email" value={config.alert_email} onChange={e => { setConfig({...config, alert_email: e.target.value}); setIsDirty(true); }} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" /></div>
                 </div>
 
                 {/* Password Management */}
@@ -485,12 +539,26 @@ const AdminPage: React.FC = () => {
                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-start gap-3">
                         <AlertTriangle className="text-blue-600 shrink-0 mt-0.5" size={16} />
                         <p className="text-[10px] text-blue-800 dark:text-blue-300 font-bold leading-relaxed">
-                          パスワードは暗号学的に安全なハッシュ値(bcrypt)としてサーバーに保存されます。
-                          強力なパスワード（記号・数字を含む8文字以上）を設定してください。
+                          強力なパスワードを設定してください。変更後は即座に適用されます。
                         </p>
                      </div>
                    </div>
-                   {(isDirty || newPass) && <button onClick={() => handleUpdateSettings()} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl shadow-lg hover:bg-blue-700 transition-all active:scale-95">設定を保存する</button>}
+                </div>
+
+                {/* Global Save Button - Now clearly visible for all settings */}
+                <div className="lg:col-span-2">
+                   <button 
+                     onClick={() => handleUpdateSettings()} 
+                     disabled={!isDirty && !newPass}
+                     className={`w-full py-5 rounded-[1.5rem] text-sm font-black shadow-2xl transition-all flex items-center justify-center gap-3 active:scale-95 tracking-widest uppercase ${
+                       (isDirty || newPass) 
+                         ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90' 
+                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                     }`}
+                   >
+                      {configMsg ? <CheckCircle2 size={24} /> : <Settings size={24} />}
+                      {configMsg || 'システム設定をすべて保存する'}
+                   </button>
                 </div>
               </div>
 
@@ -532,7 +600,11 @@ const AdminPage: React.FC = () => {
          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Secure Connection Active</span>
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">LIVE CONNECTION ACTIVE</span>
+            </div>
+            <div className="flex items-center gap-2">
+               <MousePointer2 size={10} className="text-gray-400"/>
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">DRILL-DOWN ENABLED</span>
             </div>
          </div>
          <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
