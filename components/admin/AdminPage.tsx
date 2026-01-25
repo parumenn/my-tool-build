@@ -5,7 +5,8 @@ import {
   Activity, BarChart3, Settings, Clock, Shield, KeyRound,
   RefreshCw, CheckCircle2, AlertTriangle, XCircle, Trash2, 
   Download, Upload, Database, Server, Zap, ShieldCheck,
-  TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity
+  TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity,
+  ShieldQuestion, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -76,7 +77,12 @@ const AdminPage: React.FC = () => {
         setBlockedIps(data.blocked_ips || {});
         
         if (isFirst && data.config) {
-            setConfig(prev => ({ ...prev, ...data.config, smtp_pass: '' }));
+            setConfig(prev => ({ 
+              ...prev, 
+              ...data.config, 
+              smtp_pass: '',
+              dos_patterns: data.config.dos_patterns || [{ count: 30, seconds: 30, block_minutes: 15 }]
+            }));
             setIsDirty(false);
         }
       } else {
@@ -122,6 +128,28 @@ const AdminPage: React.FC = () => {
     } catch (e) {
       alert('解除に失敗しました。');
     }
+  };
+
+  const addDosPattern = () => {
+    setConfig({
+      ...config,
+      dos_patterns: [...config.dos_patterns, { count: 50, seconds: 60, block_minutes: 60 }]
+    });
+    setIsDirty(true);
+  };
+
+  const removeDosPattern = (index: number) => {
+    const next = [...config.dos_patterns];
+    next.splice(index, 1);
+    setConfig({ ...config, dos_patterns: next });
+    setIsDirty(true);
+  };
+
+  const updateDosPattern = (index: number, field: keyof DosPattern, val: number) => {
+    const next = [...config.dos_patterns];
+    next[index] = { ...next[index], [field]: val };
+    setConfig({ ...config, dos_patterns: next });
+    setIsDirty(true);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -184,7 +212,7 @@ const AdminPage: React.FC = () => {
              { id: 'logs', label: 'アクセスログ' },
              { id: 'messages', label: '受信箱' },
              { id: 'security', label: 'IP制限管理' },
-             { id: 'settings', label: 'メール設定' }
+             { id: 'settings', label: '高度な設定' }
            ].map(t => (
              <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>
                 {t.label}
@@ -367,8 +395,9 @@ const AdminPage: React.FC = () => {
         )}
 
         {activeTab === 'settings' && (
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in max-w-7xl mx-auto w-full">
-              <form onSubmit={handleUpdateSettings} className="space-y-6">
+           <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-10">
+              <form onSubmit={handleUpdateSettings} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* SMTP設定 */}
                 <div className="bg-white dark:bg-dark-lighter p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
                    <h3 className="font-black text-xl mb-4 flex items-center gap-3 uppercase tracking-tight"><Mail className="text-pink-500" /> SMTP 設定 (メール通知)</h3>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,13 +408,51 @@ const AdminPage: React.FC = () => {
                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">パスワード (変更時のみ入力)</label><input type="password" value={config.smtp_pass} onChange={e => { setConfig({...config, smtp_pass: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" placeholder="••••••••" /></div>
                    <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">アラート送信先メール</label><input type="email" value={config.alert_email} onChange={e => { setConfig({...config, alert_email: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
                 </div>
-                
-                <button type="submit" className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-[1.5rem] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest">
-                   {configMsg ? <CheckCircle2 size={20} /> : <Settings size={20} />} {configMsg || '設定を保存する'}
-                </button>
+
+                {/* DOS保護設定 */}
+                <div className="bg-white dark:bg-dark-lighter p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
+                   <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-black text-xl flex items-center gap-3 uppercase tracking-tight"><ShieldCheck className="text-emerald-500" /> DOS攻撃対策設定</h3>
+                      <button type="button" onClick={() => setConfig({...config, dos_notify_enabled: !config.dos_notify_enabled})} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black transition-all ${config.dos_notify_enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                         {config.dos_notify_enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                         検知時に通知
+                      </button>
+                   </div>
+                   
+                   <p className="text-xs text-gray-400 font-bold mb-4">過剰なリクエストを送信するクライアントを自動的に遮断するルールを定義します。</p>
+
+                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                      {config.dos_patterns.map((p, idx) => (
+                         <div key={idx} className="p-5 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 relative group animate-scale-up">
+                            <div className="grid grid-cols-3 gap-3">
+                               <div>
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase mb-1">期間 (秒)</label>
+                                  <input type="number" value={p.seconds} onChange={e => updateDosPattern(idx, 'seconds', Number(e.target.value))} className="w-full p-2 border dark:bg-gray-900 rounded-lg text-sm font-bold" />
+                               </div>
+                               <div>
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase mb-1">リクエスト数</label>
+                                  <input type="number" value={p.count} onChange={e => updateDosPattern(idx, 'count', Number(e.target.value))} className="w-full p-2 border dark:bg-gray-900 rounded-lg text-sm font-bold" />
+                               </div>
+                               <div>
+                                  <label className="block text-[9px] font-black text-gray-400 uppercase mb-1">遮断 (分)</label>
+                                  <input type="number" value={p.block_minutes} onChange={e => updateDosPattern(idx, 'block_minutes', Number(e.target.value))} className="w-full p-2 border dark:bg-gray-900 rounded-lg text-sm font-bold" placeholder="0=永久" />
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeDosPattern(idx)} className="absolute -top-2 -right-2 p-1.5 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-full text-red-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+                         </div>
+                      ))}
+                      <button type="button" onClick={addDosPattern} className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-gray-400 font-black text-xs hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2"><Plus size={14} /> ルールを追加</button>
+                   </div>
+                </div>
+
+                <div className="lg:col-span-2">
+                   <button type="submit" disabled={!isDirty} className={`w-full py-5 font-black rounded-[1.5rem] shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest ${isDirty ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                      {configMsg ? <CheckCircle2 size={20} /> : <Settings size={20} />} {configMsg || '構成設定を保存する'}
+                   </button>
+                </div>
               </form>
 
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                  <div className="bg-indigo-600 p-10 rounded-[2.5rem] text-white shadow-2xl space-y-8">
                     <div>
                        <h3 className="font-black text-xl mb-1 flex items-center gap-2 uppercase">システムバックアップ</h3>
