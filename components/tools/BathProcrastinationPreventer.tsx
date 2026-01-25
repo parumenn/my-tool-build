@@ -53,11 +53,11 @@ const BathProcrastinationPreventer: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <h2 className="text-3xl font-black text-gray-800 dark:text-white">風呂キャン防止システム</h2>
+              <h2 className="text-3xl font-black text-gray-800 dark:text-white">風呂キャン防止ツール</h2>
               {hasFailedOnce ? (
-                <div className="bg-rose-50 dark:bg-rose-900/20 px-6 py-3 rounded-2xl border border-rose-100 dark:border-rose-800 animate-bounce">
+                <div className="bg-rose-50 dark:bg-rose-900/20 px-6 py-3 rounded-2xl border border-rose-100 dark:border-rose-800">
                   <p className="text-rose-600 dark:text-rose-400 font-black flex items-center justify-center gap-2">
-                    次は絶対だよ？
+                    失敗しちゃった？次は絶対だよ？
                   </p>
                 </div>
               ) : (
@@ -79,8 +79,8 @@ const BathProcrastinationPreventer: React.FC = () => {
         )}
 
         {status === 'counting' && (
-          <div className="animate-scale-up space-y-4 flex flex-col items-center">
-            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl uppercase tracking-[0.3em] animate-pulse">お風呂沸かし中...</p>
+          <div className="animate-fade-in space-y-4 flex flex-col items-center">
+            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl uppercase tracking-[0.3em]">お風呂沸かし中...</p>
             <div className="text-[12rem] font-black text-slate-800 dark:text-white leading-none tabular-nums">
               {count}
             </div>
@@ -91,7 +91,7 @@ const BathProcrastinationPreventer: React.FC = () => {
         )}
 
         {status === 'finished' && (
-          <div className="animate-scale-up space-y-8 flex flex-col items-center">
+          <div className="animate-fade-in space-y-8 flex flex-col items-center">
             <div className="space-y-2">
               <h2 className="text-5xl md:text-7xl font-black text-cyan-600 dark:text-cyan-400 mb-4">
                 はい、動く！！
@@ -100,7 +100,7 @@ const BathProcrastinationPreventer: React.FC = () => {
                 お風呂いくよ！
               </p>
             </div>
-            <div className="bg-cyan-50 dark:bg-cyan-900/30 p-6 rounded-3xl border-2 border-cyan-100 dark:border-cyan-800 animate-pulse">
+            <div className="bg-cyan-50 dark:bg-cyan-900/30 p-6 rounded-3xl border-2 border-cyan-100 dark:border-cyan-800">
                <p className="font-bold text-cyan-800 dark:text-cyan-200 text-lg">
                   スマホを置いて、<br/>お風呂場へ向かいましょう。
                </p>
@@ -119,7 +119,7 @@ const BathProcrastinationPreventer: React.FC = () => {
 
         {/* 背景の装飾 */}
         {status === 'counting' && (
-            <div className="absolute inset-0 pointer-events-none border-[20px] border-cyan-500/20 animate-pulse"></div>
+            <div className="absolute inset-0 pointer-events-none border-[20px] border-cyan-500/10"></div>
         )}
       </div>
 
