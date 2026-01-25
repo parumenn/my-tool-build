@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+
+import React, { useEffect, useRef, useContext } from 'react';
+import { AppContext } from '../App';
 
 declare global {
   interface Window {
@@ -7,20 +9,26 @@ declare global {
 }
 
 const AdBanner: React.FC = () => {
+  const { adBlockDetected } = useContext(AppContext);
   const adRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
-    // Only push the ad once
-    if (adRef.current && !initialized.current) {
+    // Only push the ad once and ONLY if no adblock is detected
+    if (adRef.current && !initialized.current && !adBlockDetected) {
        try {
-         (window.adsbygoogle = window.adsbygoogle || []).push({});
-         initialized.current = true;
+         // Check if adsbygoogle array exists (script loaded) before pushing
+         if (window.adsbygoogle) {
+             (window.adsbygoogle = window.adsbygoogle || []).push({});
+             initialized.current = true;
+         }
        } catch (e) {
-         console.error('AdSense Error', e);
+         // Ignore ad push errors
        }
     }
-  }, []);
+  }, [adBlockDetected]);
+
+  if (adBlockDetected) return null;
 
   return (
     <div className="w-full flex justify-center my-8 bg-gray-50 dark:bg-dark-lighter/50 rounded-lg overflow-hidden border border-dashed border-gray-200 dark:border-gray-700 min-h-[100px] items-center text-xs text-gray-400">

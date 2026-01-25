@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { HelmetProvider } from 'react-helmet-async';
 import { 
   Menu, QrCode, FileText, AlignLeft, Image as ImageIcon, Binary, 
   Network, Activity, Timer, RefreshCwOff, FileDiff, Wallet, Sun, Moon, 
@@ -66,9 +66,11 @@ const ADMIN_PATH = '/secure-panel-7x9v2';
 export const AppContext = createContext<{
   showAds: boolean;
   setShowAds: (v: boolean) => void;
+  adBlockDetected: boolean;
 }>({
   showAds: true,
   setShowAds: () => {},
+  adBlockDetected: false,
 });
 
 // --- Tool Definitions ---
@@ -285,12 +287,13 @@ const Layout: React.FC = () => {
 
   // App Global State
   const [showAds, setShowAds] = useState(() => localStorage.getItem('showAds') !== 'false');
+  const [adBlockDetected, setAdBlockDetected] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('showAds', String(showAds));
     
     // Dynamically Load Google AdSense Script if ads are enabled
-    if (showAds) {
+    if (showAds && !adBlockDetected) {
       const scriptId = 'adsense-script';
       if (!document.getElementById(scriptId)) {
         const script = document.createElement('script');
@@ -298,10 +301,14 @@ const Layout: React.FC = () => {
         script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8961158026153736";
         script.async = true;
         script.crossOrigin = "anonymous";
+        script.onerror = () => {
+            console.log("AdSense script failed to load (likely blocked by AdBlock). Disabling ads for this session.");
+            setAdBlockDetected(true);
+        };
         document.head.appendChild(script);
       }
     }
-  }, [showAds]);
+  }, [showAds, adBlockDetected]);
 
   const currentTool = TOOLS.find(t => t.path === location.pathname);
   const isMultiview = location.pathname === '/multiview';
@@ -316,7 +323,7 @@ const Layout: React.FC = () => {
   }
 
   return (
-    <AppContext.Provider value={{ showAds, setShowAds }}>
+    <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected }}>
       <TermsModal />
       <AccessLogger />
       
@@ -426,7 +433,7 @@ const Layout: React.FC = () => {
                 <Route path="/subnet" element={<IpSubnetVisualizer />} />
                 <Route path="/server-loc" element={<ServerLocation />} />
               </Routes>
-              {showAds && !isAdmin && <div className="mt-12"><AdBanner /></div>}
+              {showAds && !isAdmin && !adBlockDetected && <div className="mt-12"><AdBanner /></div>}
             </div>
           </main>
         </div>
@@ -437,9 +444,11 @@ const Layout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Layout />
-    </HashRouter>
+    <HelmetProvider>
+        <HashRouter>
+            <Layout />
+        </HashRouter>
+    </HelmetProvider>
   );
 };
 
