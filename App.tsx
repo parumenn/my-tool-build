@@ -89,7 +89,7 @@ export const TOOLS: Tool[] = [
   { id: 'timer', name: 'タイマー', path: '/timer', description: 'タイマー・SW・ポモドーロ', icon: Timer, color: 'text-rose-600', lightBg: 'bg-rose-600/10', longDescription: '多機能タイマー。集中力を高めるポモドーロやストップウォッチ機能を搭載。', keywords: ['タイマー', 'ポモドーロ', '集中'] },
   { id: 'notepad', name: 'メモ帳', path: '/notepad', description: 'リッチテキスト対応のメモ', icon: StickyNote, color: 'text-lime-600', lightBg: 'bg-lime-50', longDescription: 'ブラウザ保存の多機能メモ帳。コードハイライトやリッチテキスト編集に対応。', keywords: ['オンラインメモ', 'メモ帳', 'テキスト編集'] },
   { id: 'calculator', name: '計算機', path: '/calculator', description: '履歴付きシンプル計算機', icon: Calculator, color: 'text-orange-600', lightBg: 'bg-orange-50', longDescription: '計算履歴が残るシンプルなWeb電卓。直感的な操作が可能です。', keywords: ['電卓', '計算機', 'オンライン電卓'] },
-  { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'タイマー付き得点板', icon: Trophy, color: 'text-blue-700', lightBg: 'bg-blue-50', longDescription: 'スポーツやゲームで使える多機能スコアボード。タイマー機能付き。', keywords: ['得点板', 'スコアボード', 'スポーツ'] },
+  { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'タイマー付き得点板', icon: Trophy, color: 'text-blue-700', lightBg: 'bg-blue-50', longDescription: 'スポーツやゲームで使える多機能スコアボード. タイマー機能付き。', keywords: ['得点板', 'スコアボード', 'スポーツ'] },
   { id: 'unit', name: '単位変換', path: '/unit', description: '長さ・重さ・温度・面積', icon: Scale, color: 'text-fuchsia-500', lightBg: 'bg-fuchsia-50', longDescription: '長さ、重さ、温度、面積など、日常で使う様々な単位を相互変換します。', keywords: ['単位変換', '単位計算', '換算'] },
   { id: 'random', name: 'ランダム生成', path: '/random', description: '数字のランダム生成', icon: Dices, color: 'text-rose-500', lightBg: 'bg-rose-50', longDescription: '指定した範囲内で乱数を生成。重複の可否も設定可能です。', keywords: ['乱数生成', 'ランダム', '数字'] },
   { id: 'ratio', name: 'アスペクト比計算', path: '/ratio', description: '比率と解像度の計算', icon: BoxSelect, color: 'text-cyan-500', lightBg: 'bg-cyan-50', longDescription: '縦横のサイズからアスペクト比を算出。FHDや4Kなどのプリセットも充実。', keywords: ['アスペクト比', '解像度', '比率計算'] },
@@ -140,6 +140,12 @@ const Layout: React.FC = () => {
     return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
   });
   
+  // 広告表示状態のステートを管理
+  const [showAds, setShowAds] = useState(() => {
+    const saved = localStorage.getItem('showAds');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   const location = useLocation();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -149,6 +155,11 @@ const Layout: React.FC = () => {
     else root.classList.remove('dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // ステート変更時にLocalStorageに保存
+  useEffect(() => {
+    localStorage.setItem('showAds', JSON.stringify(showAds));
+  }, [showAds]);
 
   useEffect(() => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
@@ -162,7 +173,7 @@ const Layout: React.FC = () => {
   if (isAdmin) return <AdminPage />;
 
   return (
-    <AppContext.Provider value={{ showAds: true, setShowAds: () => {}, adBlockDetected: false }}>
+    <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected: false }}>
       <SEOManager />
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
         <Sidebar tools={sidebarTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} onReorder={setAddedTools} />
@@ -179,7 +190,6 @@ const Layout: React.FC = () => {
                 {currentTool && <span className="hidden sm:inline font-normal text-gray-400">/ {currentTool.name}</span>}
              </div>
              <div className="flex items-center gap-2">
-                {/* 設定アイコンを削除 */}
                 <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">
                     {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                 </button>
