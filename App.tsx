@@ -86,7 +86,7 @@ export const TOOLS: Tool[] = [
   { id: 'speed', name: 'スピードテスト', path: '/speed', description: '回線速度の計測', icon: Activity, color: 'text-rose-500', lightBg: 'bg-rose-50', longDescription: 'インターネット回線のダウンロード・アップロード速度をリアルタイム計測。', keywords: ['スピードテスト', '回線速度', 'ネット診断'] },
   { id: 'server-loc', name: 'サーバー位置情報', path: '/server-loc', description: 'ドメインから位置を特定', icon: Globe, color: 'text-indigo-500', lightBg: 'bg-indigo-50', longDescription: 'IPやドメインからサーバーの物理的な所在地をマップ表示。トレースルート対応。', keywords: ['サーバー場所', 'ドメイン検索', 'IP住所'] },
   { id: 'binary', name: '2進数変換', path: '/binary', description: '10進数と2進数の相互変換', icon: Binary, color: 'text-teal-500', lightBg: 'bg-teal-50', longDescription: 'プログラミングに便利な10進数・2進数・16進数の相互変換ツール。', keywords: ['2進数変換', 'バイナリ', 'プログラミング'] },
-  { id: 'timer', name: 'タイマー', path: '/timer', description: 'タイマー・SW・ポモドーロ', icon: Timer, color: 'text-rose-600', lightBg: 'bg-rose-50', longDescription: '多機能タイマー。集中力を高めるポモドーロやストップウォッチ機能を搭載。', keywords: ['タイマー', 'ポモドーロ', '集中'] },
+  { id: 'timer', name: 'タイマー', path: '/timer', description: 'タイマー・SW・ポモドーロ', icon: Timer, color: 'text-rose-600', lightBg: 'bg-rose-600/10', longDescription: '多機能タイマー。集中力を高めるポモドーロやストップウォッチ機能を搭載。', keywords: ['タイマー', 'ポモドーロ', '集中'] },
   { id: 'notepad', name: 'メモ帳', path: '/notepad', description: 'リッチテキスト対応のメモ', icon: StickyNote, color: 'text-lime-600', lightBg: 'bg-lime-50', longDescription: 'ブラウザ保存の多機能メモ帳。コードハイライトやリッチテキスト編集に対応。', keywords: ['オンラインメモ', 'メモ帳', 'テキスト編集'] },
   { id: 'calculator', name: '計算機', path: '/calculator', description: '履歴付きシンプル計算機', icon: Calculator, color: 'text-orange-600', lightBg: 'bg-orange-50', longDescription: '計算履歴が残るシンプルなWeb電卓。直感的な操作が可能です。', keywords: ['電卓', '計算機', 'オンライン電卓'] },
   { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: 'タイマー付き得点板', icon: Trophy, color: 'text-blue-700', lightBg: 'bg-blue-50', longDescription: 'スポーツやゲームで使える多機能スコアボード。タイマー機能付き。', keywords: ['得点板', 'スコアボード', 'スポーツ'] },
@@ -120,7 +120,7 @@ const SEOManager: React.FC = () => {
   const tool = TOOLS.find(t => t.path === location.pathname);
   const siteTitle = "まいつーる - 登録不要の無料Webツール集";
   const title = tool ? `${tool.name} | ${siteTitle}` : siteTitle;
-  const description = tool?.longDescription || "まいつーるは、日常で役立つWebツールがインストール不要・無料で使えるサイトです。";
+  const description = tool?.longDescription || "まいつーるは、日常で役立つWebツールがインストール不要・無料で使えるサイトです。プライバシー重視のブラウザ完結設計。";
 
   return (
     <Helmet>
@@ -179,8 +179,8 @@ const Layout: React.FC = () => {
                 {currentTool && <span className="hidden sm:inline font-normal text-gray-400">/ {currentTool.name}</span>}
              </div>
              <div className="flex items-center gap-2">
-                <Link to="/settings" className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"><SettingsIcon size={20} /></Link>
-                <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200">
+                {/* 設定アイコンを削除 */}
+                <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">
                     {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                 </button>
              </div>

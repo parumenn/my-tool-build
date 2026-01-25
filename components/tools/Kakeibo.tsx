@@ -108,7 +108,7 @@ const Kakeibo: React.FC = () => {
         
         <div className={`flex items-center gap-2 bg-white dark:bg-dark-lighter p-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 ${isWorkspace ? 'w-full justify-between' : ''}`}>
            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><ChevronLeft size={isWorkspace ? 16 : 20} /></button>
-           <span className="font-bold px-2 text-center text-gray-800 dark:text-white">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</span>
+           <span className="font-bold px-2 text-center text-gray-800 dark:text-white text-xs sm:text-sm">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</span>
            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><ChevronRight size={isWorkspace ? 16 : 20} /></button>
         </div>
       </div>
