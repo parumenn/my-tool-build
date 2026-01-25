@@ -9,7 +9,8 @@ import {
   KeyRound, Scale, Clock, Palette, FileJson, FileType, Calculator, 
   Trophy, Stamp, Dices, BoxSelect, Fingerprint, Type, Disc, ArrowRightLeft,
   ImageOff, Hash, Search, BookOpen, ListTodo, FileStack, Code, Database,
-  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette, Pencil, Watch
+  CalendarDays, Share2, Globe, Shield, X, AlertCircle, Pipette, Pencil, Watch,
+  ShieldAlert, Lock
 } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
@@ -17,7 +18,7 @@ import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
 import AdminPage from './components/admin/AdminPage';
 
-// Tools Components
+// ツールコンポーネントのインポート
 import QRCodeGenerator from './components/tools/QRCodeGenerator';
 import FileConverter from './components/tools/FileConverter';
 import CharacterCounter from './components/tools/CharacterCounter';
@@ -116,14 +117,13 @@ export const TOOLS: Tool[] = [
 ];
 
 /**
- * AccessLogger: ルーティングが変更されるたびにログをバックエンドへ送信するコンポーネント
+ * AccessLogger & Block Checker: 
+ * 全ての遷移をバックエンドに通知し、もしIPが遮断されていればアプリをロックする
  */
-const AccessLogger: React.FC = () => {
+const AccessLogger: React.FC<{ onBlocked: (blocked: boolean) => void }> = ({ onBlocked }) => {
   const location = useLocation();
   
   useEffect(() => {
-    // 管理者画面の操作自体はadmin_api側で個別にログ処理される場合もあるが、
-    // ここではすべてのユーザー遷移を記録対象とする
     fetch('./backend/admin_api.php?action=log_access', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -132,10 +132,14 @@ const AccessLogger: React.FC = () => {
         referer: document.referrer,
         status: 200
       })
-    }).catch(() => {
-      // ログ送信失敗はユーザー体験を損なわないよう無視する
-    });
-  }, [location.pathname]);
+    })
+    .then(async (res) => {
+        if (res.status === 403 || res.status === 429) {
+            onBlocked(true);
+        }
+    })
+    .catch(() => {});
+  }, [location.pathname, onBlocked]);
 
   return null;
 };
@@ -160,12 +164,12 @@ const SEOManager: React.FC = () => {
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  const [isBlocked, setIsBlocked] = useState(false); // IP遮断フラグ
   const [addedTools, setAddedTools] = useState<string[]>(() => {
     const saved = localStorage.getItem('addedTools');
     return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
   });
   
-  // 広告表示状態のステートを管理
   const [showAds, setShowAds] = useState(() => {
     const saved = localStorage.getItem('showAds');
     return saved !== null ? JSON.parse(saved) : true;
@@ -181,7 +185,6 @@ const Layout: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // ステート変更時にLocalStorageに保存
   useEffect(() => {
     localStorage.setItem('showAds', JSON.stringify(showAds));
   }, [showAds]);
@@ -195,12 +198,30 @@ const Layout: React.FC = () => {
   const isAdmin = location.pathname === ADMIN_PATH;
   const sidebarTools = addedTools.map(id => TOOLS.find(t => t.id === id)).filter((t): t is Tool => t !== undefined);
 
+  // IP遮断時の表示
+  if (isBlocked) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white font-sans">
+      <div className="max-w-md w-full text-center space-y-6">
+        <div className="inline-flex p-6 bg-red-500/20 rounded-full text-red-500 mb-4 animate-pulse">
+           <ShieldAlert size={64} />
+        </div>
+        <h2 className="text-3xl font-black">アクセス制限</h2>
+        <div className="h-1 w-20 bg-red-500 mx-auto rounded-full"></div>
+        <p className="text-slate-400 text-lg leading-relaxed">
+           セキュリティ上の理由により、お使いのIPアドレスからのアクセスは制限されています。<br/>
+           心当たりがない場合は、ネットワーク管理者へお問い合わせください。
+        </p>
+        <p className="text-[10px] text-slate-600 font-mono">Error Code: 403_ACCESS_DENIED</p>
+      </div>
+    </div>
+  );
+
   if (isAdmin) return <AdminPage />;
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected: false }}>
       <SEOManager />
-      <AccessLogger />
+      <AccessLogger onBlocked={setIsBlocked} />
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
         <Sidebar tools={sidebarTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} onReorder={setAddedTools} />
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
@@ -223,13 +244,13 @@ const Layout: React.FC = () => {
           </header>
 
           <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar">
-            <div className="max-w-7xl mx-auto h-full">
+            <div className="max-w-7xl mx-auto h-full pb-20">
               <Routes>
                 <Route path="/" element={<Dashboard tools={TOOLS} addedTools={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={setAddedTools} />} />
                 <Route path="/multiview" element={<MultiToolViewer tools={TOOLS} />} />
                 <Route path="/settings" element={<Settings />} />
                 
-                {/* Tools Routes */}
+                {/* ツールルート */}
                 <Route path="/qrcode" element={<QRCodeGenerator />} />
                 <Route path="/count" element={<CharacterCounter />} />
                 <Route path="/picker" element={<ColorPickerTool />} />
