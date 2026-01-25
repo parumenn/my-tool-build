@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X } from 'lucide-react';
+import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
 
 // 重いコンポーネントの遅延読み込み
@@ -50,6 +50,7 @@ const ImageWatermarker = lazy(() => import('./components/tools/ImageWatermarker'
 const ExifRemover = lazy(() => import('./components/tools/ExifRemover'));
 const TextDiff = lazy(() => import('./components/tools/TextDiff'));
 const TimestampConverter = lazy(() => import('./components/tools/TimestampConverter'));
+const BathProcrastinationPreventer = lazy(() => import('./components/tools/BathProcrastinationPreventer'));
 
 export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
 
@@ -58,11 +59,22 @@ const Layout: React.FC = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [addedTools, setAddedTools] = useState<string[]>(() => {
     const saved = localStorage.getItem('addedTools');
-    return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
+    return saved ? JSON.parse(saved) : ['qrcode', 'speed', 'kakeibo', 'count'];
   });
   const [showAds, setShowAds] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
+  const [isTermsChecked, setIsTermsChecked] = useState(false);
+  const [showTermsDetail, setShowTermsDetail] = useState(false);
+  
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  // ページ遷移時にスクロール位置をトップに戻す
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   // 初回訪問チェック
   useEffect(() => {
@@ -79,6 +91,7 @@ const Layout: React.FC = () => {
   }, [theme]);
 
   const handleConsent = () => {
+    if (!isTermsChecked) return;
     localStorage.setItem('maitool_consented', 'true');
     setShowConsent(false);
   };
@@ -94,49 +107,148 @@ const Layout: React.FC = () => {
         {/* 初回同意ポップアップ */}
         {showConsent && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
-            <div className="bg-white dark:bg-dark-lighter w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-scale-up">
-              <div className="bg-blue-600 p-8 text-white text-center relative">
-                <div className="bg-white/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/30">
-                  <ShieldCheck size={40} />
+            <div className="bg-white dark:bg-dark-lighter w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-scale-up relative">
+              
+              <div className="bg-blue-600 p-8 text-white text-center relative shrink-0">
+                <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/30">
+                  <ShieldCheck size={32} />
                 </div>
-                <h2 className="text-2xl font-black mb-2">{isJP ? 'まいつーるへようこそ' : 'Welcome to OmniTools'}</h2>
-                <p className="text-blue-100 text-sm font-medium">{isJP ? 'プライバシーに配慮した便利なWebツール集' : 'Privacy-first web utility suite'}</p>
+                <h2 className="text-xl font-black mb-1">{isJP ? 'まいつーるへようこそ' : 'Welcome to OmniTools'}</h2>
+                <p className="text-blue-100 text-xs font-medium">{isJP ? 'プライバシーに配慮した便利なWebツール集' : 'Privacy-first web utility suite'}</p>
               </div>
               
-              <div className="p-8 space-y-6">
+              <div className="p-8 space-y-5 overflow-y-auto no-scrollbar max-h-[60vh]">
                 <div className="space-y-4">
                   <div className="flex gap-4">
-                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0 h-fit"><CheckCircle2 size={20} /></div>
+                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0 h-fit"><CheckCircle2 size={18} /></div>
                     <div>
-                      <p className="font-black text-sm text-slate-800 dark:text-white">{isJP ? 'データはすべてブラウザ内に保存' : 'All data stays in your browser'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                        {isJP ? '入力されたデータがサーバーに送信・保存されることはありません。安心してお使いいただけます。' : 'Input data is processed locally and never sent to our servers. Your privacy is protected.'}
+                      <p className="font-black text-xs text-slate-800 dark:text-white">{isJP ? 'データはすべてブラウザ内に保存' : 'All data stays in your browser'}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                        {isJP 
+                          ? '各アプリで入力されたデータはサーバーに送信・保存されることはありません。ローカル環境で動作するためご利用のブラウザに依存します。' 
+                          : 'Data entered in each app is not sent to or stored on our servers. It operates locally and depends on the browser you use.'}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 h-fit"><Zap size={20} /></div>
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 h-fit"><Zap size={18} /></div>
                     <div>
-                      <p className="font-black text-sm text-slate-800 dark:text-white">{isJP ? '広告表示へのご理解' : 'Ad Support'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                      <p className="font-black text-xs text-slate-800 dark:text-white">{isJP ? '広告表示へのご理解' : 'Ad Support'}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
                         {isJP ? '本サービスを無料で維持するため、広告を表示しています。あらかじめご了承ください。' : 'To keep this service free and sustainable, we display ads. We appreciate your understanding.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 h-fit"><Cookie size={18} /></div>
+                    <div>
+                      <p className="font-black text-xs text-slate-800 dark:text-white">{isJP ? 'Cookie（クッキー）の利用' : 'Cookie Usage'}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
+                        {isJP ? '広告の最適化やアクセス解析のためCookieを使用します。設定はブラウザからいつでも変更可能です。' : 'We use cookies for ad optimization and analytics. You can change your settings in your browser.'}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <div className="flex items-start gap-3 mb-6 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" onClick={() => setIsTermsChecked(!isTermsChecked)}>
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input 
+                        type="checkbox" 
+                        checked={isTermsChecked}
+                        onChange={(e) => setIsTermsChecked(e.target.checked)}
+                        className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="text-xs font-bold text-gray-600 dark:text-gray-300 select-none">
+                      {isJP ? (
+                        <>
+                          <button 
+                            className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1"
+                            onClick={(e) => { e.stopPropagation(); setShowTermsDetail(true); }}
+                          >
+                            その他の同意事項
+                            <ExternalLink size={12} />
+                          </button>
+                          を読んで同意した
+                        </>
+                      ) : 'I have read and agree to the other terms of use.'}
+                    </div>
+                  </div>
+
                   <button 
                     onClick={handleConsent}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+                    disabled={!isTermsChecked}
+                    className={`w-full py-4 font-black rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                      isTermsChecked 
+                        ? 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none hover:bg-blue-700' 
+                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed shadow-none'
+                    }`}
                   >
                     {isJP ? '同意して利用を開始する' : 'Agree and Get Started'}
                   </button>
                   <p className="text-center text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-bold">
-                    By clicking, you agree to our local storage usage
+                    {isJP 
+                      ? '利用を開始することで、ローカルストレージおよびCookieの使用に同意したものとみなされます。' 
+                      : 'By clicking, you agree to our local storage and cookie usage.'}
                   </p>
                 </div>
               </div>
+
+              {/* 利用規約詳細オーバーレイ */}
+              {showTermsDetail && (
+                <div className="absolute inset-0 z-[110] bg-white dark:bg-dark flex flex-col animate-fade-in">
+                  <div className="flex items-center justify-between p-6 border-b dark:border-gray-800 shrink-0">
+                    <h3 className="font-black text-lg">{isJP ? '利用規約・個人情報の取り扱い' : 'Terms of Service'}</h3>
+                    <button onClick={() => setShowTermsDetail(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"><X size={20} /></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 text-xs md:text-sm leading-relaxed space-y-6">
+                    <div>
+                      <h4 className="font-black text-blue-600 mb-2">1. 取得する情報および収集方法</h4>
+                      <p className="text-gray-500 dark:text-gray-400">当サイトでは、サービスの提供およびセキュリティ向上のため、以下の情報を自動的に収集します。</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
+                        <li>アクセスログ: IPアドレス、ブラウザの種類（User Agent）、閲覧日時、遷移元URL、サイト内での操作履歴。</li>
+                        <li>Cookie（クッキー）: ユーザーの識別および利便性向上のために使用します。</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-black text-blue-600 mb-2">2. 利用目的</h4>
+                      <p className="text-gray-500 dark:text-gray-400">収集した情報は、以下の目的でのみ利用します。</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
+                        <li>不正アクセスの検知・防止: サーバー攻撃、スパム行為、およびその他の不正行為からサイトを保護するため。</li>
+                        <li>サービスの維持・改善: ページの読み込み速度の最適化、コンテンツの質向上、および不具合改修のため。</li>
+                        <li>法令に基づく対応: 警察、裁判所、またはその他の公的機関から法的な要請があった場合、法令に基づきログを開示することがあります。</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-black text-blue-600 mb-2">3. Cookieの利用同意と無効化</h4>
+                      <p className="text-gray-500 dark:text-gray-400">ユーザーは、当サイトを利用することでCookieの使用に同意したものとみなされます。ユーザーはブラウザの設定によりCookieを無効化できます。ただし、Cookieを無効にした場合、当サイトの一部機能が正常に動作しない可能性があり、これによって生じた不便や損害について、当サイトは一切の責任を負いません。</p>
+                    </div>
+                    <div>
+                      <h4 className="font-black text-blue-600 mb-2">4. 禁止事項</h4>
+                      <p className="text-gray-500 dark:text-gray-400">ユーザーは、当サイトの利用にあたり、以下の行為を行ってはなりません。</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
+                        <li>本サイトの解析（逆コンパイル、逆アセンブル等）、改ざん、または修正行為。</li>
+                        <li>短時間での過度な連続アクセス（DoS攻撃等）、サーバーへの過度な負荷をかける行為。</li>
+                        <li>サイトの脆弱性を突く行為や、不正なスクリプトを実行する行為。</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-black text-blue-600 mb-2">5. 免責事項</h4>
+                      <p className="text-gray-500 dark:text-gray-400">当サイトの利用に関して、以下の事項について当サイトは一切の責任を負いません。</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
+                        <li>情報の正確性: ログの記録や提供する情報に万一漏れや誤りがあった場合でも、それにより生じた損害。</li>
+                        <li>通信環境: ユーザー側の通信機器、ソフトウェア、または通信回線の不備に起因するトラブル。</li>
+                        <li>包括的免責: その他、本サイトの利用を通じてユーザーまたは第三者が被ったいかなる損害（直接的・間接的を問いません）についても、当サイトに故意または重大な過失がある場合を除き、一切の賠償責任を負わないものとします。</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="p-6 border-t dark:border-gray-800 shrink-0">
+                    <button onClick={() => setShowTermsDetail(false)} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">{isJP ? '戻る' : 'Back'}</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -181,7 +293,7 @@ const Layout: React.FC = () => {
             <div className="max-w-7xl mx-auto h-full">
               <Suspense fallback={<LoadingSkeleton />}>
                 <Routes>
-                  <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} />} />
+                  <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={() => {}} />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/qrcode" element={<QRCodeGenerator />} />
                   <Route path="/count" element={<CharacterCounter />} />
@@ -222,6 +334,7 @@ const Layout: React.FC = () => {
                   <Route path="/exif" element={<ExifRemover />} />
                   <Route path="/diff" element={<TextDiff />} />
                   <Route path="/timestamp" element={<TimestampConverter />} />
+                  <Route path="/bath" element={<BathProcrastinationPreventer />} />
                 </Routes>
               </Suspense>
             </div>

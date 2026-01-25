@@ -6,13 +6,14 @@ import {
   FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
   Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
   BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
-  Pipette
+  Pipette, Bath
 } from 'lucide-react';
 import { Tool } from '../types';
 
 export const TOOLS: Tool[] = [
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50', longDescription: '安全で高速なオンラインQRコード作成ツール。商用利用無料で、生成データはサーバーに保存されません。', keywords: ['QRコード作成', '無料', '高画質'] },
   { id: 'count', name: '文字数カウンター', path: '/count', description: 'リアルタイムで文字数・行数をカウント', icon: AlignLeft, color: 'text-green-500', lightBg: 'bg-green-50', longDescription: 'レポートやSNS投稿に便利な高機能文字数カウント。ひらがな・漢字の比率分析も。', keywords: ['文字数カウント', '原稿用紙換算'] },
+  { id: 'bath-prevent', name: '風呂キャン防止', path: '/bath', description: '5秒で強制的に風呂へ向かわせる', icon: Bath, color: 'text-cyan-500', lightBg: 'bg-cyan-50', longDescription: '「お風呂に入るのが面倒」という心理的障壁を、5秒の強制カウントダウンと鼓動演出で突破します。', keywords: ['風呂キャン', 'モチベーション', 'タイマー'] },
   { id: 'picker', name: 'カラーピッカー', path: '/picker', description: 'RGB/HSL/CMYK変換・画像から抽出', icon: Pipette, color: 'text-pink-600', lightBg: 'bg-pink-50', longDescription: 'Web制作に最適なカラーピッカー。スポイト機能で画像から色を抽出できます。', keywords: ['カラーピッカー', 'HEX変換', 'スポイト'] },
   { id: 'password', name: 'パスワード生成', path: '/password', description: '強力なランダムパスワードを生成', icon: KeyRound, color: 'text-emerald-600', lightBg: 'bg-emerald-50', longDescription: '強力で安全なパスワードをブラウザで生成。記号の有無や履歴保存にも対応。', keywords: ['パスワード生成', 'セキュリティ', 'ランダム'] },
   { id: 'kakeibo', name: 'まいつーる家計簿', path: '/kakeibo', description: '登録不要の多機能家計簿', icon: Wallet, color: 'text-yellow-600', lightBg: 'bg-yellow-50', longDescription: 'ブラウザ保存で安心の無料家計簿。円グラフ分析、サブスク管理、目標設定機能。', keywords: ['家計簿', '節約', '無料ツール'] },
