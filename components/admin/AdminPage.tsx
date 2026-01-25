@@ -5,7 +5,7 @@ import {
   Activity, BarChart3, Settings, Clock, Shield, KeyRound,
   RefreshCw, CheckCircle2, AlertTriangle, XCircle, Trash2, 
   Download, Upload, Database, Server, Filter, Search, Zap, ShieldCheck,
-  TrendingUp, MousePointer2, ListOrdered
+  TrendingUp, MousePointer2, ListOrdered, FileJson
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -38,11 +38,14 @@ const AdminPage: React.FC = () => {
 
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfig>({ smtp_host: '', smtp_port: 587, smtp_user: '', alert_email: '', smtp_pass: '' });
   const [smtpMsg, setSmtpMsg] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- ダッシュボード用データ集計 ---
   const chartData = useMemo(() => {
     if (!stats?.recent_logs) return [];
-    // 直近24時間の時間別アクセス数を集計
     const hours: Record<string, number> = {};
     const now = new Date();
     for (let i = 23; i >= 0; i--) {
@@ -105,41 +108,22 @@ const AdminPage: React.FC = () => {
         const data = await res.json();
         setMessages(data.messages);
         setStats(data.stats);
-        setSmtpConfig(prev => ({...prev, ...data.config, smtp_pass: ''}));
+        // パスワード欄を上書きしないようにマージ (サーバーからはパスワードは返されない)
+        setSmtpConfig(prev => ({
+          ...prev, 
+          ...data.config,
+          smtp_pass: prev.smtp_pass // ユーザーが入力中のパスワードを保持
+        }));
       } else {
         logout();
       }
     } catch (e) {} finally { setDataLoading(false); }
   };
 
-  const fetchSecurity = async () => {
-    if (!token) return;
-    try {
-      const res = await fetch('./backend/admin_api.php?action=fetch_security', {
-        headers: { 'X-Admin-Token': token }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBlockedIps(data.blocked_ips);
-      }
-    } catch (e) {}
-  };
-
-  const unblockIp = async (ip: string) => {
-    if (!token || !confirm(`${ip} の遮断を解除しますか？`)) return;
-    try {
-      const res = await fetch('./backend/admin_api.php?action=unblock_ip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
-        body: JSON.stringify({ ip })
-      });
-      if (res.ok) fetchSecurity();
-    } catch (e) {}
-  };
-
   const handleUpdateSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    setSmtpMsg('更新中...');
     try {
       const res = await fetch('./backend/admin_api.php?action=update_smtp', {
         method: 'POST',
@@ -147,8 +131,63 @@ const AdminPage: React.FC = () => {
         body: JSON.stringify(smtpConfig)
       });
       const data = await res.json();
-      setSmtpMsg(data.status === '成功' || data.status === 'success' ? '設定を保存し、テストメールを送信しました。' : 'エラー: ' + data.message);
-    } catch (e) { setSmtpMsg('保存に失敗しました。'); }
+      if (data.status === '成功' || data.status === 'success') {
+          setSmtpMsg('設定を保存し、テストメールを送信しました。');
+          // 送信成功後、ローカルのパスワード表示はクリア（再編集用）
+          setSmtpConfig(p => ({...p, smtp_pass: ''}));
+      } else {
+          setSmtpMsg('エラー: ' + (data.message || '保存に失敗しました'));
+      }
+    } catch (e) { setSmtpMsg('サーバー通信エラーが発生しました。'); }
+  };
+
+  const handleExportAll = () => {
+    if (!stats || !messages) return;
+    const backupData = {
+        config: { ...smtpConfig, smtp_pass: '********' }, // 安全のため伏字
+        messages: messages,
+        logs: stats.recent_logs
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `まいつーる_システムバックアップ_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
+  const handleImportJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !token) return;
+    
+    if (!confirm('システムデータを復元しますか？現在のメッセージとアクセスログは上書きされます。')) return;
+    
+    setIsImporting(true);
+    setImportStatus('idle');
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const res = await fetch('./backend/admin_api.php?action=import_data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+            body: JSON.stringify(json)
+        });
+        if (res.ok) {
+            setImportStatus('success');
+            fetchDashboard();
+        } else {
+            setImportStatus('error');
+        }
+      } catch (err) {
+        setImportStatus('error');
+        alert('JSONの解析に失敗しました。ファイル形式が正しいか確認してください。');
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const logout = () => { setToken(null); sessionStorage.removeItem('admin_token'); };
@@ -160,10 +199,6 @@ const AdminPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [token]);
-
-  useEffect(() => {
-    if (activeTab === 'security') fetchSecurity();
-  }, [activeTab]);
 
   if (!token) return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -218,7 +253,6 @@ const AdminPage: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === 'dashboard' && stats && (
           <div className="space-y-6 animate-fade-in">
-             {/* 重要指標 */}
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">本日のアクセス数</p>
@@ -238,7 +272,6 @@ const AdminPage: React.FC = () => {
                 </div>
              </div>
 
-             {/* グラフ & ランキング */}
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
                    <div className="flex justify-between items-center mb-6">
@@ -287,31 +320,54 @@ const AdminPage: React.FC = () => {
                    </div>
                 </div>
              </div>
-
-             {/* 最新の活動リスト */}
-             <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-black mb-4 flex items-center gap-2 text-gray-700 dark:text-gray-200"><Clock size={18} className="text-orange-500" /> 最新のアクセス状況</h3>
-                <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                      <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
-                         {stats.recent_logs.slice(0, 10).map((log, i) => (
-                            <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                               <td className="py-3 px-2 whitespace-nowrap">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                     {log.status || 200}
-                                  </span>
-                               </td>
-                               <td className="py-3 px-2 text-xs font-mono font-bold text-blue-500 truncate max-w-[200px]">{log.path}</td>
-                               <td className="py-3 px-2 text-[10px] text-gray-400 font-mono hidden md:table-cell">{log.ip}</td>
-                               <td className="py-3 px-2 text-[10px] text-gray-500 font-black text-right whitespace-nowrap">{log.date}</td>
-                            </tr>
-                         ))}
-                      </tbody>
-                   </table>
-                </div>
-                <button onClick={() => setActiveTab('logs')} className="w-full mt-4 py-2 text-xs font-bold text-gray-400 hover:text-blue-500 transition-colors">すべての詳細ログを表示</button>
-             </div>
           </div>
+        )}
+
+        {activeTab === 'settings' && (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                 <h3 className="font-black text-xl mb-8 flex items-center gap-3"><Server className="text-orange-500" /> 通知・メールサーバー設定</h3>
+                 <form onSubmit={handleUpdateSmtp} className="space-y-5">
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">SMTPサーバー名</label><input type="text" value={smtpConfig.smtp_host} onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" placeholder="例: smtp.gmail.com" /></div>
+                    <div className="grid grid-cols-3 gap-4">
+                       <div className="col-span-1"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">ポート番号</label><input type="number" value={smtpConfig.smtp_port} onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                       <div className="col-span-2"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">メールアドレス / ユーザー名</label><input type="text" value={smtpConfig.smtp_user} onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    </div>
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">パスワード</label><input type="password" value={smtpConfig.smtp_pass} onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="変更時のみ入力（通常は空欄）" className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">アラート送信先 (管理者メール)</label><input type="email" value={smtpConfig.alert_email} onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    {smtpMsg && <p className={`text-xs font-bold ${smtpMsg.includes('エラー') ? 'text-red-500' : 'text-blue-500'} bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border dark:border-gray-700`}>{smtpMsg}</p>}
+                    <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-lg transition-all active:scale-[0.98]">設定を保存して接続テスト</button>
+                 </form>
+              </div>
+              
+              <div className="flex flex-col gap-6">
+                 <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                       <div>
+                          <h3 className="font-black text-xl mb-1">DBバックアップと復元</h3>
+                          <p className="text-xs opacity-70 font-bold">サーバーデータの物理エクスポート・インポート</p>
+                       </div>
+                       <Database size={32} className="opacity-30" />
+                    </div>
+                    <div className="mt-8 space-y-4">
+                       <div className="flex gap-3">
+                          <button onClick={handleExportAll} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"><Download size={16} /> JSON出力</button>
+                          <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-3 bg-white text-indigo-600 rounded-xl font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2"><Upload size={16} /> JSON読み込み</button>
+                       </div>
+                       <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportJson} className="hidden" />
+                       {isImporting && <div className="flex items-center justify-center gap-2 text-xs font-bold animate-pulse"><Loader2 className="animate-spin" size={14} /> データを復元中...</div>}
+                       {importStatus === 'success' && <div className="bg-green-500/20 text-green-200 p-3 rounded-xl text-center text-xs font-bold border border-green-500/30 flex items-center justify-center gap-2"><CheckCircle2 size={16} /> データの復元に成功しました</div>}
+                    </div>
+                 </div>
+
+                 <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center text-center">
+                    <div className="p-5 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-600 mb-6"><KeyRound size={48} /></div>
+                    <h3 className="font-black text-xl mb-2">管理者パスワードの変更</h3>
+                    <p className="text-xs text-gray-400 font-bold mb-8 uppercase tracking-widest leading-relaxed">セキュリティ推奨設定: <br/>90日ごとのパスワード更新を推奨しています。</p>
+                    <button className="w-full py-3.5 border-2 border-blue-500 text-blue-500 font-black rounded-xl hover:bg-blue-50 transition-all active:scale-[0.98]">パスワード変更を開始</button>
+                 </div>
+              </div>
+           </div>
         )}
 
         {activeTab === 'logs' && stats && (
@@ -352,6 +408,22 @@ const AdminPage: React.FC = () => {
            </div>
         )}
 
+        {activeTab === 'messages' && (
+           <div className="space-y-4 animate-fade-in">
+              {messages.length === 0 ? (
+                 <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-3xl border-4 border-dashed border-gray-100 dark:border-gray-700 text-gray-400 font-black">受信したメッセージはありません</div>
+              ) : messages.map(m => (
+                 <div key={m.id} className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-pink-200 transition-colors group">
+                    <div className="flex flex-col sm:flex-row justify-between mb-6 gap-2">
+                       <span className="font-black text-blue-600 flex items-center gap-2 text-lg"><User size={20} className="text-gray-300" /> {m.name} <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-normal">{m.contact}</span></span>
+                       <span className="text-[10px] text-gray-400 font-mono bg-gray-50 dark:bg-gray-900 p-1.5 rounded-lg border dark:border-gray-700">{m.timestamp} (IP: {m.ip})</span>
+                    </div>
+                    <p className="text-[15px] bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl whitespace-pre-wrap leading-relaxed text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-700">{m.message}</p>
+                 </div>
+              ))}
+           </div>
+        )}
+
         {activeTab === 'security' && (
           <div className="space-y-6 animate-fade-in">
              <div className="bg-red-50 dark:bg-red-900/20 p-8 rounded-3xl border border-red-100 dark:border-red-800 flex items-center gap-6">
@@ -370,7 +442,7 @@ const AdminPage: React.FC = () => {
              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center">
                    <h3 className="font-black flex items-center gap-2 text-lg text-gray-700 dark:text-gray-200"><XCircle className="text-red-500" /> 現在遮断中のIPアドレス一覧</h3>
-                   <button onClick={fetchSecurity} className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-blue-500 border dark:border-gray-600"><RefreshCw size={18} /></button>
+                   <button onClick={() => fetchDashboard()} className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-blue-500 border dark:border-gray-600"><RefreshCw size={18} /></button>
                 </div>
                 <div className="overflow-x-auto">
                    <table className="w-full text-sm text-left">
@@ -386,7 +458,15 @@ const AdminPage: React.FC = () => {
                                <td className="px-6 py-4 text-xs font-bold">{item.reason}</td>
                                <td className="px-6 py-4 text-xs text-gray-400 font-mono">{item.time}</td>
                                <td className="px-6 py-4">
-                                  <button onClick={() => unblockIp(item.ip)} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                  <button onClick={async () => {
+                                      if(!confirm('遮断を解除しますか？')) return;
+                                      const res = await fetch('./backend/admin_api.php?action=unblock_ip', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+                                          body: JSON.stringify({ ip: item.ip })
+                                      });
+                                      if(res.ok) fetchDashboard();
+                                  }} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 hover:bg-blue-100 transition-colors">
                                      <ShieldCheck size={14} /> 遮断を解除する
                                   </button>
                                </td>
@@ -397,64 +477,6 @@ const AdminPage: React.FC = () => {
                 </div>
              </div>
           </div>
-        )}
-
-        {activeTab === 'messages' && (
-           <div className="space-y-4 animate-fade-in">
-              {messages.length === 0 ? (
-                 <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-3xl border-4 border-dashed border-gray-100 dark:border-gray-700 text-gray-400 font-black">受信したメッセージはありません</div>
-              ) : messages.map(m => (
-                 <div key={m.id} className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-pink-200 transition-colors group">
-                    <div className="flex flex-col sm:flex-row justify-between mb-6 gap-2">
-                       <span className="font-black text-blue-600 flex items-center gap-2 text-lg"><User size={20} className="text-gray-300" /> {m.name} <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-normal">{m.contact}</span></span>
-                       <span className="text-[10px] text-gray-400 font-mono bg-gray-50 dark:bg-gray-900 p-1.5 rounded-lg border dark:border-gray-700">{m.timestamp} (IP: {m.ip})</span>
-                    </div>
-                    <p className="text-[15px] bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl whitespace-pre-wrap leading-relaxed text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-700">{m.message}</p>
-                 </div>
-              ))}
-           </div>
-        )}
-
-        {activeTab === 'settings' && (
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                 <h3 className="font-black text-xl mb-8 flex items-center gap-3"><Server className="text-orange-500" /> 通知・メールサーバー設定</h3>
-                 <form onSubmit={handleUpdateSmtp} className="space-y-5">
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">SMTPサーバー名</label><input type="text" value={smtpConfig.smtp_host} onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" placeholder="例: smtp.gmail.com" /></div>
-                    <div className="grid grid-cols-3 gap-4">
-                       <div className="col-span-1"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">ポート番号</label><input type="number" value={smtpConfig.smtp_port} onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                       <div className="col-span-2"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">メールアドレス / ユーザー名</label><input type="text" value={smtpConfig.smtp_user} onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                    </div>
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">パスワード</label><input type="password" value={smtpConfig.smtp_pass} onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="変更しない場合は未入力" className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">アラート送信先 (管理者メール)</label><input type="email" value={smtpConfig.alert_email} onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                    {smtpMsg && <p className={`text-xs font-bold ${smtpMsg.includes('エラー') ? 'text-red-500' : 'text-blue-500'} bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border dark:border-gray-700`}>{smtpMsg}</p>}
-                    <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-lg transition-all active:scale-[0.98]">設定を保存して接続テスト</button>
-                 </form>
-              </div>
-              
-              <div className="flex flex-col gap-6">
-                 <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center text-center">
-                    <div className="p-5 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-600 mb-6"><KeyRound size={48} /></div>
-                    <h3 className="font-black text-xl mb-2">管理者パスワードの変更</h3>
-                    <p className="text-xs text-gray-400 font-bold mb-8 uppercase tracking-widest leading-relaxed">セキュリティ推奨設定: <br/>90日ごとのパスワード更新を推奨しています。</p>
-                    <button className="w-full py-3.5 border-2 border-blue-500 text-blue-500 font-black rounded-xl hover:bg-blue-50 transition-all active:scale-[0.98]">パスワード変更ダイアログを表示</button>
-                 </div>
-                 
-                 <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl flex flex-col justify-between">
-                    <div className="flex justify-between items-start">
-                       <div>
-                          <h3 className="font-black text-xl mb-1">DBバックアップ</h3>
-                          <p className="text-xs opacity-70 font-bold">サーバーデータの物理エクスポート</p>
-                       </div>
-                       <Database size={32} className="opacity-30" />
-                    </div>
-                    <div className="mt-8 flex gap-3">
-                       <button className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all">JSON形式で出力</button>
-                       <button className="flex-1 py-3 bg-white text-indigo-600 rounded-xl font-black text-sm transition-all shadow-lg">一括ダウンロード</button>
-                    </div>
-                 </div>
-              </div>
-           </div>
         )}
       </main>
     </div>

@@ -265,7 +265,12 @@ if ($action === 'fetch_dashboard') {
             'today_pv' => count(array_filter(load_json($ACCESS_LOG_FILE), function($l) { return $l['timestamp'] > strtotime('today midnight'); })),
             'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 500)
         ],
-        'config' => ['smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email']],
+        'config' => [
+            'smtp_host' => $config['smtp_host'] ?? '', 
+            'smtp_port' => $config['smtp_port'] ?? 587, 
+            'smtp_user' => $config['smtp_user'] ?? '', 
+            'alert_email' => $config['alert_email'] ?? ''
+        ],
         'blocked_count' => count($blocked_ips)
     ]);
 } elseif ($action === 'fetch_security') {
@@ -280,12 +285,37 @@ if ($action === 'fetch_dashboard') {
         http_response_code(404); echo json_encode(['error' => '対象のIPアドレスが見つかりませんでした']);
     }
 } elseif ($action === 'update_smtp') {
-    $config['smtp_host'] = trim($input['smtp_host']); $config['smtp_port'] = intval($input['smtp_port']);
-    $config['smtp_user'] = trim($input['smtp_user']); $config['alert_email'] = trim($input['alert_email']);
-    if (!empty($input['smtp_pass'])) $config['smtp_pass'] = $input['smtp_pass'];
+    // 既存設定をベースに更新
+    $config['smtp_host'] = trim($input['smtp_host'] ?? $config['smtp_host']); 
+    $config['smtp_port'] = intval($input['smtp_port'] ?? $config['smtp_port']);
+    $config['smtp_user'] = trim($input['smtp_user'] ?? $config['smtp_user']); 
+    $config['alert_email'] = trim($input['alert_email'] ?? $config['alert_email']);
+    if (!empty($input['smtp_pass'])) {
+        $config['smtp_pass'] = $input['smtp_pass'];
+    }
     save_json($CONFIG_FILE, $config);
-    $res = send_alert_email("通知設定テスト", "アラート通知設定が正しく完了しました。", $config);
+    $res = send_alert_email("通知設定テスト", "アラート通知設定が正しく更新されました。", $config);
     echo json_encode($res === true ? ['status' => '成功'] : ['status' => 'エラー', 'message' => $res]);
+} elseif ($action === 'import_data') {
+    // データの一括インポート (管理者権限)
+    if (!isset($input['messages']) || !isset($input['logs']) || !isset($input['config'])) {
+        http_response_code(400); echo json_encode(['error' => '無効なデータ形式です']); exit;
+    }
+    
+    // 受信メッセージとログを上書き (件数制限なし)
+    save_json($MESSAGES_FILE, $input['messages']);
+    save_json($ACCESS_LOG_FILE, $input['logs']);
+    
+    // 設定を一部更新 (ハッシュは上書きしない)
+    $importConfig = $input['config'];
+    $config['smtp_host'] = $importConfig['smtp_host'] ?? $config['smtp_host'];
+    $config['smtp_port'] = $importConfig['smtp_port'] ?? $config['smtp_port'];
+    $config['smtp_user'] = $importConfig['smtp_user'] ?? $config['smtp_user'];
+    if (!empty($importConfig['smtp_pass'])) $config['smtp_pass'] = $importConfig['smtp_pass'];
+    $config['alert_email'] = $importConfig['alert_email'] ?? $config['alert_email'];
+    save_json($CONFIG_FILE, $config);
+
+    echo json_encode(['status' => '成功']);
 } elseif ($action === 'change_password') {
     if (!password_verify($input['current_password'], $config['password_hash'])) {
         http_response_code(400); echo json_encode(['error' => '現在のパスワードが一致しません']); exit;
