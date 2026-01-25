@@ -4,8 +4,13 @@ import {
   Lock, ShieldAlert, Mail, User, LogOut, Loader2, 
   Activity, BarChart3, Settings, Clock, Shield, KeyRound,
   RefreshCw, CheckCircle2, AlertTriangle, XCircle, Trash2, 
-  Download, Upload, Database, Server, Filter, Search, Zap, ShieldCheck
+  Download, Upload, Database, Server, Filter, Search, Zap, ShieldCheck,
+  TrendingUp, MousePointer2, ListOrdered
 } from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, AreaChart, Area 
+} from 'recharts';
 
 interface Message { id: string; timestamp: string; ip: string; name: string; contact: string; message: string; }
 interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; response_time?: number; }
@@ -33,6 +38,40 @@ const AdminPage: React.FC = () => {
 
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfig>({ smtp_host: '', smtp_port: 587, smtp_user: '', alert_email: '', smtp_pass: '' });
   const [smtpMsg, setSmtpMsg] = useState('');
+
+  // --- Data Processing for Dashboard ---
+  const chartData = useMemo(() => {
+    if (!stats?.recent_logs) return [];
+    // 直近24時間の時間別PVを集計
+    const hours: Record<string, number> = {};
+    const now = new Date();
+    for (let i = 23; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 3600000);
+      const label = `${d.getHours()}:00`;
+      hours[label] = 0;
+    }
+
+    stats.recent_logs.forEach(log => {
+      const logDate = new Date(log.timestamp * 1000);
+      const label = `${logDate.getHours()}:00`;
+      if (hours[label] !== undefined) hours[label]++;
+    });
+
+    return Object.entries(hours).map(([name, pv]) => ({ name, pv }));
+  }, [stats]);
+
+  const rankingData = useMemo(() => {
+    if (!stats?.recent_logs) return [];
+    const counts: Record<string, number> = {};
+    stats.recent_logs.forEach(log => {
+      const path = log.path || '/';
+      counts[path] = (counts[path] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [stats]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +156,7 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchDashboard();
-      const interval = setInterval(() => fetchDashboard(true), 10000);
+      const interval = setInterval(() => fetchDashboard(true), 15000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -128,9 +167,10 @@ const AdminPage: React.FC = () => {
 
   if (!token) return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex justify-center mb-6"><div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600"><Lock size={32} /></div></div>
-        <h2 className="text-2xl font-bold text-center mb-8 dark:text-white">管理者ログイン</h2>
+        <h2 className="text-2xl font-bold text-center mb-2 dark:text-white">管理者ログイン</h2>
+        <p className="text-center text-gray-400 text-xs mb-8">OmniTools 管理パネルへようこそ</p>
         <form onSubmit={handleLogin} className="space-y-6">
           <input 
             type="password" 
@@ -141,7 +181,7 @@ const AdminPage: React.FC = () => {
             autoFocus 
           />
           {loginError && <p className="text-red-500 text-sm font-bold text-center">{loginError}</p>}
-          <button type="submit" disabled={isLoggingIn} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all">
+          <button type="submit" disabled={isLoggingIn} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all">
             {isLoggingIn ? <Loader2 className="animate-spin" /> : 'ログイン'}
           </button>
         </form>
@@ -151,9 +191,9 @@ const AdminPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-20">
+      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2 text-red-600 shrink-0"><ShieldAlert /> 管理パネル</h1>
+          <h1 className="text-xl font-black flex items-center gap-2 text-red-600 shrink-0"><ShieldAlert /> 管理パネル</h1>
           <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg overflow-x-auto no-scrollbar mx-4">
             {[
               { id: 'dashboard', label: 'ダッシュボード' },
@@ -165,7 +205,7 @@ const AdminPage: React.FC = () => {
               <button 
                 key={tab.id} 
                 onClick={() => setActiveTab(tab.id as any)} 
-                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500'}`}
+                className={`px-5 py-2 rounded-md text-xs font-black transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 {tab.label}
               </button>
@@ -178,68 +218,129 @@ const AdminPage: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === 'dashboard' && stats && (
           <div className="space-y-6 animate-fade-in">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                   <p className="text-xs font-bold text-gray-500">今日のPV</p>
+             {/* Key Metrics */}
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Today PV</p>
                    <p className="text-3xl font-black text-blue-600">{stats.today_pv.toLocaleString()}</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                   <p className="text-xs font-bold text-gray-500">累計PV</p>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total PV</p>
                    <p className="text-3xl font-black text-indigo-600">{stats.total_pv.toLocaleString()}</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                   <p className="text-xs font-bold text-gray-500">受信メッセージ</p>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Messages</p>
                    <p className="text-3xl font-black text-pink-600">{messages.length.toLocaleString()}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Blocked IPs</p>
+                   <p className="text-3xl font-black text-red-600">{Object.keys(blockedIps).length.toLocaleString()}</p>
                 </div>
              </div>
 
-             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><Clock size={18} /> 最近の活動（ユーザー＋管理）</h3>
-                <div className="space-y-2 max-h-[500px] overflow-y-auto no-scrollbar">
-                   {stats.recent_logs.map((log, i) => (
-                      <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between text-xs p-3 border-b last:border-0 border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                         <div className="flex items-center gap-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                               {log.status || 200}
-                            </span>
-                            <span className="text-blue-500 font-mono font-bold truncate max-w-[200px]">{log.path}</span>
-                         </div>
-                         <div className="flex items-center gap-4 mt-2 sm:mt-0 text-gray-400 font-mono">
-                            <span className="hidden md:inline">{log.ip}</span>
-                            <span className="text-gray-500 font-bold">{log.date}</span>
-                         </div>
-                      </div>
-                   ))}
+             {/* Chart & Ranking */}
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-black flex items-center gap-2 text-gray-700 dark:text-gray-200"><TrendingUp size={18} className="text-blue-500" /> アクセス推移 (24h)</h3>
+                      <span className="text-[10px] font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-600 px-2 py-1 rounded">Live Data</span>
+                   </div>
+                   <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                         <AreaChart data={chartData}>
+                            <defs>
+                               <linearGradient id="colorPv" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                               </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                            />
+                            <Area type="monotone" dataKey="pv" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorPv)" />
+                         </AreaChart>
+                      </ResponsiveContainer>
+                   </div>
                 </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                   <h3 className="font-black flex items-center gap-2 text-gray-700 dark:text-gray-200 mb-6"><ListOrdered size={18} className="text-indigo-500" /> ツール利用ランキング</h3>
+                   <div className="space-y-4">
+                      {rankingData.map((item, idx) => (
+                         <div key={idx} className="space-y-1">
+                            <div className="flex justify-between text-xs font-bold">
+                               <span className="text-gray-600 dark:text-gray-300 truncate max-w-[150px]">{item.path}</span>
+                               <span className="text-indigo-600">{item.count} <span className="text-[10px] text-gray-400">PV</span></span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                               <div 
+                                 className="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
+                                 style={{ width: `${Math.min(100, (item.count / stats.today_pv) * 100)}%` }}
+                               />
+                            </div>
+                         </div>
+                      ))}
+                   </div>
+                </div>
+             </div>
+
+             {/* Recent Activity Mini List */}
+             <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <h3 className="font-black mb-4 flex items-center gap-2 text-gray-700 dark:text-gray-200"><Clock size={18} className="text-orange-500" /> 最新のアクティビティ</h3>
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                         {stats.recent_logs.slice(0, 10).map((log, i) => (
+                            <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                               <td className="py-3 px-2 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                     {log.status || 200}
+                                  </span>
+                               </td>
+                               <td className="py-3 px-2 text-xs font-mono font-bold text-blue-500 truncate max-w-[200px]">{log.path}</td>
+                               <td className="py-3 px-2 text-[10px] text-gray-400 font-mono hidden md:table-cell">{log.ip}</td>
+                               <td className="py-3 px-2 text-[10px] text-gray-500 font-black text-right">{log.date}</td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                </div>
+                <button onClick={() => setActiveTab('logs')} className="w-full mt-4 py-2 text-xs font-bold text-gray-400 hover:text-blue-500 transition-colors">すべてのログを表示</button>
              </div>
           </div>
         )}
 
         {activeTab === 'logs' && stats && (
-           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in">
-              <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                 <h3 className="font-bold flex items-center gap-2 text-lg">詳細アクセスログ</h3>
-                 <button onClick={() => fetchDashboard()} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={16} /></button>
+           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in">
+              <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+                 <div>
+                    <h3 className="font-black text-lg">詳細アクセスログ</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Realtime Monitoring</p>
+                 </div>
+                 <button onClick={() => fetchDashboard()} className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-blue-500 transition-all border border-gray-100 dark:border-gray-600"><RefreshCw size={18} /></button>
               </div>
               <div className="overflow-x-auto">
                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase font-bold text-gray-500">
+                    <thead className="bg-gray-50 dark:bg-gray-900/50 text-[10px] uppercase font-black text-gray-400 tracking-wider">
                        <tr>
-                          <th className="px-6 py-4">時刻 (分/秒.ミリ秒)</th>
-                          <th className="px-6 py-4">パス</th>
+                          <th className="px-6 py-4">日時 (YYYY-MM-DD HH:mm:ss.ms)</th>
+                          <th className="px-6 py-4">リクエストパス</th>
                           <th className="px-6 py-4">IPアドレス</th>
                           <th className="px-6 py-4">応答(ms)</th>
-                          <th className="px-6 py-4">UA</th>
+                          <th className="px-6 py-4">ユーザーエージェント</th>
                        </tr>
                     </thead>
-                    <tbody className="divide-y dark:divide-gray-700">
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                        {stats.recent_logs.map((log, i) => (
                           <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                             <td className="px-6 py-4 font-mono font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">{log.date.split(' ')[1]}</td>
-                             <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400 truncate max-w-[150px]">{log.path}</td>
-                             <td className="px-6 py-4 font-mono text-xs">{log.ip}</td>
-                             <td className="px-6 py-4 font-mono text-xs text-orange-500">{log.response_time || '-'}</td>
-                             <td className="px-6 py-4 text-[10px] text-gray-400 truncate max-w-[200px]" title={log.ua}>{log.ua}</td>
+                             <td className="px-6 py-4 font-mono font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap text-xs">{log.date}</td>
+                             <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400 truncate max-w-[200px]">{log.path}</td>
+                             <td className="px-6 py-4 font-mono text-[11px] font-bold text-gray-500">{log.ip}</td>
+                             <td className="px-6 py-4 font-mono text-[11px] text-orange-500 font-black">{log.response_time || '-'}</td>
+                             <td className="px-6 py-4 text-[10px] text-gray-400 truncate max-w-[250px]" title={log.ua}>{log.ua}</td>
                           </tr>
                        ))}
                     </tbody>
@@ -250,35 +351,40 @@ const AdminPage: React.FC = () => {
 
         {activeTab === 'security' && (
           <div className="space-y-6 animate-fade-in">
-             <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl border border-red-100 dark:border-red-800 flex items-center gap-4">
-                <Shield size={32} className="text-red-500" />
+             <div className="bg-red-50 dark:bg-red-900/20 p-8 rounded-3xl border border-red-100 dark:border-red-800 flex items-center gap-6">
+                <div className="p-4 bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300 rounded-2xl">
+                   <Shield size={40} />
+                </div>
                 <div>
-                   <h3 className="font-bold text-red-800 dark:text-red-400">DOS攻撃自動保護 有効</h3>
-                   <p className="text-sm text-red-700 dark:text-red-300">1分間に60回以上のアクセスがあったIPを自動的に遮断し、管理者へ通知メールを送信します。</p>
+                   <h3 className="font-black text-xl text-red-800 dark:text-red-400">DOS攻撃自動保護 有効</h3>
+                   <p className="text-sm text-red-700 dark:text-red-300 mt-1 leading-relaxed">
+                      1分間に60回以上のアクセスがあったIPを機械的に検出し、自動的に遮断リストに追加します。<br/>
+                      遮断実行時は設定された管理者メールアドレスへ即座に通知が送信されます。
+                   </p>
                 </div>
              </div>
 
-             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                   <h3 className="font-bold flex items-center gap-2"><XCircle className="text-red-500" /> 現在遮断中のIPアドレス</h3>
-                   <button onClick={fetchSecurity} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={16} /></button>
+             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+                   <h3 className="font-black flex items-center gap-2 text-lg text-gray-700 dark:text-gray-200"><XCircle className="text-red-500" /> 現在遮断中のIPアドレス</h3>
+                   <button onClick={fetchSecurity} className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-400 hover:text-blue-500 border dark:border-gray-600"><RefreshCw size={18} /></button>
                 </div>
                 <div className="overflow-x-auto">
                    <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase font-bold text-gray-500">
-                         <tr><th className="px-6 py-3">IP Address</th><th className="px-6 py-3">遮断理由</th><th className="px-6 py-3">遮断日時</th><th className="px-6 py-3">アクション</th></tr>
+                      <thead className="bg-gray-50 dark:bg-gray-900/50 text-[10px] uppercase font-black text-gray-400">
+                         <tr><th className="px-6 py-4">IP Address</th><th className="px-6 py-4">遮断理由</th><th className="px-6 py-4">遮断日時</th><th className="px-6 py-4">アクション</th></tr>
                       </thead>
-                      <tbody className="divide-y dark:divide-gray-700">
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                          {Object.values(blockedIps).length === 0 ? (
-                            <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-400">遮断中のIPはありません</td></tr>
+                            <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-400 font-bold">遮断中のIPアドレスは現在ありません</td></tr>
                          ) : Object.values(blockedIps).map((item: any) => (
                             <tr key={item.ip} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                               <td className="px-6 py-4 font-mono font-bold text-red-600">{item.ip}</td>
+                               <td className="px-6 py-4 font-mono font-black text-red-600">{item.ip}</td>
                                <td className="px-6 py-4 text-xs font-bold">{item.reason}</td>
-                               <td className="px-6 py-4 text-xs text-gray-400">{item.time}</td>
+                               <td className="px-6 py-4 text-xs text-gray-400 font-mono">{item.time}</td>
                                <td className="px-6 py-4">
-                                  <button onClick={() => unblockIp(item.ip)} className="text-blue-500 hover:underline text-xs font-bold flex items-center gap-1">
-                                     <ShieldCheck size={14} /> 遮断解除
+                                  <button onClick={() => unblockIp(item.ip)} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                                     <ShieldCheck size={14} /> 遮断を解除
                                   </button>
                                </td>
                             </tr>
@@ -293,39 +399,57 @@ const AdminPage: React.FC = () => {
         {activeTab === 'messages' && (
            <div className="space-y-4 animate-fade-in">
               {messages.length === 0 ? (
-                 <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 text-gray-400 font-bold">メッセージはありません</div>
+                 <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-3xl border-4 border-dashed border-gray-100 dark:border-gray-700 text-gray-400 font-black">受信メッセージはありません</div>
               ) : messages.map(m => (
-                 <div key={m.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-pink-200 transition-colors">
-                    <div className="flex justify-between mb-4">
-                       <span className="font-bold text-blue-600 flex items-center gap-2"><User size={16} /> {m.name} <span className="text-xs text-gray-400 font-normal ml-2">{m.contact}</span></span>
-                       <span className="text-xs text-gray-400 font-mono">{m.timestamp} ({m.ip})</span>
+                 <div key={m.id} className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-pink-200 transition-colors group">
+                    <div className="flex flex-col sm:flex-row justify-between mb-6 gap-2">
+                       <span className="font-black text-blue-600 flex items-center gap-2 text-lg"><User size={20} className="text-gray-300" /> {m.name} <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-normal">{m.contact}</span></span>
+                       <span className="text-[10px] text-gray-400 font-mono bg-gray-50 dark:bg-gray-900 p-1.5 rounded-lg border dark:border-gray-700">{m.timestamp} (IP: {m.ip})</span>
                     </div>
-                    <p className="text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded-xl whitespace-pre-wrap leading-relaxed">{m.message}</p>
+                    <p className="text-[15px] bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl whitespace-pre-wrap leading-relaxed text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-700">{m.message}</p>
                  </div>
               ))}
            </div>
         )}
 
         {activeTab === 'settings' && (
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border dark:border-gray-700 shadow-sm">
-                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Server className="text-orange-500" /> SMTP・通知メール設定</h3>
-                 <form onSubmit={handleUpdateSmtp} className="space-y-4">
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">SMTP ホスト</label><input type="text" value={smtpConfig.smtp_host} onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} className="w-full p-2.5 border rounded-lg dark:bg-gray-900 text-sm" placeholder="smtp.gmail.com" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">ポート</label><input type="number" value={smtpConfig.smtp_port} onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} className="w-full p-2.5 border rounded-lg dark:bg-gray-900 text-sm" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">ユーザー / メールアドレス</label><input type="text" value={smtpConfig.smtp_user} onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} className="w-full p-2.5 border rounded-lg dark:bg-gray-900 text-sm" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">パスワード (アプリパスワード)</label><input type="password" value={smtpConfig.smtp_pass} onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="変更しない場合は空欄" className="w-full p-2.5 border rounded-lg dark:bg-gray-900 text-sm" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">アラート送信先 (管理者メール)</label><input type="email" value={smtpConfig.alert_email} onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} className="w-full p-2.5 border rounded-lg dark:bg-gray-900 text-sm" /></div>
-                    {smtpMsg && <p className={`text-xs font-bold ${smtpMsg.includes('エラー') ? 'text-red-500' : 'text-blue-500'} bg-gray-50 dark:bg-gray-900 p-2 rounded`}>{smtpMsg}</p>}
-                    <button type="submit" className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg transition-all active:scale-[0.98]">設定を保存してテスト送信</button>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                 <h3 className="font-black text-xl mb-8 flex items-center gap-3"><Server className="text-orange-500" /> SMTP・通知メール設定</h3>
+                 <form onSubmit={handleUpdateSmtp} className="space-y-5">
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">SMTP Host</label><input type="text" value={smtpConfig.smtp_host} onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" placeholder="smtp.gmail.com" /></div>
+                    <div className="grid grid-cols-3 gap-4">
+                       <div className="col-span-1"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">Port</label><input type="number" value={smtpConfig.smtp_port} onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                       <div className="col-span-2"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">User / Email</label><input type="text" value={smtpConfig.smtp_user} onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    </div>
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">Password</label><input type="password" value={smtpConfig.smtp_pass} onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="変更しない場合は空欄" className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">Alert To (Admin)</label><input type="email" value={smtpConfig.alert_email} onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    {smtpMsg && <p className={`text-xs font-bold ${smtpMsg.includes('エラー') ? 'text-red-500' : 'text-blue-500'} bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border dark:border-gray-700`}>{smtpMsg}</p>}
+                    <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-lg transition-all active:scale-[0.98]">設定を保存してテスト送信</button>
                  </form>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border dark:border-gray-700 shadow-sm flex flex-col justify-center items-center text-center space-y-4">
-                 <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-600"><KeyRound size={48} /></div>
-                 <h3 className="font-bold text-lg">管理者パスワードの変更</h3>
-                 <p className="text-xs text-gray-400">セキュリティのため、定期的な変更を推奨します。</p>
-                 <button className="px-6 py-2 border-2 border-blue-500 text-blue-500 font-bold rounded-xl hover:bg-blue-50 transition-colors">パスワード変更ダイアログを開く</button>
+              <div className="flex flex-col gap-6">
+                 <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center text-center">
+                    <div className="p-5 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-600 mb-6"><KeyRound size={48} /></div>
+                    <h3 className="font-black text-xl mb-2">管理者パスワードの変更</h3>
+                    <p className="text-xs text-gray-400 font-bold mb-8 uppercase tracking-widest leading-relaxed">Security Recommendation: <br/>Change password every 90 days.</p>
+                    <button className="w-full py-3.5 border-2 border-blue-500 text-blue-500 font-black rounded-xl hover:bg-blue-50 transition-all active:scale-[0.98]">パスワード変更を開始</button>
+                 </div>
+                 
+                 <div className="bg-indigo-600 p-8 rounded-3xl text-white shadow-xl flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                       <div>
+                          <h3 className="font-black text-xl mb-1">Backup DB</h3>
+                          <p className="text-xs opacity-70 font-bold">システムデータの物理エクスポート</p>
+                       </div>
+                       <Database size={32} className="opacity-30" />
+                    </div>
+                    <div className="mt-8 flex gap-3">
+                       <button className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all">Export JSON</button>
+                       <button className="flex-1 py-3 bg-white text-indigo-600 rounded-xl font-black text-sm transition-all shadow-lg">Download All</button>
+                    </div>
+                 </div>
               </div>
            </div>
         )}
