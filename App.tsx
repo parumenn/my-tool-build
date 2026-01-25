@@ -73,6 +73,25 @@ const Layout: React.FC = () => {
   // 管理画面かどうかを判定
   const isAdminPath = location.pathname === '/secure-panel-7x9v2';
 
+  // 1. アクセスログの自動送信
+  useEffect(() => {
+    const logAccess = async () => {
+      try {
+        await fetch('./backend/admin_api.php?action=log_access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            path: location.pathname, 
+            status: 200 
+          })
+        });
+      } catch (e) {
+        // エラーは無視してユーザー体験を損なわない
+      }
+    };
+    logAccess();
+  }, [location.pathname]);
+
   // ページ遷移時にスクロール位置をトップに戻す
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -104,7 +123,7 @@ const Layout: React.FC = () => {
 
   const isJP = (navigator.language || (navigator as any).userLanguage)?.toLowerCase().includes('ja');
 
-  // 管理画面の場合はレイアウトを完全にバイパスして表示
+  // 管理画面の場合は通常のレイアウト（サイドバー等）を完全に除外して表示
   if (isAdminPath) {
     return (
       <AppContext.Provider value={{ showAds, setShowAds }}>
@@ -239,7 +258,7 @@ const Layout: React.FC = () => {
                       </ul>
                     </div>
                     <div>
-                      <h4 className="font-black text-blue-600 mb-2">3. Cookieの利用同意と無効化</h4>
+                      <h4 className="font-black text-blue-600 mb-2">3. Cookie의 利用同意と無効化</h4>
                       <p className="text-gray-500 dark:text-gray-400">ユーザーは、当サイトを利用することでCookieの使用に同意したものとみなされます。ユーザーはブラウザの設定によりCookieを無効化できます。ただし、Cookieを無効にした場合、当サイトの一部機能が正常に動作しない可能性があり、これによって生じた不便や損害について、当サイトは一切の責任を負いません。</p>
                     </div>
                     <div>
@@ -363,7 +382,6 @@ const Layout: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  // Fix: Remove unsupported 'future' prop from HashRouter to fix TypeScript error.
   <HashRouter>
     <Layout />
   </HashRouter>

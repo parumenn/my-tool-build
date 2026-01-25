@@ -32,6 +32,7 @@ const AdminPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [blockedIps, setBlockedIps] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 設定フォーム
   const [config, setConfig] = useState<AdminConfig>({
@@ -41,7 +42,6 @@ const AdminPage: React.FC = () => {
   });
   const [configMsg, setConfigMsg] = useState('');
   const [isDirty, setIsDirty] = useState(false);
-  const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +54,7 @@ const AdminPage: React.FC = () => {
     }
     stats.recent_logs.forEach(log => {
       const logDate = new Date(log.timestamp * 1000);
+      if (isNaN(logDate.getTime())) return;
       const label = `${logDate.getHours()}:00`;
       if (hours[label] !== undefined) hours[label]++;
     });
@@ -63,17 +64,18 @@ const AdminPage: React.FC = () => {
   const fetchData = async (isFirst = false) => {
     if (!token) return;
     if (isFirst) setIsLoading(true);
+    if (!isFirst) setIsRefreshing(true);
     try {
       const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', {
         headers: { 'X-Admin-Token': token }
       });
       if (res.ok) {
         const data = await res.json();
-        setStats(data.stats);
-        setMessages(data.messages);
+        setStats(data.stats || { total_pv: 0, today_pv: 0, recent_logs: [] });
+        setMessages(data.messages || []);
         setBlockedIps(data.blocked_ips || {});
         
-        if (isFirst) {
+        if (isFirst && data.config) {
             setConfig(prev => ({ ...prev, ...data.config, smtp_pass: '' }));
             setIsDirty(false);
         }
@@ -84,6 +86,7 @@ const AdminPage: React.FC = () => {
       console.error("Fetch error", e);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -114,7 +117,6 @@ const AdminPage: React.FC = () => {
         body: JSON.stringify({ ip })
       });
       if (res.ok) {
-        // 解除成功後、即座に再取得して反映
         fetchData(false);
       }
     } catch (e) {
@@ -144,7 +146,6 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchData(true);
-      // PVのリアルタイム更新（5秒間隔）
       const interval = setInterval(() => fetchData(false), 5000);
       return () => clearInterval(interval);
     }
@@ -155,12 +156,12 @@ const AdminPage: React.FC = () => {
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-10 text-center animate-scale-up">
         <div className="inline-flex p-4 bg-red-50 text-red-600 rounded-full mb-6"><Lock size={32} /></div>
         <h2 className="text-2xl font-black mb-2 dark:text-white">管理者ログイン</h2>
-        <p className="text-gray-400 text-xs mb-6 uppercase tracking-widest font-bold">Secure Admin Console</p>
+        <p className="text-gray-400 text-[10px] mb-6 uppercase tracking-widest font-bold">高セキュリティ・管理コンソール</p>
         <form onSubmit={handleLogin} className="space-y-4">
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="パスワード" className="w-full p-4 rounded-2xl border-2 dark:bg-gray-900 dark:text-white outline-none focus:border-red-500 transition-all" autoFocus />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="パスワードを入力" className="w-full p-4 rounded-2xl border-2 dark:bg-gray-900 dark:text-white outline-none focus:border-red-500 transition-all" autoFocus />
           {loginError && <p className="text-red-500 text-sm font-bold animate-pulse">{loginError}</p>}
           <button type="submit" disabled={isLoggingIn} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-2xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
-            {isLoggingIn ? <Loader2 className="animate-spin" /> : 'AUTHENTICATE'}
+            {isLoggingIn ? <Loader2 className="animate-spin" /> : '認証する'}
           </button>
         </form>
       </div>
@@ -174,28 +175,34 @@ const AdminPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
           <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
-            ADMIN CONSOLE <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono font-normal">v2.5.2</span>
+            管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono font-normal">バージョン 2.5.2</span>
           </h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl">
-           {['dashboard', 'logs', 'messages', 'security', 'settings'].map(t => (
-             <button key={t} onClick={() => setActiveTab(t as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>
-                {t === 'dashboard' ? 'STATISTICS' : t === 'logs' ? 'LOGS' : t === 'messages' ? 'INBOX' : t === 'security' ? 'IP BLOCK' : 'SMTP'}
+           {[
+             { id: 'dashboard', label: '統計データ' },
+             { id: 'logs', label: 'アクセスログ' },
+             { id: 'messages', label: '受信箱' },
+             { id: 'security', label: 'IP制限管理' },
+             { id: 'settings', label: 'メール設定' }
+           ].map(t => (
+             <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>
+                {t.label}
              </button>
            ))}
         </div>
         <button onClick={logout} className="p-2 text-gray-400 hover:text-red-400 transition-colors"><LogOut size={20} /></button>
       </header>
 
-      {/* メインエリア（全画面スクロール） */}
+      {/* メインエリア */}
       <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 no-scrollbar bg-slate-50 dark:bg-dark">
         {activeTab === 'dashboard' && (
            <div className="space-y-6 animate-fade-in max-w-7xl mx-auto w-full">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                  {[
-                   { label: '本日PV (Real-time)', val: stats.today_pv, color: 'text-blue-600', icon: Activity },
-                   { label: '累計PV', val: stats.total_pv, color: 'text-indigo-600', icon: BarChart3 },
-                   { label: 'メッセージ', val: messages.length, color: 'text-pink-600', icon: Mail },
+                   { label: '本日PV (リアルタイム)', val: stats.today_pv, color: 'text-blue-600', icon: Activity },
+                   { label: '累計アクセス', val: stats.total_pv, color: 'text-indigo-600', icon: BarChart3 },
+                   { label: '受信メッセージ', val: messages.length, color: 'text-pink-600', icon: Mail },
                    { label: '遮断中のIP', val: Object.keys(blockedIps).length, color: 'text-red-600', icon: Shield }
                  ].map((card, i) => (
                     <div key={i} className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -210,9 +217,9 @@ const AdminPage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  <div className="lg:col-span-2 bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                     <div className="flex justify-between items-center mb-8">
-                       <h3 className="font-black text-lg flex items-center gap-2 uppercase tracking-tight"><TrendingUp size={18} className="text-blue-500" /> 24時間の推移</h3>
+                       <h3 className="font-black text-lg flex items-center gap-2 uppercase tracking-tight"><TrendingUp size={18} className="text-blue-500" /> 24時間のアクセス推移</h3>
                        <div className="flex items-center gap-2 text-[10px] font-black text-gray-400">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-green-500 animate-ping' : 'bg-blue-500'}`}></div>
                           LIVE TRAFFIC
                        </div>
                     </div>
@@ -220,18 +227,24 @@ const AdminPage: React.FC = () => {
                  </div>
                  <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col">
                     <div className="flex justify-between items-center mb-6">
-                       <h3 className="font-black text-lg uppercase tracking-tight">Recent Activity</h3>
-                       <RefreshCw size={14} className={`text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />
+                       <h3 className="font-black text-lg uppercase tracking-tight">最近のアクティビティ</h3>
+                       <RefreshCw size={14} className={`text-gray-300 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </div>
-                    <div className="space-y-4 flex-1 overflow-y-auto no-scrollbar">{stats.recent_logs.slice(0, 10).map((log, i) => (
-                      <div key={i} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border-b dark:border-gray-800 last:border-0">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-black text-blue-600 truncate">{log.path}</p>
-                          <p className="text-gray-400 font-mono text-[9px]">{log.ip}</p>
-                        </div>
-                        <p className="text-gray-500 font-bold ml-4 tabular-nums">{log.date.split(' ')[1]}</p>
-                      </div>
-                    ))}</div>
+                    <div className="space-y-4 flex-1 overflow-y-auto no-scrollbar">
+                      {stats.recent_logs.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-xs text-gray-400 font-bold">ログがありません</div>
+                      ) : (
+                        stats.recent_logs.slice(0, 10).map((log, i) => (
+                          <div key={i} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border-b dark:border-gray-800 last:border-0">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-black text-blue-600 truncate">{log.path}</p>
+                              <p className="text-gray-400 font-mono text-[9px]">{log.ip}</p>
+                            </div>
+                            <p className="text-gray-500 font-bold ml-4 tabular-nums">{log.date.split(' ')[1]}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
                  </div>
               </div>
            </div>
@@ -242,26 +255,26 @@ const AdminPage: React.FC = () => {
               <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                  <div className="p-8 border-b dark:border-gray-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/30">
                     <div>
-                       <h3 className="font-black text-xl flex items-center gap-3"><XCircle className="text-red-500" /> BLOCKED IP LIST</h3>
-                       <p className="text-xs text-gray-400 mt-1 font-bold">過剰アクセスや手動遮断により制限されているIPアドレス</p>
+                       <h3 className="font-black text-xl flex items-center gap-3"><XCircle className="text-red-500" /> 遮断中のIPアドレス一覧</h3>
+                       <p className="text-xs text-gray-400 mt-1 font-bold">過剰アクセス（DoS保護）や手動操作により制限されているクライアント</p>
                     </div>
                     <button onClick={() => fetchData(false)} className="p-3 bg-white dark:bg-gray-700 text-gray-500 rounded-2xl shadow-sm hover:text-blue-500 transition-all active:scale-95">
-                       <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+                       <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
                  </div>
                  <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                        <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-widest">
                           <tr>
-                             <th className="px-8 py-5">Client IP</th>
-                             <th className="px-8 py-5">Reason / Trigger</th>
-                             <th className="px-8 py-5">Remaining Time</th>
-                             <th className="px-8 py-5 text-right">Action</th>
+                             <th className="px-8 py-5">クライアントIP</th>
+                             <th className="px-8 py-5">理由 / トリガー</th>
+                             <th className="px-8 py-5">残り時間</th>
+                             <th className="px-8 py-5 text-right">操作</th>
                           </tr>
                        </thead>
                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                           {Object.keys(blockedIps).length === 0 ? (
-                             <tr><td colSpan={4} className="px-8 py-20 text-center text-gray-400 font-black text-sm uppercase tracking-widest">No blocked IPs found</td></tr>
+                             <tr><td colSpan={4} className="px-8 py-20 text-center text-gray-400 font-black text-sm uppercase tracking-widest">制限中のIPはありません</td></tr>
                           ) : Object.entries(blockedIps).map(([ip, item]: [string, any]) => {
                              const isPerm = item.expiry >= 2147483640;
                              const timeLeft = Math.ceil((item.expiry - (Date.now()/1000))/60);
@@ -269,14 +282,14 @@ const AdminPage: React.FC = () => {
                                 <tr key={ip} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                    <td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td>
                                    <td className="px-8 py-6">
-                                      <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md font-black">{item.reason || 'MANUAL BLOCK'}</span>
+                                      <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-md font-black">{item.reason || '手動遮断'}</span>
                                       <p className="text-[9px] text-gray-400 mt-1">{item.time}</p>
                                    </td>
                                    <td className="px-8 py-6">
                                       {isPerm ? (
-                                         <span className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 w-fit"><Infinity size={12} /> PERMANENT</span>
+                                         <span className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 w-fit"><Infinity size={12} /> 永久制限</span>
                                       ) : (
-                                         <span className={`font-black text-xs ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-orange-500'}`}>{timeLeft} Minutes</span>
+                                         <span className={`font-black text-xs ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-orange-500'}`}>{timeLeft} 分</span>
                                       )}
                                    </td>
                                    <td className="px-8 py-6 text-right">
@@ -284,7 +297,7 @@ const AdminPage: React.FC = () => {
                                          onClick={() => handleUnblock(ip)} 
                                          className="px-6 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-95"
                                       >
-                                         UNBLOCK
+                                         遮断を解除
                                       </button>
                                    </td>
                                 </tr>
@@ -298,30 +311,34 @@ const AdminPage: React.FC = () => {
         )}
 
         {activeTab === 'logs' && (
-           <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden animate-fade-in max-w-7xl mx-auto w-full">
+           <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden animate-fade-in max-w-7xl mx-auto w-full">
               <div className="p-8 border-b dark:border-gray-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/30">
-                 <h3 className="font-black text-lg uppercase tracking-tight">Access Logs (Last 500)</h3>
-                 <button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500 transition-all"><RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} /></button>
+                 <h3 className="font-black text-lg uppercase tracking-tight">アクセスログ (直近 500件)</h3>
+                 <button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500 transition-all"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button>
               </div>
               <div className="overflow-x-auto">
                  <table className="w-full text-sm text-left">
                     <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-widest">
-                       <tr><th className="px-8 py-5">Timestamp</th><th className="px-8 py-5">Path</th><th className="px-8 py-5">Client IP</th><th className="px-8 py-5">Load</th><th className="px-8 py-5 text-right">Status</th></tr>
+                       <tr><th className="px-8 py-5">日時</th><th className="px-8 py-5">パス</th><th className="px-8 py-5">クライアントIP</th><th className="px-8 py-5">負荷</th><th className="px-8 py-5 text-right">ステータス</th></tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                       {stats.recent_logs.map((log, i) => (
-                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                             <td className="px-8 py-4 font-mono text-[11px] whitespace-nowrap text-gray-500">{log.date}</td>
-                             <td className="px-8 py-4 font-black text-blue-600 dark:text-blue-400 truncate max-w-[300px]">{log.path}</td>
-                             <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
-                             <td className="px-8 py-4">
-                                <span className={`font-mono text-[11px] font-black ${log.duration && log.duration > 1000 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                    {log.duration ? `${log.duration}ms` : '--'}
-                                </span>
-                             </td>
-                             <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
-                          </tr>
-                       ))}
+                       {stats.recent_logs.length === 0 ? (
+                          <tr><td colSpan={5} className="px-8 py-20 text-center text-gray-400 font-black text-sm uppercase tracking-widest">記録されたログはありません</td></tr>
+                       ) : (
+                          stats.recent_logs.map((log, i) => (
+                             <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="px-8 py-4 font-mono text-[11px] whitespace-nowrap text-gray-500">{log.date}</td>
+                                <td className="px-8 py-4 font-black text-blue-600 dark:text-blue-400 truncate max-w-[300px]">{log.path}</td>
+                                <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
+                                <td className="px-8 py-4">
+                                   <span className={`font-mono text-[11px] font-black ${log.duration && log.duration > 1000 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                       {log.duration ? `${log.duration}ms` : '--'}
+                                   </span>
+                                </td>
+                                <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
+                             </tr>
+                          ))
+                       )}
                     </tbody>
                  </table>
               </div>
@@ -331,14 +348,14 @@ const AdminPage: React.FC = () => {
         {activeTab === 'messages' && (
            <div className="space-y-4 animate-fade-in max-w-5xl mx-auto w-full">
               {messages.length === 0 ? (
-                 <div className="text-center py-24 bg-white dark:bg-dark-lighter rounded-[2.5rem] border-2 border-dashed dark:border-gray-800 text-gray-400 font-black uppercase tracking-widest">No messages in inbox</div>
+                 <div className="text-center py-24 bg-white dark:bg-dark-lighter rounded-[2.5rem] border-2 border-dashed dark:border-gray-800 text-gray-400 font-black uppercase tracking-widest">メッセージはありません</div>
               ) : (
                  messages.map(m => (
-                    <div key={m.id} className="bg-white dark:bg-dark-lighter p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow group">
+                    <div key={m.id} className="bg-white dark:bg-dark-lighter p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow group">
                        <div className="flex flex-col sm:flex-row justify-between mb-6 gap-2">
                           <span className="font-black text-blue-600 flex items-center gap-3">
                              <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-gray-400"><User size={20} /></div>
-                             {m.name} <span className="text-[10px] font-normal text-gray-400">({m.contact || 'No contact info'})</span>
+                             {m.name} <span className="text-[10px] font-normal text-gray-400">({m.contact || '連絡先なし'})</span>
                           </span>
                           <span className="text-[10px] text-gray-400 font-mono bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border dark:border-gray-700">{m.timestamp} (IP: {m.ip})</span>
                        </div>
@@ -353,34 +370,34 @@ const AdminPage: React.FC = () => {
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in max-w-7xl mx-auto w-full">
               <form onSubmit={handleUpdateSettings} className="space-y-6">
                 <div className="bg-white dark:bg-dark-lighter p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
-                   <h3 className="font-black text-xl mb-4 flex items-center gap-3 uppercase tracking-tight"><Mail className="text-pink-500" /> SMTP CONFIGURATION</h3>
+                   <h3 className="font-black text-xl mb-4 flex items-center gap-3 uppercase tracking-tight"><Mail className="text-pink-500" /> SMTP 設定 (メール通知)</h3>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">HOST</label><input type="text" value={config.smtp_host} onChange={e => { setConfig({...config, smtp_host: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
-                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">PORT</label><input type="number" value={config.smtp_port} onChange={e => { setConfig({...config, smtp_port: Number(e.target.value)}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
+                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ホスト (HOST)</label><input type="text" value={config.smtp_host} onChange={e => { setConfig({...config, smtp_host: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
+                      <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ポート (PORT)</label><input type="number" value={config.smtp_port} onChange={e => { setConfig({...config, smtp_port: Number(e.target.value)}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
                    </div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">USERNAME</label><input type="text" value={config.smtp_user} onChange={e => { setConfig({...config, smtp_user: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">PASSWORD (ONLY TO CHANGE)</label><input type="password" value={config.smtp_pass} onChange={e => { setConfig({...config, smtp_pass: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" placeholder="••••••••" /></div>
-                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ALERT EMAIL</label><input type="email" value={config.alert_email} onChange={e => { setConfig({...config, alert_email: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ユーザー名 (USERNAME)</label><input type="text" value={config.smtp_user} onChange={e => { setConfig({...config, smtp_user: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">パスワード (変更時のみ入力)</label><input type="password" value={config.smtp_pass} onChange={e => { setConfig({...config, smtp_pass: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" placeholder="••••••••" /></div>
+                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">アラート送信先メール</label><input type="email" value={config.alert_email} onChange={e => { setConfig({...config, alert_email: e.target.value}); setIsDirty(true); }} className="w-full p-4 border dark:bg-gray-900 rounded-2xl font-bold transition-all focus:border-blue-500" /></div>
                 </div>
                 
                 <button type="submit" className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-[1.5rem] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest">
-                   {configMsg ? <CheckCircle2 size={20} /> : <Settings size={20} />} {configMsg || 'SAVE CONFIGURATION'}
+                   {configMsg ? <CheckCircle2 size={20} /> : <Settings size={20} />} {configMsg || '設定を保存する'}
                 </button>
               </form>
 
               <div className="space-y-6">
                  <div className="bg-indigo-600 p-10 rounded-[2.5rem] text-white shadow-2xl space-y-8">
                     <div>
-                       <h3 className="font-black text-xl mb-1 flex items-center gap-2 uppercase">System Backup</h3>
-                       <p className="text-xs opacity-70 font-bold">メッセージとログの外部保存・復元</p>
+                       <h3 className="font-black text-xl mb-1 flex items-center gap-2 uppercase">システムバックアップ</h3>
+                       <p className="text-xs opacity-70 font-bold">メッセージとアクセスログの外部保存・復元</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                        <button onClick={() => {
                          const d = { messages, logs: stats.recent_logs };
                          const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], {type:'application/json'})); a.download = `OMNI_BACKUP_${new Date().toISOString().split('T')[0]}.json`; a.click();
-                       }} className="py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-white/20"><Download size={16} /> Export JSON</button>
+                       }} className="py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all border border-white/20"><Download size={16} /> JSON出力</button>
                        
-                       <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-white text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:opacity-90 transition-all"><Upload size={16} /> Import JSON</button>
+                       <button onClick={() => fileInputRef.current?.click()} className="py-4 bg-white text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:opacity-90 transition-all"><Upload size={16} /> JSON読み込み</button>
                        <input type="file" accept=".json" ref={fileInputRef} onChange={async (e) => {
                           const file = e.target.files?.[0]; if (!file) return;
                           if (!confirm('データを復元しますか？既存のデータは上書きされます。')) return;
@@ -399,10 +416,10 @@ const AdminPage: React.FC = () => {
                  <div className="bg-white dark:bg-dark-lighter p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm text-center space-y-6">
                     <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center text-blue-600 mx-auto transform rotate-3"><KeyRound size={32} /></div>
                     <div>
-                       <h3 className="font-black text-lg uppercase tracking-tight">Security Credentials</h3>
+                       <h3 className="font-black text-lg uppercase tracking-tight">セキュリティ認証情報</h3>
                        <p className="text-[10px] text-gray-400 font-bold px-4 mt-2">管理者パスワードの更新が必要です。定期的な変更を強く推奨します。</p>
                     </div>
-                    <button className="w-full py-4 border-2 border-slate-900 dark:border-white/20 text-slate-900 dark:text-white font-black rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all uppercase tracking-widest text-[10px]">Start Change Wizard</button>
+                    <button className="w-full py-4 border-2 border-slate-900 dark:border-white/20 text-slate-900 dark:text-white font-black rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all uppercase tracking-widest text-[10px]">パスワード変更ウィザード</button>
                  </div>
               </div>
            </div>
@@ -414,15 +431,15 @@ const AdminPage: React.FC = () => {
          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Server Connected</span>
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">サーバー接続済み</span>
             </div>
             <div className="flex items-center gap-2">
                <Database size={10} className="text-gray-400" />
-               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Database: JSON/DATA_DIR</span>
+               <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">データベース: JSON/データディレクトリ</span>
             </div>
          </div>
          <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
-            Logged in as SuperAdmin • {new Date().toLocaleTimeString()}
+            スーパー管理者としてログイン中 • {new Date().toLocaleTimeString()}
          </div>
       </footer>
     </div>
