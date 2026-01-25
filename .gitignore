@@ -11,6 +11,10 @@ coverage/
 dist/
 build/
 
+# App Data (IMPORTANT: Prevent overwriting on deploy)
+public/backend/data/
+!public/backend/data/.htaccess
+
 # Misc
 .DS_Store
 .env
