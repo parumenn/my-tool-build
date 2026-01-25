@@ -1,18 +1,22 @@
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-
-  # Allow access to existing files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-
-  # Redirect everything else to index.html for React Router
   RewriteRule . /index.html [L]
 </IfModule>
 
-# --- 圧縮設定 (Gzip) ---
+# --- 強力な圧縮設定 (Gzip) ---
 <IfModule mod_deflate.c>
+  SetOutputFilter DEFLATE
+  # 古いブラウザ対策
+  BrowserMatch ^Mozilla/4 gzip-only-text/html
+  BrowserMatch ^Mozilla/4\.0[678] no-gzip
+  BrowserMatch \bMSI[E] !no-gzip !gzip-only-text/html
+
+  # 圧縮するファイル形式
   AddOutputFilterByType DEFLATE text/plain
   AddOutputFilterByType DEFLATE text/html
   AddOutputFilterByType DEFLATE text/xml
@@ -22,23 +26,32 @@
   AddOutputFilterByType DEFLATE application/rss+xml
   AddOutputFilterByType DEFLATE application/javascript
   AddOutputFilterByType DEFLATE application/x-javascript
+  AddOutputFilterByType DEFLATE application/json
   AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE image/x-icon
 </IfModule>
 
-# --- ブラウザキャッシュ設定 ---
+# --- ブラウザキャッシュ設定 (静的ファイルを高速化) ---
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresDefault "access plus 1 month"
+  # HTMLはキャッシュさせず、常に最新を確認
   ExpiresByType text/html "access plus 0 seconds"
+  # JSとCSSは1年間キャッシュ（ファイル名が変わるため安全）
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType application/javascript "access plus 1 year"
+  # 画像やフォント
   ExpiresByType image/x-icon "access plus 1 year"
   ExpiresByType image/gif "access plus 1 month"
   ExpiresByType image/jpeg "access plus 1 month"
   ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
-# --- HTTP/2 の優先度向上ヒント ---
+# --- セキュリティとパフォーマンス向上のヒント ---
 <IfModule mod_headers.c>
-  Header set Link "</index.tsx>; rel=preload; as=script"
+  Header set X-Content-Type-Options "nosniff"
+  # HSTS (HTTPS強制 - 環境に応じて有効化)
+  # Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 </IfModule>

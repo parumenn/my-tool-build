@@ -1,32 +1,30 @@
 
 import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Menu, LayoutGrid, Sun, Moon, ShieldAlert } from 'lucide-react';
-
+import { Menu, LayoutGrid, Sun, Moon } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
 
-// 重いコンポーネントはすべて遅延読み込み
-const Sidebar = lazy(() => import('./components/Sidebar'));
+// 重いコンポーネントの遅延読み込みを徹底
+const SidebarContent = lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarContent })));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Settings = lazy(() => import('./components/Settings'));
-const AdminPage = lazy(() => import('./components/admin/AdminPage'));
 
-// 各ツールは個別のチャンクとして遅延読み込み
+// ツールコンポーネントの定義（これらは各URLにアクセスした時だけダウンロードされる）
 const QRCodeGenerator = lazy(() => import('./components/tools/QRCodeGenerator'));
-const FileConverter = lazy(() => import('./components/tools/FileConverter'));
 const CharacterCounter = lazy(() => import('./components/tools/CharacterCounter'));
+const ColorPickerTool = lazy(() => import('./components/tools/ColorPickerTool'));
+const PasswordGenerator = lazy(() => import('./components/tools/PasswordGenerator'));
+const Kakeibo = lazy(() => import('./components/tools/Kakeibo'));
+const PdfTools = lazy(() => import('./components/tools/PdfTools'));
 const ImageResizer = lazy(() => import('./components/tools/ImageResizer'));
+const FileConverter = lazy(() => import('./components/tools/FileConverter'));
 const IpChecker = lazy(() => import('./components/tools/IpChecker'));
 const SpeedTest = lazy(() => import('./components/tools/SpeedTest'));
-const TimerTool = lazy(() => import('./components/tools/TimerTool'));
-const Kakeibo = lazy(() => import('./components/tools/Kakeibo'));
-const Notepad = lazy(() => import('./components/tools/Notepad'));
-const PasswordGenerator = lazy(() => import('./components/tools/PasswordGenerator'));
-const ColorPickerTool = lazy(() => import('./components/tools/ColorPickerTool'));
-const PdfTools = lazy(() => import('./components/tools/PdfTools'));
 const ServerLocation = lazy(() => import('./components/tools/ServerLocation'));
 const BinaryConverter = lazy(() => import('./components/tools/BinaryConverter'));
+const TimerTool = lazy(() => import('./components/tools/TimerTool'));
+const Notepad = lazy(() => import('./components/tools/Notepad'));
 const CalculatorTool = lazy(() => import('./components/tools/CalculatorTool'));
 const Scoreboard = lazy(() => import('./components/tools/Scoreboard'));
 const UnitConverter = lazy(() => import('./components/tools/UnitConverter'));
@@ -52,99 +50,65 @@ const ImageWatermarker = lazy(() => import('./components/tools/ImageWatermarker'
 const ExifRemover = lazy(() => import('./components/tools/ExifRemover'));
 const TextDiff = lazy(() => import('./components/tools/TextDiff'));
 const TimestampConverter = lazy(() => import('./components/tools/TimestampConverter'));
-const MultiToolViewer = lazy(() => import('./components/tools/MultiToolViewer'));
 
-const ADMIN_PATH = '/secure-panel-7x9v2';
-
-export const AppContext = createContext<{
-  showAds: boolean;
-  setShowAds: (v: boolean) => void;
-  adBlockDetected: boolean;
-}>({
-  showAds: true,
-  setShowAds: () => {},
-  adBlockDetected: false,
-});
-
-const AccessLogger: React.FC<{ onBlocked: (blocked: boolean) => void }> = ({ onBlocked }) => {
-  const location = useLocation();
-  useEffect(() => {
-    const url = './backend/admin_api.php?action=log_access';
-    const payload = JSON.stringify({ path: location.pathname, status: 200 });
-    if (navigator.sendBeacon) navigator.sendBeacon(url, payload);
-    else fetch(url, { method: 'POST', body: payload, keepalive: true });
-  }, [location.pathname]);
-  return null;
-};
+export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [isBlocked, setIsBlocked] = useState(false);
   const [addedTools, setAddedTools] = useState<string[]>(() => {
     const saved = localStorage.getItem('addedTools');
     return saved ? JSON.parse(saved) : ['kakeibo', 'count', 'qrcode'];
   });
-  
-  const [showAds, setShowAds] = useState(() => {
-    const saved = localStorage.getItem('showAds');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-
-  const location = useLocation();
+  const [showAds, setShowAds] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    theme === 'dark' ? root.classList.add('dark') : root.classList.remove('dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    localStorage.setItem('showAds', JSON.stringify(showAds));
-  }, [showAds]);
-
-  useEffect(() => {
-    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-  }, [location.pathname]);
-
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  const isAdmin = location.pathname === ADMIN_PATH;
-
-  if (isBlocked) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white font-black text-2xl">Access Denied</div>;
-  if (isAdmin) return <Suspense fallback={null}><AdminPage /></Suspense>;
 
   return (
-    <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected: false }}>
-      <Helmet>
-        <title>まいつーる - 無料Webツール集</title>
-      </Helmet>
-      <AccessLogger onBlocked={setIsBlocked} />
-      
-      {/* 画面全体のコンテナ：ここは即座に表示される */}
+    <AppContext.Provider value={{ showAds, setShowAds }}>
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100">
         
-        {/* サイドバー：枠だけ先に表示し、中身(アイコン等)をSuspenseで待つ */}
-        <div className="hidden lg:block w-64 bg-white dark:bg-dark-lighter border-r border-gray-200 dark:border-gray-800 shrink-0">
-          <Suspense fallback={<div className="p-4 space-y-4 animate-pulse"><div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl w-full"></div><div className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl w-3/4"></div></div>}>
-            <Sidebar addedToolIds={addedTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} onReorder={setAddedTools} />
-          </Suspense>
-        </div>
+        {/* サイドバーの「外枠」: プログラムのロードを待たずに即座に描画 */}
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-dark-lighter border-r border-gray-200 dark:border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block
+          ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+        `}>
+          <div className="flex h-16 items-center justify-between px-4 border-b dark:border-gray-800 bg-white dark:bg-dark-lighter shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-600 p-1.5 rounded-lg text-white"><LayoutGrid size={20} /></div>
+              <h1 className="text-lg font-black tracking-tight">まいつーる</h1>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-gray-400">✕</button>
+          </div>
+          
+          <div className="h-[calc(100vh-64px)] flex flex-col">
+            <Suspense fallback={
+              <div className="p-4 space-y-4">
+                {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800/50 rounded-xl animate-pulse" />)}
+              </div>
+            }>
+              <SidebarContent addedToolIds={addedTools} onReorder={setAddedTools} onClose={() => setSidebarOpen(false)} />
+            </Suspense>
+          </div>
+        </aside>
 
-        {/* 右側メインエリア：即座に表示 */}
+        {/* メインエリア */}
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="bg-white/80 dark:bg-dark-lighter/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 z-20">
-             <div className="flex items-center gap-4">
-                <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 rounded-full"><Menu size={24} /></button>
-                <Link to="/" className="font-black text-lg md:text-xl flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                   <LayoutGrid size={22} />
-                   <span>まいつーる</span>
-                </Link>
-             </div>
-             <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">
-                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-             </button>
+          <header className="bg-white/80 dark:bg-dark-lighter/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 h-14 md:h-16 flex items-center justify-between px-4 lg:px-8 z-20 shrink-0">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 rounded-full"><Menu size={24} /></button>
+              <Link to="/" className="font-black text-lg md:text-xl flex items-center gap-2 text-blue-600 dark:text-blue-400"><LayoutGrid className="hidden sm:block" size={22} /><span>まいつーる</span></Link>
+            </div>
+            <button onClick={toggleTheme} className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 transition-colors">
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
           </header>
 
           <main ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar">
@@ -152,7 +116,6 @@ const Layout: React.FC = () => {
               <Suspense fallback={<LoadingSkeleton />}>
                 <Routes>
                   <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} />} />
-                  <Route path="/multiview" element={<MultiToolViewer tools={[]} />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/qrcode" element={<QRCodeGenerator />} />
                   <Route path="/count" element={<CharacterCounter />} />
@@ -198,20 +161,13 @@ const Layout: React.FC = () => {
             </div>
           </main>
         </div>
-
-        {/* モバイル用サイドバー(ドロワー) */}
-        {sidebarOpen && (
-          <Suspense fallback={null}>
-            <Sidebar addedToolIds={addedTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} onReorder={setAddedTools} />
-          </Suspense>
-        )}
       </div>
     </AppContext.Provider>
   );
 };
 
 const App: React.FC = () => (
-  <HashRouter>
+  <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <Layout />
   </HashRouter>
 );
