@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,9 +7,7 @@
   -webkit-tap-highlight-color: transparent; /* タップ時の青い枠を消す */
 }
 
-html, body {
-  overscroll-behavior-y: none; /* 引っ張り更新のような挙動を抑制してアプリ感を出す */
-}
+/* 削除: overscroll-behavior-y: none はモバイルのリロード操作を禁止してしまうため削除 */
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

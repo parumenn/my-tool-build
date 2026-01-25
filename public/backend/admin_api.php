@@ -86,8 +86,9 @@ if (!isset($config['password_hash'])) {
     $config = [
         'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
         'smtp_host' => '', 'smtp_port' => 587, 'smtp_user' => '', 'smtp_pass' => '', 'alert_email' => '',
-        'dos_limit_count' => 30, 'dos_limit_seconds' => 30,
-        'dos_block_minutes_1' => 15, 'dos_block_minutes_2' => 60,
+        'dos_patterns' => [
+            ['count' => 30, 'seconds' => 30, 'block_minutes' => 15]
+        ],
         'dos_notify_enabled' => true
     ];
     save_json($CONFIG_FILE, $config);
@@ -98,53 +99,80 @@ $ip = get_client_ip();
 $now = time();
 $blocked = load_json($BLOCKED_IPS_FILE);
 
-// 期限切れブロックの解除
-$blocked = array_filter($blocked, function($b) use ($now) { return $b['expiry'] > $now; });
+// 期限切れブロックの解除 (永久BAN 2147483647 は除外)
+$blocked = array_filter($blocked, function($b) use ($now) { 
+    return $b['expiry'] > $now; 
+});
 
 if (isset($blocked[$ip])) {
+    $is_permanent = ($blocked[$ip]['expiry'] >= 2147483640);
     http_response_code(403);
-    echo json_encode(['error' => '一時的にアクセスを制限しています。残り: ' . ceil(($blocked[$ip]['expiry'] - $now) / 60) . '分']);
+    $msg = $is_permanent ? 'アクセスが永久に制限されています。' : '一時的にアクセスを制限しています。残り: ' . ceil(($blocked[$ip]['expiry'] - $now) / 60) . '分';
+    echo json_encode(['error' => $msg]);
     exit;
 }
 
-// リクエスト追跡
-if ($_GET['action'] !== 'fetch_dashboard') { // 管理画面の自動更新はカウントしない
+// リクエスト追跡 (管理画面のAPIは除外)
+$action = $_GET['action'] ?? '';
+if ($action !== 'fetch_dashboard' && $action !== 'update_settings' && $action !== 'test_email') {
     $track = load_json($REQ_TRACK_FILE);
-    if (!isset($track[$ip])) $track[$ip] = ['times' => [], 'violations' => 0];
+    if (!isset($track[$ip])) $track[$ip] = ['times' => []];
     
-    $limit_sec = $config['dos_limit_seconds'] ?? 30;
-    $limit_count = $config['dos_limit_count'] ?? 30;
-    
-    $track[$ip]['times'] = array_filter($track[$ip]['times'], function($t) use ($now, $limit_sec) { return $t > ($now - $limit_sec); });
     $track[$ip]['times'][] = $now;
     
-    if (count($track[$ip]['times']) > $limit_count) {
-        $track[$ip]['violations']++;
-        $v = $track[$ip]['violations'];
-        $minutes = ($v === 1) ? ($config['dos_block_minutes_1'] ?? 15) : ($config['dos_block_minutes_2'] ?? 60);
+    // 設定された全パターンをチェック
+    $patterns = $config['dos_patterns'] ?? [['count' => 30, 'seconds' => 30, 'block_minutes' => 15]];
+    $is_violated = false;
+    $applied_pattern = null;
+
+    foreach ($patterns as $p) {
+        $limit_sec = $p['seconds'];
+        $limit_count = $p['count'];
+        
+        // 期間内のアクセスをフィルタリング
+        $recent_hits = array_filter($track[$ip]['times'], function($t) use ($now, $limit_sec) { 
+            return $t > ($now - $limit_sec); 
+        });
+        
+        if (count($recent_hits) > $limit_count) {
+            $is_violated = true;
+            $applied_pattern = $p;
+            break; // 最初の違反で止める
+        }
+    }
+
+    if ($is_violated) {
+        $minutes = $applied_pattern['block_minutes'];
+        $expiry = ($minutes === 0) ? 2147483647 : ($now + ($minutes * 60));
         
         $blocked[$ip] = [
-            'expiry' => $now + ($minutes * 60),
+            'expiry' => $expiry,
             'time' => date('Y-m-d H:i:s'),
-            'reason' => "過剰リクエスト ({$v}回目)",
-            'violations' => $v
+            'reason' => "DOS検知 ({$applied_pattern['count']}回/{$applied_pattern['seconds']}秒)",
+            'permanent' => ($minutes === 0)
         ];
         save_json($BLOCKED_IPS_FILE, $blocked);
         
         if ($config['dos_notify_enabled'] && !empty($config['alert_email'])) {
             $smtp = new SimpleSMTP($config);
-            $smtp->send($config['alert_email'], "セキュリティ警告: IP遮断通知", "以下のIPを自動遮断しました。\n\nIP: {$ip}\n理由: 短時間の過剰アクセス\n遮断期間: {$minutes}分間");
+            $p_text = ($minutes === 0) ? "永久" : "{$minutes}分間";
+            $smtp->send($config['alert_email'], "【セキュリティ警告】IP遮断通知", "過剰アクセスを検知しIPを遮断しました。\n\nIP: {$ip}\n理由: {$applied_pattern['count']}回以上のリクエスト（{$applied_pattern['seconds']}秒間）\n期間: {$p_text}");
         }
         
         http_response_code(429);
-        echo json_encode(['error' => 'リクエストが多すぎます。アクセスを制限しました。']);
+        echo json_encode(['error' => '過剰なリクエストを検知したため、アクセスを一時制限しました。']);
         exit;
     }
+    
+    // 古い記録をクリーンアップして保存
+    $max_window = 300; // 最大5分前の記録まで保持
+    $track[$ip]['times'] = array_filter($track[$ip]['times'], function($t) use ($now, $max_window) { 
+        return $t > ($now - $max_window); 
+    });
     save_json($REQ_TRACK_FILE, $track);
 }
 
 // --- API Router ---
-$action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
 if ($action === 'login') {
@@ -192,8 +220,7 @@ if ($action === 'fetch_dashboard') {
         'blocked_ips' => $blocked,
         'config' => [
             'smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email'],
-            'dos_limit_count' => $config['dos_limit_count'], 'dos_limit_seconds' => $config['dos_limit_seconds'],
-            'dos_block_minutes_1' => $config['dos_block_minutes_1'], 'dos_block_minutes_2' => $config['dos_block_minutes_2'],
+            'dos_patterns' => $config['dos_patterns'] ?? [['count' => 30, 'seconds' => 30, 'block_minutes' => 15]],
             'dos_notify_enabled' => $config['dos_notify_enabled']
         ]
     ]);

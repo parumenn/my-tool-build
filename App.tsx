@@ -117,28 +117,39 @@ export const TOOLS: Tool[] = [
 ];
 
 /**
- * アクセスロガー & ブロックチェッカー: 
- * すべての遷移をバックエンドに通知し、IPが遮断されていればアプリをロックする
+ * 非ブロッキング・アクセスロガー:
+ * モバイル回線での「詰まり」を解消するため、navigator.sendBeaconを使用します。
+ * これによりバックエンドの応答を待たずにUI操作が可能になります。
  */
 const AccessLogger: React.FC<{ onBlocked: (blocked: boolean) => void }> = ({ onBlocked }) => {
   const location = useLocation();
   
   useEffect(() => {
-    fetch('./backend/admin_api.php?action=log_access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path: location.pathname,
-        referer: document.referrer,
-        status: 200
-      })
-    })
-    .then(async (res) => {
-        if (res.status === 403 || res.status === 429) {
-            onBlocked(true);
-        }
-    })
-    .catch(() => {});
+    const url = './backend/admin_api.php?action=log_access';
+    const payload = JSON.stringify({
+      path: location.pathname,
+      referer: document.referrer,
+      status: 200
+    });
+
+    // モバイルでの体感速度向上のため、sendBeaconを優先使用
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, payload);
+    } else {
+      // フォールバック（古いブラウザ用）
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      });
+    }
+
+    // ブロックチェック（これのみ非同期でバックグラウンド実行）
+    fetch(url, { method: 'HEAD' }).then(res => {
+      if (res.status === 403 || res.status === 429) onBlocked(true);
+    }).catch(() => {});
+    
   }, [location.pathname, onBlocked]);
 
   return null;
