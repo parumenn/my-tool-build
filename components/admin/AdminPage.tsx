@@ -36,8 +36,11 @@ const AdminPage: React.FC = () => {
   const [blockedIps, setBlockedIps] = useState<Record<string, BlockedIp>>({});
   const [dataLoading, setDataLoading] = useState(false);
 
+  // SMTP設定の状態管理
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfig>({ smtp_host: '', smtp_port: 587, smtp_user: '', alert_email: '', smtp_pass: '' });
   const [smtpMsg, setSmtpMsg] = useState('');
+  const [isEditingSmtp, setIsEditingSmtp] = useState(false); // 入力中フラグ
+  
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
@@ -108,12 +111,16 @@ const AdminPage: React.FC = () => {
         const data = await res.json();
         setMessages(data.messages);
         setStats(data.stats);
-        // パスワード欄を上書きしないようにマージ (サーバーからはパスワードは返されない)
-        setSmtpConfig(prev => ({
-          ...prev, 
-          ...data.config,
-          smtp_pass: prev.smtp_pass // ユーザーが入力中のパスワードを保持
-        }));
+        setBlockedIps(data.blocked_ips || {});
+        
+        // 重要: ユーザーが編集中の場合はSMTP設定を上書きしない
+        if (!isEditingSmtp) {
+          setSmtpConfig(prev => ({
+            ...prev, 
+            ...data.config,
+            smtp_pass: prev.smtp_pass // パスワードはローカル入力を優先（サーバーからは返らないため）
+          }));
+        }
       } else {
         logout();
       }
@@ -133,8 +140,9 @@ const AdminPage: React.FC = () => {
       const data = await res.json();
       if (data.status === '成功' || data.status === 'success') {
           setSmtpMsg('設定を保存し、テストメールを送信しました。');
-          // 送信成功後、ローカルのパスワード表示はクリア（再編集用）
           setSmtpConfig(p => ({...p, smtp_pass: ''}));
+          setIsEditingSmtp(false); // 保存成功したら編集モード解除
+          fetchDashboard(true);
       } else {
           setSmtpMsg('エラー: ' + (data.message || '保存に失敗しました'));
       }
@@ -144,7 +152,7 @@ const AdminPage: React.FC = () => {
   const handleExportAll = () => {
     if (!stats || !messages) return;
     const backupData = {
-        config: { ...smtpConfig, smtp_pass: '********' }, // 安全のため伏字
+        config: { ...smtpConfig, smtp_pass: '' }, 
         messages: messages,
         logs: stats.recent_logs
     };
@@ -160,7 +168,10 @@ const AdminPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !token) return;
     
-    if (!confirm('システムデータを復元しますか？現在のメッセージとアクセスログは上書きされます。')) return;
+    if (!confirm('システムデータを復元しますか？現在のメッセージとアクセスログは上書きされます。')) {
+      if(fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     
     setIsImporting(true);
     setImportStatus('idle');
@@ -176,15 +187,17 @@ const AdminPage: React.FC = () => {
         });
         if (res.ok) {
             setImportStatus('success');
+            setTimeout(() => setImportStatus('idle'), 3000);
             fetchDashboard();
         } else {
             setImportStatus('error');
         }
       } catch (err) {
         setImportStatus('error');
-        alert('JSONの解析に失敗しました。ファイル形式が正しいか確認してください。');
+        alert('JSONの解析に失敗しました。正しい形式のバックアップファイルを選択してください。');
       } finally {
         setIsImporting(false);
+        if(fileInputRef.current) fileInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
@@ -198,14 +211,14 @@ const AdminPage: React.FC = () => {
       const interval = setInterval(() => fetchDashboard(true), 15000);
       return () => clearInterval(interval);
     }
-  }, [token]);
+  }, [token, isEditingSmtp]); // 編集フラグが変わったときも即座に反応させる
 
   if (!token) return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
         <div className="flex justify-center mb-6"><div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600"><Lock size={32} /></div></div>
         <h2 className="text-2xl font-bold text-center mb-2 dark:text-white">管理者ログイン</h2>
-        <p className="text-center text-gray-400 text-xs mb-8">まいつーる 管理パネル</p>
+        <p className="text-center text-gray-400 text-xs mb-8 font-bold uppercase tracking-widest">まいつーる 管理パネル</p>
         <form onSubmit={handleLogin} className="space-y-6">
           <input 
             type="password" 
@@ -328,15 +341,64 @@ const AdminPage: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
                  <h3 className="font-black text-xl mb-8 flex items-center gap-3"><Server className="text-orange-500" /> 通知・メールサーバー設定</h3>
                  <form onSubmit={handleUpdateSmtp} className="space-y-5">
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">SMTPサーバー名</label><input type="text" value={smtpConfig.smtp_host} onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" placeholder="例: smtp.gmail.com" /></div>
-                    <div className="grid grid-cols-3 gap-4">
-                       <div className="col-span-1"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">ポート番号</label><input type="number" value={smtpConfig.smtp_port} onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                       <div className="col-span-2"><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">メールアドレス / ユーザー名</label><input type="text" value={smtpConfig.smtp_user} onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">SMTPサーバー名</label>
+                      <input 
+                        type="text" 
+                        value={smtpConfig.smtp_host} 
+                        onFocus={() => setIsEditingSmtp(true)}
+                        onChange={e => setSmtpConfig({...smtpConfig, smtp_host: e.target.value})} 
+                        className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" 
+                        placeholder="例: smtp.gmail.com" 
+                      />
                     </div>
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">パスワード</label><input type="password" value={smtpConfig.smtp_pass} onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} placeholder="変更時のみ入力（通常は空欄）" className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
-                    <div><label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">アラート送信先 (管理者メール)</label><input type="email" value={smtpConfig.alert_email} onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" /></div>
+                    <div className="grid grid-cols-3 gap-4">
+                       <div className="col-span-1">
+                         <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">ポート番号</label>
+                         <input 
+                          type="number" 
+                          value={smtpConfig.smtp_port} 
+                          onFocus={() => setIsEditingSmtp(true)}
+                          onChange={e => setSmtpConfig({...smtpConfig, smtp_port: Number(e.target.value)})} 
+                          className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" 
+                         />
+                       </div>
+                       <div className="col-span-2">
+                         <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">メールアドレス / ユーザー名</label>
+                         <input 
+                          type="text" 
+                          value={smtpConfig.smtp_user} 
+                          onFocus={() => setIsEditingSmtp(true)}
+                          onChange={e => setSmtpConfig({...smtpConfig, smtp_user: e.target.value})} 
+                          className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" 
+                         />
+                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">パスワード</label>
+                      <input 
+                        type="password" 
+                        value={smtpConfig.smtp_pass} 
+                        onFocus={() => setIsEditingSmtp(true)}
+                        onChange={e => setSmtpConfig({...smtpConfig, smtp_pass: e.target.value})} 
+                        placeholder="変更時のみ入力（通常は空欄）" 
+                        className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase tracking-widest">アラート送信先 (管理者メール)</label>
+                      <input 
+                        type="email" 
+                        value={smtpConfig.alert_email} 
+                        onFocus={() => setIsEditingSmtp(true)}
+                        onChange={e => setSmtpConfig({...smtpConfig, alert_email: e.target.value})} 
+                        className="w-full p-3.5 border-2 border-gray-50 dark:border-gray-700 rounded-xl dark:bg-gray-900 text-sm font-bold focus:border-orange-500 outline-none transition-all" 
+                      />
+                    </div>
                     {smtpMsg && <p className={`text-xs font-bold ${smtpMsg.includes('エラー') ? 'text-red-500' : 'text-blue-500'} bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border dark:border-gray-700`}>{smtpMsg}</p>}
+                    {isEditingSmtp && <p className="text-[10px] text-orange-500 font-bold animate-pulse">※編集中：自動更新を一時停止しています</p>}
                     <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-lg transition-all active:scale-[0.98]">設定を保存して接続テスト</button>
+                    {isEditingSmtp && <button type="button" onClick={() => { setIsEditingSmtp(false); fetchDashboard(); }} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-gray-600">編集をキャンセルして最新状態に戻す</button>}
                  </form>
               </div>
               
