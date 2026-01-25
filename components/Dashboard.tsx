@@ -2,23 +2,23 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tool } from '../types';
+import { TOOLS } from '../constants/toolsData';
 import { ArrowRight, Plus, Check, ShieldCheck, Search, Info } from 'lucide-react';
 
 interface DashboardProps {
-  tools: Tool[];
-  addedTools: string[];
+  addedToolIds: string[];
   onToggleAdded: (id: string) => void;
   onReorder: (newOrder: string[]) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded, onReorder }) => {
+const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onReorder }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const myApps = addedTools
-    .map(id => tools.find(t => t.id === id))
+  const myApps = addedToolIds
+    .map(id => TOOLS.find(t => t.id === id))
     .filter((t): t is Tool => t !== undefined);
 
-  const otherTools = tools.filter(t => !addedTools.includes(t.id)).filter(t => 
+  const otherTools = TOOLS.filter(t => !addedToolIds.includes(t.id)).filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     t.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -30,19 +30,18 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
       )
     : myApps;
 
-  const renderToolCard = (tool: Tool, isAddedGroup: boolean, index: number) => {
+  const renderToolCard = (tool: Tool, isAddedGroup: boolean) => {
      return (
         <div key={tool.id} className="group relative bg-white dark:bg-dark-lighter rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col min-h-[140px] md:min-h-[180px]">
           <div className="flex justify-between items-start mb-3 md:mb-4">
-            {/* 修正点: App.tsxで定義した明示的な背景色クラス(lightBg)を使用 */}
             <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center ${tool.lightBg} dark:bg-gray-800 ${tool.color}`}>
               <tool.icon size={24} className="md:w-7 md:h-7" />
             </div>
             <button 
               onClick={(e) => { e.preventDefault(); onToggleAdded(tool.id); }}
-              className={`p-2.5 md:p-3 rounded-full border-2 transition-all ${addedTools.includes(tool.id) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 text-gray-400 hover:text-blue-500'}`}
+              className={`p-2.5 md:p-3 rounded-full border-2 transition-all ${addedToolIds.includes(tool.id) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 text-gray-400 hover:text-blue-500'}`}
             >
-              {addedTools.includes(tool.id) ? <Check size={16} /> : <Plus size={16} />}
+              {addedToolIds.includes(tool.id) ? <Check size={16} /> : <Plus size={16} />}
             </button>
           </div>
           
@@ -82,7 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
               <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span> マイアプリ
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {displayedMyApps.length > 0 ? displayedMyApps.map((tool, index) => renderToolCard(tool, true, index)) : (
+              {displayedMyApps.length > 0 ? displayedMyApps.map((tool) => renderToolCard(tool, true)) : (
                   <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm">
                       {searchTerm ? '見つかりませんでした' : '下のリストからアプリを追加してください'}
                   </div>
@@ -95,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tools, addedTools, onToggleAdded,
                <span className="w-1.5 h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></span> 全ツール
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {otherTools.map((tool, index) => renderToolCard(tool, false, index))}
+              {otherTools.map((tool) => renderToolCard(tool, false))}
             </div>
         </section>
 

@@ -2,18 +2,25 @@
 import React, { useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Tool } from '../types';
+import { TOOLS } from '../constants/toolsData';
 import { LayoutGrid, Plus, Settings, Grid2X2, Home, X } from 'lucide-react';
 
 interface SidebarProps {
-  tools: Tool[];
+  addedToolIds: string[];
   isOpen: boolean;
   toggleSidebar: () => void;
   onReorder: (newOrder: string[]) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReorder }) => {
+const Sidebar: React.FC<SidebarProps> = ({ addedToolIds, isOpen, toggleSidebar, onReorder }) => {
   const dragItem = useRef<number | null>(null);
+  const location = useLocation();
   
+  // マッピングをコンポーネント内で行うことで、TOOLS（とアイコン群）の読み込みを遅延させる
+  const tools = addedToolIds
+    .map(id => TOOLS.find(t => t.id === id))
+    .filter((t): t is Tool => t !== undefined);
+
   const handleDragStart = (e: React.DragEvent<HTMLAnchorElement>, position: number, toolId: string) => {
     dragItem.current = position;
     e.dataTransfer.effectAllowed = "copyMove";
@@ -40,7 +47,6 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
 
   const SidebarContent = () => (
     <nav className="p-4 space-y-1 overflow-y-auto flex-1 no-scrollbar">
-      {/* Core Navigation */}
       <NavLink
         to="/"
         onClick={isOpen ? toggleSidebar : undefined}
@@ -55,7 +61,6 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
         <span>ダッシュボード</span>
       </NavLink>
 
-      {/* Hide Workspace on Mobile Drawer */}
       <NavLink
         to="/multiview"
         onClick={isOpen ? toggleSidebar : undefined}
@@ -152,7 +157,6 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
 
   return (
     <>
-      {/* Mobile Bottom Navigation - Hide Workspace for Mobile */}
       <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-dark-lighter/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-40 px-8 pb-safe safe-area-bottom shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div className="flex justify-around items-center h-16">
           <NavLink
@@ -173,7 +177,6 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
         </div>
       </nav>
 
-      {/* Mobile Drawer Backdrop */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-50 lg:hidden transition-opacity duration-300 backdrop-blur-sm"
@@ -181,10 +184,9 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
         />
       )}
 
-      {/* Mobile Sidebar Drawer */}
       <aside className={`
         fixed top-0 left-0 bottom-0 z-50 w-72 bg-white dark:bg-dark-lighter shadow-2xl 
-        transform transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) lg:hidden flex flex-col
+        transform transition-transform duration-500 cubic-bezier(0.16, 1, 1, 1) lg:hidden flex flex-col
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <LogoArea showClose={true} />
@@ -192,7 +194,6 @@ const Sidebar: React.FC<SidebarProps> = ({ tools, isOpen, toggleSidebar, onReord
         <BottomLink />
       </aside>
 
-      {/* Desktop Sidebar (Static) */}
       <aside className={`
         hidden lg:flex
         fixed top-0 left-0 z-30 h-full w-64 bg-white dark:bg-dark-lighter shadow-xl transition-transform duration-300 ease-in-out lg:static lg:shadow-none border-r border-gray-200 dark:border-gray-800 flex-col
