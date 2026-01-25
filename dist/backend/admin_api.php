@@ -3,7 +3,7 @@
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 ini_set('display_errors', 0);
 
-// 日本時間に設定 (Important: Set this before any date/time functions)
+// 日本時間に設定
 date_default_timezone_set('Asia/Tokyo');
 
 $start_time = microtime(true);
@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// getallheaders Polyfill for Nginx/FPM
+// getallheaders Polyfill
 if (!function_exists('getallheaders')) {
     function getallheaders() {
         $headers = [];
@@ -32,7 +32,7 @@ if (!function_exists('getallheaders')) {
     }
 }
 
-// Composerのオートローダー読み込み（存在する場合のみ）
+// Composer
 $has_phpmailer = false;
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -42,10 +42,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 // Configuration
 $DATA_DIR = __DIR__ . '/data';
 if (!file_exists($DATA_DIR)) {
-    if (!mkdir($DATA_DIR, 0777, true)) {
-        // 権限エラーでディレクトリが作れない場合
-        error_log("Failed to create data directory");
-    }
+    mkdir($DATA_DIR, 0777, true);
 }
 
 $MESSAGES_FILE   = $DATA_DIR . '/messages.json';
@@ -53,6 +50,8 @@ $ATTEMPTS_FILE   = $DATA_DIR . '/login_attempts.json';
 $TOKENS_FILE     = $DATA_DIR . '/active_tokens.json';
 $ACCESS_LOG_FILE = $DATA_DIR . '/access_log.json';
 $CONFIG_FILE     = $DATA_DIR . '/admin_config.json';
+$BLOCKED_IPS_FILE = $DATA_DIR . '/blocked_ips.json';
+$REQ_TRACK_FILE  = $DATA_DIR . '/request_track.json';
 
 // Initial Setup
 if (!file_exists($CONFIG_FILE)) {
@@ -70,14 +69,10 @@ if (!file_exists($CONFIG_FILE)) {
 // Load Config
 $config = json_decode(file_get_contents($CONFIG_FILE), true);
 
-// Brute Force Settings
-$MAX_ATTEMPTS = 5;
-$LOCKOUT_TIME = 900; // 15 minutes
-
-$action = $_GET['action'] ?? '';
-$input = json_decode(file_get_contents('php://input'), true);
-
+// Utility functions
 function get_client_ip() {
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'];
 }
 
@@ -88,470 +83,212 @@ function load_json($file) {
 }
 
 function save_json($file, $data) {
-    // データの保存を試みる
-    if (file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT)) === false) {
-        error_log("Failed to write to $file");
-    }
+    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
-function verify_token($token) {
-    global $TOKENS_FILE;
-    if (empty($token)) return false;
-    $tokens = load_json($TOKENS_FILE);
-    return isset($tokens[$token]) && $tokens[$token] > time();
-}
-
-/**
- * Minimal SMTP Client for environments without Composer/PHPMailer
- */
+/** Minimal SMTP Client **/
 class MinimalSMTP {
-    private $host;
-    private $port;
-    private $user;
-    private $pass;
-    private $socket;
-    private $timeout = 10;
-    public $debugLog = [];
-
-    public function __construct($host, $port, $user, $pass) {
-        $this->host = $host;
-        $this->port = $port;
-        $this->user = $user;
-        $this->pass = $pass;
-    }
-
-    private function log($msg) {
-        $this->debugLog[] = $msg;
-    }
-
+    private $host; private $port; private $user; private $pass; private $socket; private $timeout = 10; public $debugLog = [];
+    public function __construct($host, $port, $user, $pass) { $this->host = $host; $this->port = $port; $this->user = $user; $this->pass = $pass; }
+    private function log($msg) { $this->debugLog[] = $msg; }
     public function send($to, $subject, $body, $fromName = 'OmniTools Admin') {
         try {
             $protocol = ($this->port == 465) ? 'ssl://' : '';
-            $hostAddress = $protocol . $this->host;
-
-            $this->log("Connecting to $hostAddress:{$this->port}");
-            $this->socket = @fsockopen($hostAddress, $this->port, $errno, $errstr, $this->timeout);
-            
-            if (!$this->socket) {
-                throw new Exception("Connection failed: $errstr ($errno)");
-            }
-
-            $this->read();
-            $this->cmd('EHLO ' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
-
+            $this->socket = @fsockopen($protocol . $this->host, $this->port, $errno, $errstr, $this->timeout);
+            if (!$this->socket) return "Connection failed: $errstr";
+            $this->read(); $this->cmd('EHLO ' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
             if ($this->port == 587) {
                 $this->cmd('STARTTLS');
-                $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT;
-                if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
-                    $cryptoMethod |= STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
-                }
-                if (!stream_socket_enable_crypto($this->socket, true, $cryptoMethod)) {
-                    throw new Exception("TLS handshake failed");
-                }
+                stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
                 $this->cmd('EHLO ' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
             }
-
-            $this->cmd('AUTH LOGIN');
-            $this->cmd(base64_encode($this->user));
-            $this->cmd(base64_encode($this->pass));
-
-            $this->cmd("MAIL FROM: <{$this->user}>");
-            $this->cmd("RCPT TO: <$to>");
-            $this->cmd('DATA');
-
-            $headers  = "MIME-Version: 1.0\r\n";
-            $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-            $headers .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$this->user}>\r\n";
-            $headers .= "To: <$to>\r\n";
-            $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-            $headers .= "Date: " . date("r") . "\r\n";
-
-            $this->cmd($headers . "\r\n" . $body . "\r\n.");
-            $this->cmd('QUIT');
-
-            fclose($this->socket);
-            return true;
-        } catch (Exception $e) {
-            if ($this->socket) @fclose($this->socket);
-            return $e->getMessage() . " [Log: " . implode("; ", $this->debugLog) . "]";
-        }
+            $this->cmd('AUTH LOGIN'); $this->cmd(base64_encode($this->user)); $this->cmd(base64_encode($this->pass));
+            $this->cmd("MAIL FROM: <{$this->user}>"); $this->cmd("RCPT TO: <$to>"); $this->cmd('DATA');
+            $headers = "MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nFrom: =?UTF-8?B?".base64_encode($fromName)."?= <{$this->user}>\r\nTo: <$to>\r\nSubject: =?UTF-8?B?".base64_encode($subject)."?=\r\nDate: ".date("r")."\r\n";
+            $this->cmd($headers . "\r\n" . $body . "\r\n."); $this->cmd('QUIT'); fclose($this->socket); return true;
+        } catch (Exception $e) { return $e->getMessage(); }
     }
-
-    private function cmd($command) {
-        fputs($this->socket, $command . "\r\n");
-        $response = $this->read();
-        $code = substr($response, 0, 3);
-        if ($code >= 400) {
-            throw new Exception("SMTP Error [$code]: $response");
-        }
-        return $response;
-    }
-
-    private function read() {
-        $response = '';
-        while ($str = fgets($this->socket, 515)) {
-            $response .= $str;
-            if (substr($str, 3, 1) == ' ') break;
-        }
-        $this->log("S: " . trim($response));
-        return $response;
-    }
+    private function cmd($c) { fputs($this->socket, $c . "\r\n"); return $this->read(); }
+    private function read() { $r = ''; while ($s = fgets($this->socket, 515)) { $r .= $s; if (substr($s, 3, 1) == ' ') break; } return $r; }
 }
 
-// --- Mail Helper Function ---
 function send_alert_email($subject, $body, $configOverride = null) {
     global $config, $has_phpmailer;
-
     $currentConfig = $configOverride ?? $config;
-
     $to = $currentConfig['alert_email'] ?? '';
-    $host = $currentConfig['smtp_host'] ?? '';
-    $user = $currentConfig['smtp_user'] ?? '';
-    $pass = $currentConfig['smtp_pass'] ?? '';
-    $port = intval($currentConfig['smtp_port'] ?? 587);
-
-    // デバッグ用: 値が空の場合は詳細を返す
-    if (empty($to) || empty($host) || empty($user)) {
-        $debugInfo = json_encode([
-            'has_to' => !empty($to),
-            'has_host' => !empty($host),
-            'has_user' => !empty($user),
-            'port' => $port,
-            'received_host' => $host // 受信したホスト値をデバッグ出力
-        ]);
-        return "設定不備: 必須項目が足りません。($debugInfo)";
-    }
-
-    // 1. Try PHPMailer (Best)
-    if ($has_phpmailer && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+    if (empty($to)) return "No alert email configured";
+    if ($has_phpmailer) {
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-            $mail->isSMTP();
-            $mail->Host       = $host;
-            $mail->SMTPAuth   = true;
-            $mail->Username   = $user;
-            $mail->Password   = $pass;
-            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            if ($port == 465) {
-                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-            }
-            $mail->Port       = $port;
-            $mail->CharSet    = 'UTF-8';
-            $mail->setFrom($user, 'OmniTools Admin');
-            $mail->addAddress($to);
-            $mail->isHTML(false);
-            $mail->Subject = "[OmniTools] " . $subject;
-            $mail->Body    = $body;
-            $mail->send();
-            return true;
-        } catch (\Exception $e) {
-            $phpMailerError = $mail->ErrorInfo;
-        }
+            $mail->isSMTP(); $mail->Host = $currentConfig['smtp_host']; $mail->SMTPAuth = true;
+            $mail->Username = $currentConfig['smtp_user']; $mail->Password = $currentConfig['smtp_pass'];
+            $mail->SMTPSecure = ($currentConfig['smtp_port'] == 465) ? 'ssl' : 'tls';
+            $mail->Port = $currentConfig['smtp_port']; $mail->CharSet = 'UTF-8';
+            $mail->setFrom($currentConfig['smtp_user'], 'OmniTools Security');
+            $mail->addAddress($to); $mail->Subject = "[OmniTools] " . $subject; $mail->Body = $body;
+            $mail->send(); return true;
+        } catch (Exception $e) { return $mail->ErrorInfo; }
     }
-
-    // 2. Try MinimalSMTP (Fallback)
-    try {
-        $smtp = new MinimalSMTP($host, $port, $user, $pass);
-        $res = $smtp->send($to, $subject, $body);
-        if ($res === true) return true;
-        $minimalError = $res;
-    } catch (\Exception $e) {
-        $minimalError = $e->getMessage();
-    }
-
-    // 3. Fallback to PHP native mail()
-    if (!$configOverride) {
-        $sender = 'noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $headers = "From: OmniTools <{$sender}>\r\nReply-To: {$sender}\r\nX-Mailer: PHP/" . phpversion() . "\r\nContent-Type: text/plain; charset=UTF-8";
-        if (@mail($to, "[OmniTools] " . $subject, $body, $headers)) {
-            return true;
-        }
-    }
-
-    $msg = 'メール送信失敗:';
-    if (isset($phpMailerError)) $msg .= " [PHPMailer: $phpMailerError]";
-    if (isset($minimalError)) $msg .= " [SMTP: $minimalError]";
-    if (!$has_phpmailer) $msg .= " (PHPMailer未導入)";
-    
-    return $msg;
+    $smtp = new MinimalSMTP($currentConfig['smtp_host'], $currentConfig['smtp_port'], $currentConfig['smtp_user'], $currentConfig['smtp_pass']);
+    return $smtp->send($to, $subject, $body);
 }
 
-// --- 1. Log Access (Public) ---
-if ($action === 'log_access') {
-    $duration = microtime(true) - $start_time;
-    
-    $log = [
-        'timestamp' => time(),
-        'date' => date('Y-m-d H:i:s'),
-        'ip' => get_client_ip(),
-        'path' => $input['path'] ?? '/',
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
-        'referer' => $input['referer'] ?? '',
-        'status' => $input['status'] ?? 200,
-        'response_time' => isset($input['load_time']) ? round($input['load_time'], 2) : round($duration * 1000, 2)
-    ];
+// --- DOS Protection & IP Blacklist Check ---
+$current_ip = get_client_ip();
+$blocked_ips = load_json($BLOCKED_IPS_FILE);
 
+// 1. Check if IP is blocked
+if (isset($blocked_ips[$current_ip])) {
+    http_response_code(403);
+    // ログ記録
+    if ($_GET['action'] !== 'log_access') {
+        $logs = load_json($ACCESS_LOG_FILE);
+        $mtime = microtime(true);
+        $ts = (int)$mtime;
+        $ms = sprintf("%03d", ($mtime - $ts) * 1000);
+        $date_with_ms = date('Y-m-d H:i:s', $ts) . '.' . $ms;
+        
+        array_unshift($logs, [
+            'timestamp' => $mtime, 
+            'date' => $date_with_ms, 
+            'ip' => $current_ip, 
+            'path' => '[BLOCKED ACCESS: '.$_GET['action'].']', 
+            'ua' => $_SERVER['HTTP_USER_AGENT'], 
+            'status' => 403
+        ]);
+        save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
+    }
+    echo json_encode(['error' => 'Your IP is restricted due to security reasons.']);
+    exit;
+}
+
+// 2. Rate Limiting (DOS Detection)
+$MAX_REQ_PER_MINUTE = 60;
+$track = load_json($REQ_TRACK_FILE);
+$now = time();
+$minute_ago = $now - 60;
+
+// Clean up old track data
+$track = array_filter($track, function($ts) use ($minute_ago) { return $ts > $minute_ago; });
+
+if (!isset($track[$current_ip])) $track[$current_ip] = [];
+$track[$current_ip][] = $now;
+$req_count = count($track[$current_ip]);
+
+if ($req_count > $MAX_REQ_PER_MINUTE) {
+    // Block IP
+    $blocked_ips[$current_ip] = ['reason' => 'DOS Attack Detected', 'time' => date('Y-m-d H:i:s'), 'timestamp' => $now];
+    save_json($BLOCKED_IPS_FILE, $blocked_ips);
+    
+    // Alert Admin
+    $subject = "Security Alert: IP Blocked (DOS)";
+    $body = "DOS攻撃の疑いがあるため、以下のIPを自動的に遮断しました。\n\nIP: {$current_ip}\nアクセス数: {$req_count} req/min\n時刻: " . date('Y-m-d H:i:s') . "\n\n管理者画面から解除可能です。";
+    send_alert_email($subject, $body);
+    
+    http_response_code(429);
+    echo json_encode(['error' => 'Too many requests. IP blocked.']);
+    exit;
+}
+save_json($REQ_TRACK_FILE, $track);
+
+// --- API Actions ---
+$action = $_GET['action'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true);
+
+if ($action === 'log_access') {
+    $mtime = microtime(true);
+    $ts = (int)$mtime;
+    $ms = sprintf("%03d", ($mtime - $ts) * 1000);
+    $date_with_ms = date('Y-m-d H:i:s', $ts) . '.' . $ms;
+
+    $log = [
+        'timestamp' => $mtime, 
+        'date' => $date_with_ms, 
+        'ip' => $current_ip, 
+        'path' => $input['path'] ?? '/', 
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown', 
+        'referer' => $input['referer'] ?? '', 
+        'status' => $input['status'] ?? 200, 
+        'response_time' => round((microtime(true) - $start_time) * 1000, 3) // ミリ秒精度
+    ];
     $logs = load_json($ACCESS_LOG_FILE);
     array_unshift($logs, $log);
-    
-    if (count($logs) > 5000) {
-        $logs = array_slice($logs, 0, 5000);
-    }
-    
-    save_json($ACCESS_LOG_FILE, $logs);
+    save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
     exit;
 }
 
-// --- 2. Send Message (Public) ---
 if ($action === 'send') {
-    if (empty($input['message'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Message is required']);
-        exit;
-    }
-
+    if (empty($input['message'])) { http_response_code(400); exit; }
     $messages = load_json($MESSAGES_FILE);
-    $newMessage = [
-        'id' => uniqid(),
-        'timestamp' => date('Y-m-d H:i:s'),
-        'ip' => get_client_ip(),
-        'name' => $input['name'] ?? 'Anonymous',
-        'contact' => $input['contact'] ?? '',
-        'message' => htmlspecialchars($input['message'])
-    ];
-    
-    array_unshift($messages, $newMessage);
+    array_unshift($messages, ['id' => uniqid(), 'timestamp' => date('Y-m-d H:i:s'), 'ip' => $current_ip, 'name' => $input['name'] ?? 'Anonymous', 'contact' => $input['contact'] ?? '', 'message' => htmlspecialchars($input['message'])]);
     save_json($MESSAGES_FILE, $messages);
-    
     echo json_encode(['status' => 'success']);
     exit;
 }
 
-// --- 3. Login (Admin) ---
 if ($action === 'login') {
-    $ip = get_client_ip();
-    $now = time();
     $attemptsData = load_json($ATTEMPTS_FILE);
-    
-    $attemptsData = array_filter($attemptsData, function($attempt) use ($now, $LOCKOUT_TIME) {
-        return ($now - $attempt['time']) < $LOCKOUT_TIME;
-    });
-
-    $myAttempts = array_filter($attemptsData, function($attempt) use ($ip) {
-        return $attempt['ip'] === $ip;
-    });
-
-    if (count($myAttempts) >= $MAX_ATTEMPTS) {
-        if (count($myAttempts) === $MAX_ATTEMPTS) {
-            $subject = "不正アクセス検知 (Login Lockout)";
-            $body = "ログイン試行回数上限超過\nIP: {$ip}\nTime: " . date('Y-m-d H:i:s');
-            send_alert_email($subject, $body);
-        }
-        http_response_code(429);
-        echo json_encode(['error' => '試行回数が上限を超えました。15分後に再試行してください。']);
-        exit;
+    $attemptsData = array_filter($attemptsData, function($a) use ($now) { return ($now - $a['time']) < 900; });
+    if (count(array_filter($attemptsData, function($a) use ($current_ip) { return $a['ip'] === $current_ip; })) >= 5) {
+        http_response_code(429); echo json_encode(['error' => 'Locked out for 15 mins.']); exit;
     }
-
-    $password = $input['password'] ?? '';
-    if (password_verify($password, $config['password_hash'])) {
+    if (password_verify($input['password'] ?? '', $config['password_hash'])) {
         $token = bin2hex(random_bytes(16));
         $tokens = load_json($TOKENS_FILE);
-        $tokens[$token] = $now + 86400; // 24 hours
+        $tokens[$token] = $now + 86400;
         save_json($TOKENS_FILE, $tokens);
-        
-        // ログイン成功時にアクセスログにも記録
-        $logs = load_json($ACCESS_LOG_FILE);
-        $log = [
-            'timestamp' => time(),
-            'date' => date('Y-m-d H:i:s'),
-            'ip' => $ip,
-            'path' => '[ADMIN LOGIN]',
-            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
-            'referer' => '',
-            'status' => 200,
-            'response_time' => 0
-        ];
-        array_unshift($logs, $log);
-        if (count($logs) > 5000) $logs = array_slice($logs, 0, 5000);
-        save_json($ACCESS_LOG_FILE, $logs);
-
-        // ログイン試行履歴をクリア
-        $attemptsData = array_filter($attemptsData, function($attempt) use ($ip) {
-            return $attempt['ip'] !== $ip;
-        });
-        save_json($ATTEMPTS_FILE, $attemptsData);
-
         echo json_encode(['token' => $token]);
     } else {
-        $attemptsData[] = ['ip' => $ip, 'time' => $now];
+        $attemptsData[] = ['ip' => $current_ip, 'time' => $now];
         save_json($ATTEMPTS_FILE, $attemptsData);
-        http_response_code(401);
-        echo json_encode(['error' => 'パスワードが違います']);
+        http_response_code(401); echo json_encode(['error' => 'Invalid password']);
     }
     exit;
 }
 
-// --- Protected Routes Middleware ---
+// Admin only routes
 $headers = getallheaders();
 $token = $headers['X-Admin-Token'] ?? $headers['x-admin-token'] ?? $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
-
-if (!verify_token($token)) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
+$tokens = load_json($TOKENS_FILE);
+if (!isset($tokens[$token]) || $tokens[$token] < $now) {
+    http_response_code(403); echo json_encode(['error' => 'Unauthorized']); exit;
 }
 
-// --- 4. Get Dashboard Data (Protected) ---
 if ($action === 'fetch_dashboard') {
-    // If ?init=1 query param is present, log the access
-    // This is used for "Admin Screen Access Log" request
-    if (isset($_GET['init']) && $_GET['init'] === '1') {
-        $ip = get_client_ip();
-        $logs = load_json($ACCESS_LOG_FILE);
-        $log = [
-            'timestamp' => time(),
-            'date' => date('Y-m-d H:i:s'),
-            'ip' => $ip,
-            'path' => '[ADMIN DASHBOARD]',
-            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
-            'referer' => '',
-            'status' => 200,
-            'response_time' => 0
-        ];
-        array_unshift($logs, $log);
-        if (count($logs) > 5000) $logs = array_slice($logs, 0, 5000);
-        save_json($ACCESS_LOG_FILE, $logs);
-    } else {
-        $logs = load_json($ACCESS_LOG_FILE);
-    }
-
-    $messages = load_json($MESSAGES_FILE);
-    
-    $now = time();
-    $todayStart = strtotime('today midnight');
-    $weekStart = strtotime('-7 days midnight');
-    
-    $stats = [
-        'total_pv' => count($logs),
-        'today_pv' => 0,
-        'week_pv' => 0,
-        'realtime_5min' => 0,
-        'by_path' => [],
-        'recent_logs' => array_slice($logs, 0, 100)
-    ];
-
-    foreach ($logs as $log) {
-        $ts = $log['timestamp'];
-        if ($ts >= $todayStart) $stats['today_pv']++;
-        if ($ts >= $weekStart) $stats['week_pv']++;
-        if ($ts >= $now - 300) $stats['realtime_5min']++;
-        
-        $path = $log['path'] ?? '/';
-        if (!isset($stats['by_path'][$path])) $stats['by_path'][$path] = 0;
-        $stats['by_path'][$path]++;
-    }
-    
-    arsort($stats['by_path']);
-    $stats['by_path'] = array_slice($stats['by_path'], 0, 10);
-
-    $safeConfig = [
-        'smtp_host' => $config['smtp_host'] ?? '',
-        'smtp_port' => $config['smtp_port'] ?? 587,
-        'smtp_user' => $config['smtp_user'] ?? '',
-        'alert_email' => $config['alert_email'] ?? ''
-    ];
-
     echo json_encode([
-        'messages' => $messages,
-        'stats' => $stats,
-        'config' => $safeConfig,
-        'has_phpmailer' => $has_phpmailer // フロントエンドに状態を通知
-    ]);
-    exit;
-}
-
-// --- 5. Change Password (Protected) ---
-if ($action === 'change_password') {
-    $current = $input['current_password'] ?? '';
-    $new = $input['new_password'] ?? '';
-    
-    if (!password_verify($current, $config['password_hash'])) {
-        http_response_code(400);
-        echo json_encode(['error' => '現在のパスワードが間違っています']);
-        exit;
-    }
-    
-    if (strlen($new) < 8) {
-        http_response_code(400);
-        echo json_encode(['error' => '新しいパスワードは8文字以上にしてください']);
-        exit;
-    }
-    
-    $config['password_hash'] = password_hash($new, PASSWORD_DEFAULT);
-    file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
-    
-    echo json_encode(['status' => 'success']);
-    exit;
-}
-
-// --- 5.5 Update SMTP Settings (Protected) ---
-if ($action === 'update_smtp') {
-    // 値の更新 (trimを追加して空白を除去)
-    if (isset($input['smtp_host'])) $config['smtp_host'] = trim($input['smtp_host']);
-    if (isset($input['smtp_port'])) $config['smtp_port'] = intval($input['smtp_port']);
-    if (isset($input['smtp_user'])) $config['smtp_user'] = trim($input['smtp_user']);
-    if (isset($input['alert_email'])) $config['alert_email'] = trim($input['alert_email']);
-    
-    if (!empty($input['smtp_pass'])) {
-        $config['smtp_pass'] = $input['smtp_pass'];
-    }
-
-    // ファイル書き込みチェック
-    $writeResult = file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
-    $writeError = ($writeResult === false) ? " (Config Save Failed: Permission Denied)" : "";
-
-    // 更新した設定を使ってテスト送信
-    $testResult = send_alert_email("Test Mail", "SMTP設定のテストメールです。\n正しく設定されています。", $config);
-    
-    if ($testResult === true) {
-        echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました' . $writeError]);
-    } else {
-        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テスト送信に失敗しました: ' . $testResult . $writeError]);
-    }
-    exit;
-}
-
-// --- 6. Backup Data (Protected) ---
-if ($action === 'backup_data') {
-    $backup = [
-        'config' => load_json($CONFIG_FILE),
-        'access_log' => load_json($ACCESS_LOG_FILE),
         'messages' => load_json($MESSAGES_FILE),
-        'timestamp' => date('Y-m-d H:i:s')
-    ];
-    
-    header('Content-Type: application/json');
-    echo json_encode($backup);
-    exit;
-}
-
-// --- 7. Restore Data (Protected) ---
-if ($action === 'restore_data') {
-    $data = $input['data'] ?? null;
-    if (!$data) {
-        http_response_code(400);
-        echo json_encode(['error' => 'No data provided']);
-        exit;
+        'stats' => [
+            'total_pv' => count(load_json($ACCESS_LOG_FILE)),
+            'today_pv' => count(array_filter(load_json($ACCESS_LOG_FILE), function($l) { return $l['timestamp'] > strtotime('today midnight'); })),
+            'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 100)
+        ],
+        'config' => ['smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email']],
+        'blocked_count' => count($blocked_ips)
+    ]);
+} elseif ($action === 'fetch_security') {
+    echo json_encode(['blocked_ips' => $blocked_ips]);
+} elseif ($action === 'unblock_ip') {
+    $ip_to_unblock = $input['ip'] ?? '';
+    if (isset($blocked_ips[$ip_to_unblock])) {
+        unset($blocked_ips[$ip_to_unblock]);
+        save_json($BLOCKED_IPS_FILE, $blocked_ips);
+        echo json_encode(['status' => 'success']);
+    } else {
+        http_response_code(404); echo json_encode(['error' => 'IP not found']);
     }
-    
-    if (isset($data['config'])) save_json($CONFIG_FILE, $data['config']);
-    if (isset($data['access_log'])) save_json($ACCESS_LOG_FILE, $data['access_log']);
-    if (isset($data['messages'])) save_json($MESSAGES_FILE, $data['messages']);
-    
+} elseif ($action === 'update_smtp') {
+    $config['smtp_host'] = trim($input['smtp_host']); $config['smtp_port'] = intval($input['smtp_port']);
+    $config['smtp_user'] = trim($input['smtp_user']); $config['alert_email'] = trim($input['alert_email']);
+    if (!empty($input['smtp_pass'])) $config['smtp_pass'] = $input['smtp_pass'];
+    save_json($CONFIG_FILE, $config);
+    $res = send_alert_email("SMTP Test", "Settings verified.", $config);
+    echo json_encode($res === true ? ['status' => 'success'] : ['status' => 'error', 'message' => $res]);
+} elseif ($action === 'change_password') {
+    if (!password_verify($input['current_password'], $config['password_hash'])) {
+        http_response_code(400); echo json_encode(['error' => 'Current password invalid']); exit;
+    }
+    $config['password_hash'] = password_hash($input['new_password'], PASSWORD_DEFAULT);
+    save_json($CONFIG_FILE, $config);
     echo json_encode(['status' => 'success']);
-    exit;
 }
-
-http_response_code(400);
-echo json_encode(['error' => 'Invalid action']);
 ?>

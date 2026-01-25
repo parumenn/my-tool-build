@@ -115,6 +115,31 @@ export const TOOLS: Tool[] = [
   { id: 'timestamp', name: 'Unix時間変換', path: '/timestamp', description: 'タイムスタンプ相互変換', icon: Clock, color: 'text-slate-500', lightBg: 'bg-slate-100', longDescription: 'Unixタイムスタンプと日時形式を瞬時に相互変換。', keywords: ['Unix時間', 'タイムスタンプ', '日付変換'] }
 ];
 
+/**
+ * AccessLogger: ルーティングが変更されるたびにログをバックエンドへ送信するコンポーネント
+ */
+const AccessLogger: React.FC = () => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // 管理者画面の操作自体はadmin_api側で個別にログ処理される場合もあるが、
+    // ここではすべてのユーザー遷移を記録対象とする
+    fetch('./backend/admin_api.php?action=log_access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: location.pathname,
+        referer: document.referrer,
+        status: 200
+      })
+    }).catch(() => {
+      // ログ送信失敗はユーザー体験を損なわないよう無視する
+    });
+  }, [location.pathname]);
+
+  return null;
+};
+
 const SEOManager: React.FC = () => {
   const location = useLocation();
   const tool = TOOLS.find(t => t.path === location.pathname);
@@ -175,6 +200,7 @@ const Layout: React.FC = () => {
   return (
     <AppContext.Provider value={{ showAds, setShowAds, adBlockDetected: false }}>
       <SEOManager />
+      <AccessLogger />
       <div className="flex h-screen bg-gray-50 dark:bg-dark overflow-hidden font-sans text-slate-800 dark:text-gray-100 transition-colors duration-300">
         <Sidebar tools={sidebarTools} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} onReorder={setAddedTools} />
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
