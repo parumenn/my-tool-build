@@ -70,6 +70,9 @@ const Layout: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
+  // 管理画面かどうかを判定
+  const isAdminPath = location.pathname === '/secure-panel-7x9v2';
+
   // ページ遷移時にスクロール位置をトップに戻す
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -100,6 +103,19 @@ const Layout: React.FC = () => {
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
   const isJP = (navigator.language || (navigator as any).userLanguage)?.toLowerCase().includes('ja');
+
+  // 管理画面の場合はレイアウトを完全にバイパスして表示
+  if (isAdminPath) {
+    return (
+      <AppContext.Provider value={{ showAds, setShowAds }}>
+        <Suspense fallback={<LoadingSkeleton />}>
+          <Routes>
+            <Route path="/secure-panel-7x9v2" element={<AdminPage />} />
+          </Routes>
+        </Suspense>
+      </AppContext.Provider>
+    );
+  }
 
   return (
     <AppContext.Provider value={{ showAds, setShowAds }}>
@@ -296,7 +312,6 @@ const Layout: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={() => {}} />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/secure-panel-7x9v2" element={<AdminPage />} />
                   <Route path="/qrcode" element={<QRCodeGenerator />} />
                   <Route path="/count" element={<CharacterCounter />} />
                   <Route path="/picker" element={<ColorPickerTool />} />
@@ -348,7 +363,8 @@ const Layout: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+  // Fix: Remove unsupported 'future' prop from HashRouter to fix TypeScript error.
+  <HashRouter>
     <Layout />
   </HashRouter>
 );
