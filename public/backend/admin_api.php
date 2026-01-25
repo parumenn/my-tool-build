@@ -5,179 +5,217 @@ ini_set('display_errors', 0);
 
 // 日本時間に設定
 date_default_timezone_set('Asia/Tokyo');
-
 $start_time = microtime(true);
 
-// CORS / Headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, X-Admin-Token");
 header("Content-Type: application/json; charset=UTF-8");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit(0);
 
-// Configuration
+// Data Paths
 $DATA_DIR = __DIR__ . '/data';
-if (!file_exists($DATA_DIR)) {
-    mkdir($DATA_DIR, 0777, true);
-}
+if (!file_exists($DATA_DIR)) mkdir($DATA_DIR, 0777, true);
 
 $MESSAGES_FILE    = $DATA_DIR . '/messages.json';
 $ACCESS_LOG_FILE  = $DATA_DIR . '/access_log.json';
 $CONFIG_FILE      = $DATA_DIR . '/admin_config.json';
 $BLOCKED_IPS_FILE = $DATA_DIR . '/blocked_ips.json';
 $REQ_TRACK_FILE   = $DATA_DIR . '/request_track.json';
-$ATTEMPTS_FILE    = $DATA_DIR . '/login_attempts.json';
 $TOKENS_FILE      = $DATA_DIR . '/active_tokens.json';
 
-// Initial Setup
-if (!file_exists($CONFIG_FILE)) {
-    save_json($CONFIG_FILE, [
-        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
-        'smtp_host' => '',
-        'smtp_port' => 587,
-        'smtp_user' => '',
-        'smtp_pass' => '',
-        'alert_email' => ''
-    ]);
-}
-
+// Helper Functions
 function load_json($file) {
     if (!file_exists($file)) return [];
     $content = file_get_contents($file);
     return json_decode($content, true) ?: [];
 }
-
 function save_json($file, $data) {
     file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
-
 function get_client_ip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'];
 }
 
-$current_ip = get_client_ip();
+// SMTP Class for Test & Alerts
+class SimpleSMTP {
+    private $cfg;
+    public function __construct($cfg) { $this->cfg = $cfg; }
+    public function send($to, $subject, $body) {
+        $host = $this->cfg['smtp_host'];
+        $port = $this->cfg['smtp_port'];
+        $user = $this->cfg['smtp_user'];
+        $pass = $this->cfg['smtp_pass'];
+        if (empty($host) || empty($user)) return "SMTP設定が不完全です。";
+        
+        try {
+            $protocol = ($port == 465) ? 'ssl://' : '';
+            $socket = @fsockopen($protocol . $host, $port, $errno, $errstr, 5);
+            if (!$socket) return "接続失敗: $errstr ($errno)";
+            
+            $this->read($socket);
+            $this->cmd($socket, "EHLO localhost");
+            if ($port == 587) {
+                $this->cmd($socket, "STARTTLS");
+                stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                $this->cmd($socket, "EHLO localhost");
+            }
+            $this->cmd($socket, "AUTH LOGIN");
+            $this->cmd($socket, base64_encode($user));
+            $this->cmd($socket, base64_encode($pass));
+            $this->cmd($socket, "MAIL FROM: <$user>");
+            $this->cmd($socket, "RCPT TO: <$to>");
+            $this->cmd($socket, "DATA");
+            $headers = "From: <$user>\r\nTo: <$to>\r\nSubject: =?UTF-8?B?".base64_encode($subject)."?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n";
+            $this->cmd($socket, $headers . $body . "\r\n.");
+            $this->cmd($socket, "QUIT");
+            fclose($socket);
+            return true;
+        } catch (Exception $e) { return $e->getMessage(); }
+    }
+    private function cmd($s, $c) { fputs($s, $c . "\r\n"); return $this->read($s); }
+    private function read($s) { $r = ""; while($l = fgets($s, 512)) { $r .= $l; if(substr($l, 3, 1) == " ") break; } return $r; }
+}
+
+// Initialize Config
+$config = load_json($CONFIG_FILE);
+if (!isset($config['password_hash'])) {
+    $config = [
+        'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
+        'smtp_host' => '', 'smtp_port' => 587, 'smtp_user' => '', 'smtp_pass' => '', 'alert_email' => '',
+        'dos_limit_count' => 30, 'dos_limit_seconds' => 30,
+        'dos_block_minutes_1' => 15, 'dos_block_minutes_2' => 60,
+        'dos_notify_enabled' => true
+    ];
+    save_json($CONFIG_FILE, $config);
+}
+
+// --- DOS Protection Logic ---
+$ip = get_client_ip();
+$now = time();
+$blocked = load_json($BLOCKED_IPS_FILE);
+
+// 期限切れブロックの解除
+$blocked = array_filter($blocked, function($b) use ($now) { return $b['expiry'] > $now; });
+
+if (isset($blocked[$ip])) {
+    http_response_code(403);
+    echo json_encode(['error' => '一時的にアクセスを制限しています。残り: ' . ceil(($blocked[$ip]['expiry'] - $now) / 60) . '分']);
+    exit;
+}
+
+// リクエスト追跡
+if ($_GET['action'] !== 'fetch_dashboard') { // 管理画面の自動更新はカウントしない
+    $track = load_json($REQ_TRACK_FILE);
+    if (!isset($track[$ip])) $track[$ip] = ['times' => [], 'violations' => 0];
+    
+    $limit_sec = $config['dos_limit_seconds'] ?? 30;
+    $limit_count = $config['dos_limit_count'] ?? 30;
+    
+    $track[$ip]['times'] = array_filter($track[$ip]['times'], function($t) use ($now, $limit_sec) { return $t > ($now - $limit_sec); });
+    $track[$ip]['times'][] = $now;
+    
+    if (count($track[$ip]['times']) > $limit_count) {
+        $track[$ip]['violations']++;
+        $v = $track[$ip]['violations'];
+        $minutes = ($v === 1) ? ($config['dos_block_minutes_1'] ?? 15) : ($config['dos_block_minutes_2'] ?? 60);
+        
+        $blocked[$ip] = [
+            'expiry' => $now + ($minutes * 60),
+            'time' => date('Y-m-d H:i:s'),
+            'reason' => "過剰リクエスト ({$v}回目)",
+            'violations' => $v
+        ];
+        save_json($BLOCKED_IPS_FILE, $blocked);
+        
+        if ($config['dos_notify_enabled'] && !empty($config['alert_email'])) {
+            $smtp = new SimpleSMTP($config);
+            $smtp->send($config['alert_email'], "セキュリティ警告: IP遮断通知", "以下のIPを自動遮断しました。\n\nIP: {$ip}\n理由: 短時間の過剰アクセス\n遮断期間: {$minutes}分間");
+        }
+        
+        http_response_code(429);
+        echo json_encode(['error' => 'リクエストが多すぎます。アクセスを制限しました。']);
+        exit;
+    }
+    save_json($REQ_TRACK_FILE, $track);
+}
+
+// --- API Router ---
 $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
-// 1. 公開アクション（ログイン等）
 if ($action === 'login') {
-    $now = time();
-    $config = load_json($CONFIG_FILE);
     if (password_verify($input['password'] ?? '', $config['password_hash'])) {
         $token = bin2hex(random_bytes(16));
         $tokens = load_json($TOKENS_FILE);
-        $tokens[$token] = $now + 86400; // 24時間有効
+        $tokens[$token] = $now + 86400;
         save_json($TOKENS_FILE, $tokens);
         echo json_encode(['token' => $token]);
     } else {
         http_response_code(401);
-        echo json_encode(['error' => 'パスワードが正しくありません']);
+        echo json_encode(['error' => 'パスワードが違います']);
     }
     exit;
 }
 
 if ($action === 'log_access') {
-    $mtime = microtime(true);
-    $ts = (int)$mtime;
-    $ms = sprintf("%03d", ($mtime - $ts) * 1000);
-    $log = [
-        'timestamp' => $mtime, 
-        'date' => date('Y-m-d H:i:s', $ts) . '.' . $ms, 
-        'ip' => $current_ip, 
-        'path' => $input['path'] ?? '/', 
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '不明', 
-        'status' => $input['status'] ?? 200
-    ];
     $logs = load_json($ACCESS_LOG_FILE);
-    array_unshift($logs, $log);
+    array_unshift($logs, ['timestamp' => microtime(true), 'date' => date('Y-m-d H:i:s'), 'ip' => $ip, 'path' => $input['path'] ?? '/', 'ua' => $_SERVER['HTTP_USER_AGENT'], 'status' => $input['status'] ?? 200]);
     save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 5000));
-    echo json_encode(['status' => '成功']);
+    echo json_encode(['status' => 'ok']);
     exit;
 }
 
 if ($action === 'send') {
-    if (empty($input['message'])) { http_response_code(400); exit; }
-    $messages = load_json($MESSAGES_FILE);
-    array_unshift($messages, [
-        'id' => uniqid(),
-        'timestamp' => date('Y-m-d H:i:s'),
-        'ip' => $current_ip,
-        'name' => $input['name'] ?? '匿名',
-        'contact' => $input['contact'] ?? '',
-        'message' => htmlspecialchars($input['message'])
-    ]);
-    save_json($MESSAGES_FILE, $messages);
-    echo json_encode(['status' => '成功']);
+    $msgs = load_json($MESSAGES_FILE);
+    array_unshift($msgs, ['id' => uniqid(), 'timestamp' => date('Y-m-d H:i:s'), 'ip' => $ip, 'name' => $input['name'] ?? '匿名', 'contact' => $input['contact'] ?? '', 'message' => htmlspecialchars($input['message'])]);
+    save_json($MESSAGES_FILE, $msgs);
+    echo json_encode(['status' => 'ok']);
     exit;
 }
 
-// 2. 管理者認証チェック
-$headers = getallheaders();
-$token = $headers['X-Admin-Token'] ?? $headers['x-admin-token'] ?? '';
+// Admin Check
+$token = getallheaders()['X-Admin-Token'] ?? '';
 $tokens = load_json($TOKENS_FILE);
-if (!isset($tokens[$token]) || $tokens[$token] < time()) {
+if (!isset($tokens[$token]) || $tokens[$token] < $now) {
     http_response_code(403);
-    echo json_encode(['error' => '認証が必要です']);
     exit;
 }
 
-// 3. 管理者専用アクション
 if ($action === 'fetch_dashboard') {
-    $config = load_json($CONFIG_FILE);
     echo json_encode([
+        'stats' => ['total_pv' => count(load_json($ACCESS_LOG_FILE)), 'today_pv' => count(array_filter(load_json($ACCESS_LOG_FILE), function($l){return $l['timestamp'] > strtotime('today midnight');})), 'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 500)],
         'messages' => load_json($MESSAGES_FILE),
-        'stats' => [
-            'total_pv' => count(load_json($ACCESS_LOG_FILE)),
-            'today_pv' => count(array_filter(load_json($ACCESS_LOG_FILE), function($l) { return $l['timestamp'] > strtotime('today midnight'); })),
-            'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 500)
-        ],
+        'blocked_ips' => $blocked,
         'config' => [
-            'smtp_host' => $config['smtp_host'] ?? '',
-            'smtp_port' => $config['smtp_port'] ?? 587,
-            'smtp_user' => $config['smtp_user'] ?? '',
-            'alert_email' => $config['alert_email'] ?? ''
-        ],
-        'blocked_ips' => load_json($BLOCKED_IPS_FILE)
+            'smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email'],
+            'dos_limit_count' => $config['dos_limit_count'], 'dos_limit_seconds' => $config['dos_limit_seconds'],
+            'dos_block_minutes_1' => $config['dos_block_minutes_1'], 'dos_block_minutes_2' => $config['dos_block_minutes_2'],
+            'dos_notify_enabled' => $config['dos_notify_enabled']
+        ]
     ]);
-} elseif ($action === 'update_smtp') {
-    $config = load_json($CONFIG_FILE);
-    // 既存の値をベースに、送信されてきた値のみ上書き
-    if (isset($input['smtp_host'])) $config['smtp_host'] = trim($input['smtp_host']);
-    if (isset($input['smtp_port'])) $config['smtp_port'] = intval($input['smtp_port']);
-    if (isset($input['smtp_user'])) $config['smtp_user'] = trim($input['smtp_user']);
-    if (isset($input['alert_email'])) $config['alert_email'] = trim($input['alert_email']);
-    if (!empty($input['smtp_pass'])) $config['smtp_pass'] = $input['smtp_pass'];
-    
+} elseif ($action === 'update_settings') {
+    foreach($input as $k => $v) {
+        if ($k === 'smtp_pass' && empty($v)) continue;
+        $config[$k] = $v;
+    }
     save_json($CONFIG_FILE, $config);
     echo json_encode(['status' => '成功']);
+} elseif ($action === 'test_email') {
+    $test_cfg = array_merge($config, $input);
+    $smtp = new SimpleSMTP($test_cfg);
+    $res = $smtp->send($test_cfg['alert_email'], "まいつーる: メール接続テスト", "このメールが届いていれば、SMTP設定は正しく機能しています。\n送信日時: " . date('Y-m-d H:i:s'));
+    echo json_encode($res === true ? ['status' => '成功'] : ['status' => 'エラー', 'error' => $res]);
 } elseif ($action === 'unblock_ip') {
-    $blocked = load_json($BLOCKED_IPS_FILE);
-    $ip = $input['ip'] ?? '';
-    if (isset($blocked[$ip])) {
-        unset($blocked[$ip]);
-        save_json($BLOCKED_IPS_FILE, $blocked);
-    }
-    echo json_encode(['status' => '成功']);
+    unset($blocked[$input['ip']]);
+    save_json($BLOCKED_IPS_FILE, $blocked);
+    echo json_encode(['status' => 'ok']);
 } elseif ($action === 'import_data') {
-    // データの一括復元
     if (isset($input['messages'])) save_json($MESSAGES_FILE, $input['messages']);
     if (isset($input['logs'])) save_json($ACCESS_LOG_FILE, $input['logs']);
-    if (isset($input['config'])) {
-        $current = load_json($CONFIG_FILE);
-        $import = $input['config'];
-        // パスワードハッシュは上書きせず保持
-        $current['smtp_host'] = $import['smtp_host'] ?? $current['smtp_host'];
-        $current['smtp_port'] = $import['smtp_port'] ?? $current['smtp_port'];
-        $current['smtp_user'] = $import['smtp_user'] ?? $current['smtp_user'];
-        $current['alert_email'] = $import['alert_email'] ?? $current['alert_email'];
-        if (!empty($import['smtp_pass'])) $current['smtp_pass'] = $import['smtp_pass'];
-        save_json($CONFIG_FILE, $current);
-    }
     echo json_encode(['status' => '成功']);
 }
 ?>
