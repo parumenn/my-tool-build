@@ -128,7 +128,7 @@ const Settings: React.FC = () => {
            <div>
              <p className="font-bold text-gray-800 dark:text-gray-200">広告を表示する</p>
              <p className="text-xs text-gray-500">
-               {showAds ? 'サービスの維持にご協力ください' : '｡ﾟﾟ(*´□`*｡)°ﾟ。'}
+               サービスの維持にご協力ください。
              </p>
            </div>
            <button 
@@ -262,7 +262,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.5.0
+         Version 2.5.2
       </div>
     </div>
   );
