@@ -9,6 +9,7 @@ import LoadingSkeleton from './components/LoadingSkeleton';
 const SidebarContent = lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarContent })));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Settings = lazy(() => import('./components/Settings'));
+const AdminPage = lazy(() => import('./components/admin/AdminPage'));
 
 // ツールコンポーネント
 const QRCodeGenerator = lazy(() => import('./components/tools/QRCodeGenerator'));
@@ -295,6 +296,7 @@ const Layout: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={() => {}} />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/secure-panel-7x9v2" element={<AdminPage />} />
                   <Route path="/qrcode" element={<QRCodeGenerator />} />
                   <Route path="/count" element={<CharacterCounter />} />
                   <Route path="/picker" element={<ColorPickerTool />} />

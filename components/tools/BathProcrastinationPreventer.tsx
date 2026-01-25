@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bath, Play, RotateCcw, Info, ShieldCheck } from 'lucide-react';
+import { Bath, Play, RotateCcw, Zap, Info, ShieldCheck, Heart } from 'lucide-react';
 
 const BathProcrastinationPreventer: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'counting' | 'finished'>('idle');
@@ -53,18 +53,16 @@ const BathProcrastinationPreventer: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <h2 className="text-3xl font-black text-gray-800 dark:text-white leading-tight">
-                <span className="sm:hidden">風呂キャン防止<br/>ツール</span>
-                <span className="hidden sm:block">風呂キャン防止ツール</span>
-              </h2>
+              <h2 className="text-3xl font-black text-gray-800 dark:text-white">風呂キャン防止システム</h2>
               {hasFailedOnce ? (
-                <div className="bg-rose-50 dark:bg-rose-900/20 px-6 py-3 rounded-2xl border border-rose-100 dark:border-rose-800">
-                  <p className="text-rose-600 dark:text-rose-400 font-black text-sm sm:text-base">
+                <div className="bg-rose-50 dark:bg-rose-900/20 px-6 py-3 rounded-2xl border border-rose-100 dark:border-rose-800 animate-bounce">
+                  <p className="text-rose-600 dark:text-rose-400 font-black flex items-center justify-center gap-2">
+                    <Heart size={18} fill="currentColor" />
                     だめだった...？次は絶対だよ？
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mx-auto text-xs sm:text-sm md:text-base">
+                <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mx-auto">
                   あなたの「お風呂に入る」を叶えるツールです。<br/>心の準備ができたらボタンを押してください。
                 </p>
               )}
@@ -76,21 +74,20 @@ const BathProcrastinationPreventer: React.FC = () => {
             >
               <div className="absolute inset-0 bg-white/10 scale-0 group-hover:scale-100 transition-transform rounded-full"></div>
               <Play size={40} fill="currentColor" />
-              <span className="font-black text-lg tracking-widest">
-                {hasFailedOnce ? '今度こそ頑張る' : 'お風呂頑張る'}
-              </span>
+              <span className="font-black text-lg tracking-widest">頑張る</span>
             </button>
           </div>
         )}
 
         {status === 'counting' && (
           <div className="animate-scale-up space-y-4 flex flex-col items-center">
-            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl tracking-widest animate-pulse">お風呂沸かし中...</p>
+            <p className="text-cyan-600 dark:text-cyan-400 font-black text-xl uppercase tracking-[0.3em] animate-pulse">System Triggered</p>
             <div className="text-[12rem] font-black text-slate-800 dark:text-white leading-none tabular-nums">
               {count}
             </div>
             <div className="flex items-center gap-2 justify-center text-gray-400 font-bold">
-               <span>準備して～</span>
+               <Zap className="animate-pulse text-yellow-500" size={20} />
+               <span>心の準備して！</span>
             </div>
           </div>
         )}
@@ -99,7 +96,7 @@ const BathProcrastinationPreventer: React.FC = () => {
           <div className="animate-scale-up space-y-8 flex flex-col items-center">
             <div className="space-y-2">
               <h2 className="text-5xl md:text-7xl font-black text-cyan-600 dark:text-cyan-400 mb-4">
-                はい、動く！
+                はい、動く！！
               </h2>
               <p className="text-3xl md:text-5xl font-black text-slate-800 dark:text-white">
                 お風呂いくよ！
@@ -114,7 +111,7 @@ const BathProcrastinationPreventer: React.FC = () => {
               onClick={reset}
               className="text-gray-400 hover:text-cyan-600 font-bold text-sm flex items-center gap-2 pt-8 transition-colors"
             >
-              <RotateCcw size={16} /> お風呂行くの失敗しちゃった..<br/>（もう一度）
+              <RotateCcw size={16} /> お風呂行くの失敗しちゃった..（もう一度）
             </button>
           </div>
         )}
@@ -129,7 +126,7 @@ const BathProcrastinationPreventer: React.FC = () => {
          <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />「風呂キャン防止」ツールの目的</h2>
          <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-cyan-500" />頑張ってお風呂いく！</h3>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-cyan-500" />頑張ってお風呂いく！</h3>
                <p>このページを開いたあなたならきっと入れる！一緒に頑張ってお風呂入りましょう</p>
             </div>
             <div>
