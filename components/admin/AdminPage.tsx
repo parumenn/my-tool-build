@@ -4,7 +4,7 @@ import {
   Lock, ShieldAlert, Mail, User, Calendar, LogOut, Loader2, 
   Activity, BarChart3, Settings, Eye, Clock, Smartphone, Globe, KeyRound,
   RefreshCw, CheckCircle2, AlertTriangle, XCircle, Timer, Link as LinkIcon,
-  Download, Upload, Database, Server
+  Download, Upload, Database, Server, Package
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -61,6 +61,7 @@ const AdminPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [hasPhpMailer, setHasPhpMailer] = useState(false);
 
   // Password Change State
   const [currentPwd, setCurrentPwd] = useState('');
@@ -117,6 +118,7 @@ const AdminPage: React.FC = () => {
         const data = await res.json();
         setMessages(data.messages || []);
         setStats(data.stats);
+        setHasPhpMailer(!!data.has_phpmailer);
         
         // Config: Only load ONCE to prevent overwriting user edits during auto-refresh.
         if (data.config && !configLoadedRef.current) {
@@ -522,6 +524,15 @@ const AdminPage: React.FC = () => {
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
                             <Server size={24} className="text-orange-500" />
                             メール通知設定
+                            {hasPhpMailer ? (
+                                <span className="ml-auto text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                                    <Package size={10} /> PHPMailer有効
+                                </span>
+                            ) : (
+                                <span className="ml-auto text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-2 py-1 rounded-full border border-gray-200 dark:border-gray-600 flex items-center gap-1">
+                                    <AlertTriangle size={10} /> PHP標準メール
+                                </span>
+                            )}
                         </h3>
                         <p className="text-sm text-gray-500 mb-6">
                             不正アクセス検知などの通知を受け取るメールサーバー(SMTP)の設定です。<br/>

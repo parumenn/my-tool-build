@@ -32,7 +32,7 @@ if (!function_exists('getallheaders')) {
 // Composerのオートローダー読み込み（存在する場合のみ）
 $has_phpmailer = false;
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require __DIR__ . '/vendor/autoload.php';
+    require_once __DIR__ . '/vendor/autoload.php';
     $has_phpmailer = true;
 }
 
@@ -103,6 +103,7 @@ class MinimalSMTP {
     private $pass;
     private $socket;
     private $timeout = 10;
+    public $debugLog = [];
 
     public function __construct($host, $port, $user, $pass) {
         $this->host = $host;
@@ -111,44 +112,45 @@ class MinimalSMTP {
         $this->pass = $pass;
     }
 
+    private function log($msg) {
+        $this->debugLog[] = $msg;
+    }
+
     public function send($to, $subject, $body, $fromName = 'OmniTools Admin') {
         try {
-            // Determine protocol schema based on port
-            $protocol = '';
-            if ($this->port == 465) {
-                $protocol = 'ssl://';
-            }
-            
+            $protocol = ($this->port == 465) ? 'ssl://' : '';
             $hostAddress = $protocol . $this->host;
 
+            $this->log("Connecting to $hostAddress:{$this->port}");
             $this->socket = @fsockopen($hostAddress, $this->port, $errno, $errstr, $this->timeout);
+            
             if (!$this->socket) {
-                throw new Exception("Connection failed to {$hostAddress}: $errstr ($errno)");
+                throw new Exception("Connection failed: $errstr ($errno)");
             }
 
             $this->read();
             $this->cmd('EHLO ' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
 
-            // STARTTLS for port 587
             if ($this->port == 587) {
                 $this->cmd('STARTTLS');
-                if (!stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT;
+                if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+                    $cryptoMethod |= STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+                }
+                if (!stream_socket_enable_crypto($this->socket, true, $cryptoMethod)) {
                     throw new Exception("TLS handshake failed");
                 }
                 $this->cmd('EHLO ' . ($_SERVER['SERVER_NAME'] ?? 'localhost'));
             }
 
-            // Auth
             $this->cmd('AUTH LOGIN');
             $this->cmd(base64_encode($this->user));
             $this->cmd(base64_encode($this->pass));
 
-            // Mail Transaction
             $this->cmd("MAIL FROM: <{$this->user}>");
             $this->cmd("RCPT TO: <$to>");
             $this->cmd('DATA');
 
-            // Headers & Body
             $headers  = "MIME-Version: 1.0\r\n";
             $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
             $headers .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$this->user}>\r\n";
@@ -163,14 +165,13 @@ class MinimalSMTP {
             return true;
         } catch (Exception $e) {
             if ($this->socket) @fclose($this->socket);
-            return $e->getMessage();
+            return $e->getMessage() . " [Log: " . implode("; ", $this->debugLog) . "]";
         }
     }
 
     private function cmd($command) {
         fputs($this->socket, $command . "\r\n");
         $response = $this->read();
-        // Check for error codes (4xx or 5xx)
         $code = substr($response, 0, 3);
         if ($code >= 400) {
             throw new Exception("SMTP Error [$code]: $response");
@@ -184,30 +185,35 @@ class MinimalSMTP {
             $response .= $str;
             if (substr($str, 3, 1) == ' ') break;
         }
+        $this->log("S: " . trim($response));
         return $response;
     }
 }
 
 // --- Mail Helper Function ---
-// Modified to accept configOverride for testing new settings immediately
 function send_alert_email($subject, $body, $configOverride = null) {
     global $config, $has_phpmailer;
 
-    // Use override config if provided, otherwise global config
     $currentConfig = $configOverride ?? $config;
 
     $to = $currentConfig['alert_email'] ?? '';
     $host = $currentConfig['smtp_host'] ?? '';
     $user = $currentConfig['smtp_user'] ?? '';
     $pass = $currentConfig['smtp_pass'] ?? '';
-    $port = $currentConfig['smtp_port'] ?? 587;
+    $port = intval($currentConfig['smtp_port'] ?? 587);
 
-    if (empty($to)) return '通知先アドレスが設定されていません。';
-    if (empty($host) || empty($user)) return 'SMTP設定が不完全です。ホストとユーザー名は必須です。';
+    // デバッグ用: 値が空の場合は詳細を返す
+    if (empty($to) || empty($host) || empty($user)) {
+        $debugInfo = json_encode([
+            'has_to' => !empty($to),
+            'has_host' => !empty($host),
+            'has_user' => !empty($user),
+            'port' => $port
+        ]);
+        return "設定不備: 必須項目が足りません。($debugInfo)";
+    }
 
     // 1. Try PHPMailer (Best)
-    // Only use PHPMailer if available AND we are not testing (or if testing with current config)
-    // Note: For simplicity, we prioritize MinimalSMTP if PHPMailer isn't fully set up or for consistency
     if ($has_phpmailer && class_exists('PHPMailer\PHPMailer\PHPMailer')) {
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -217,7 +223,6 @@ function send_alert_email($subject, $body, $configOverride = null) {
             $mail->Username   = $user;
             $mail->Password   = $pass;
             $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            // Adjust encryption for port 465
             if ($port == 465) {
                 $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
             }
@@ -235,8 +240,7 @@ function send_alert_email($subject, $body, $configOverride = null) {
         }
     }
 
-    // 2. Try MinimalSMTP (No dependencies)
-    // This allows SMTP usage even without Composer
+    // 2. Try MinimalSMTP (Fallback)
     try {
         $smtp = new MinimalSMTP($host, $port, $user, $pass);
         $res = $smtp->send($to, $subject, $body);
@@ -246,8 +250,7 @@ function send_alert_email($subject, $body, $configOverride = null) {
         $minimalError = $e->getMessage();
     }
 
-    // 3. Fallback to PHP native mail() (Only if not testing new settings, or as last resort)
-    // Native mail() might not work if the server isn't configured for it.
+    // 3. Fallback to PHP native mail()
     if (!$configOverride) {
         $sender = 'noreply@' . ($_SERVER['SERVER_NAME'] ?? 'localhost');
         $headers = "From: OmniTools <{$sender}>\r\nReply-To: {$sender}\r\nX-Mailer: PHP/" . phpversion() . "\r\nContent-Type: text/plain; charset=UTF-8";
@@ -256,10 +259,11 @@ function send_alert_email($subject, $body, $configOverride = null) {
         }
     }
 
-    // 4. Return detailed error
-    $msg = 'メール送信に失敗しました。';
-    if (isset($minimalError)) $msg .= " (SMTP: $minimalError)";
-    elseif (isset($phpMailerError)) $msg .= " (PHPMailer: $phpMailerError)";
+    $msg = 'メール送信失敗:';
+    if (isset($phpMailerError)) $msg .= " [PHPMailer: $phpMailerError]";
+    if (isset($minimalError)) $msg .= " [SMTP: $minimalError]";
+    if (!$has_phpmailer) $msg .= " (PHPMailer未導入)";
+    
     return $msg;
 }
 
@@ -320,34 +324,25 @@ if ($action === 'login') {
     $now = time();
     $attemptsData = load_json($ATTEMPTS_FILE);
     
-    // Clean old attempts
     $attemptsData = array_filter($attemptsData, function($attempt) use ($now, $LOCKOUT_TIME) {
         return ($now - $attempt['time']) < $LOCKOUT_TIME;
     });
 
-    // Check attempt count
     $myAttempts = array_filter($attemptsData, function($attempt) use ($ip) {
         return $attempt['ip'] === $ip;
     });
 
-    // --- SECURITY ALERT: Brute Force Detected ---
     if (count($myAttempts) >= $MAX_ATTEMPTS) {
-        // Send email only if it's the specific threshold attempt
         if (count($myAttempts) === $MAX_ATTEMPTS) {
             $subject = "不正アクセス検知 (Login Lockout)";
-            $body = "管理者画面へのログイン試行回数が上限を超えました。\n\n" .
-                    "IP Address: {$ip}\n" .
-                    "Time: " . date('Y-m-d H:i:s') . "\n" .
-                    "User Agent: " . ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown');
+            $body = "ログイン試行回数上限超過\nIP: {$ip}\nTime: " . date('Y-m-d H:i:s');
             send_alert_email($subject, $body);
         }
-
         http_response_code(429);
         echo json_encode(['error' => '試行回数が上限を超えました。15分後に再試行してください。']);
         exit;
     }
 
-    // Verify Password
     $password = $input['password'] ?? '';
     if (password_verify($password, $config['password_hash'])) {
         $token = bin2hex(random_bytes(16));
@@ -364,7 +359,6 @@ if ($action === 'login') {
     } else {
         $attemptsData[] = ['ip' => $ip, 'time' => $now];
         save_json($ATTEMPTS_FILE, $attemptsData);
-        
         http_response_code(401);
         echo json_encode(['error' => 'パスワードが違います']);
     }
@@ -373,7 +367,6 @@ if ($action === 'login') {
 
 // --- Protected Routes Middleware ---
 $headers = getallheaders();
-// Fix for cases where headers might have different casing or keys
 $token = $headers['X-Admin-Token'] ?? $headers['x-admin-token'] ?? $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
 
 if (!verify_token($token)) {
@@ -414,7 +407,6 @@ if ($action === 'fetch_dashboard') {
     arsort($stats['by_path']);
     $stats['by_path'] = array_slice($stats['by_path'], 0, 10);
 
-    // Return partial config (exclude password hash) for settings form
     $safeConfig = [
         'smtp_host' => $config['smtp_host'] ?? '',
         'smtp_port' => $config['smtp_port'] ?? 587,
@@ -425,7 +417,8 @@ if ($action === 'fetch_dashboard') {
     echo json_encode([
         'messages' => $messages,
         'stats' => $stats,
-        'config' => $safeConfig
+        'config' => $safeConfig,
+        'has_phpmailer' => $has_phpmailer // フロントエンドに状態を通知
     ]);
     exit;
 }
@@ -456,11 +449,11 @@ if ($action === 'change_password') {
 
 // --- 5.5 Update SMTP Settings (Protected) ---
 if ($action === 'update_smtp') {
-    // Note: Password field is optional (only update if provided)
-    $config['smtp_host'] = $input['smtp_host'];
-    $config['smtp_port'] = intval($input['smtp_port']);
-    $config['smtp_user'] = $input['smtp_user'];
-    $config['alert_email'] = $input['alert_email'];
+    // 値の更新
+    if (isset($input['smtp_host'])) $config['smtp_host'] = $input['smtp_host'];
+    if (isset($input['smtp_port'])) $config['smtp_port'] = intval($input['smtp_port']);
+    if (isset($input['smtp_user'])) $config['smtp_user'] = $input['smtp_user'];
+    if (isset($input['alert_email'])) $config['alert_email'] = $input['alert_email'];
     
     if (!empty($input['smtp_pass'])) {
         $config['smtp_pass'] = $input['smtp_pass'];
@@ -468,14 +461,13 @@ if ($action === 'update_smtp') {
 
     file_put_contents($CONFIG_FILE, json_encode($config, JSON_PRETTY_PRINT));
     
-    // Try sending a test email with the UPDATED config explicitly
-    $testResult = send_alert_email("Test Mail", "これはSMTP設定のテストメールです。\n正しく設定されています。", $config);
+    // 更新した設定を使ってテスト送信
+    $testResult = send_alert_email("Test Mail", "SMTP設定のテストメールです。\n正しく設定されています。", $config);
     
     if ($testResult === true) {
         echo json_encode(['status' => 'success', 'message' => '設定を保存し、テストメールを送信しました']);
     } else {
-        // エラー詳細を含めて返す
-        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、メール送信に失敗しました: ' . $testResult]);
+        echo json_encode(['status' => 'warning', 'message' => '設定は保存されましたが、テスト送信に失敗しました: ' . $testResult]);
     }
     exit;
 }
