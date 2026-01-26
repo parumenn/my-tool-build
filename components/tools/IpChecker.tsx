@@ -81,21 +81,21 @@ const IpChecker: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-sky-50 dark:bg-sky-900/20 rounded-2xl p-8 border border-sky-100 dark:border-sky-800 flex flex-col items-center justify-center min-h-[160px]">
-                <p className="text-sky-600 dark:text-sky-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2"><Globe size={16} /> IPv4 Address</p>
+                <p className="text-sky-600 dark:text-sky-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2"><Globe size={16} /> IPv4アドレス</p>
                 <div className="text-2xl md:text-3xl font-mono font-black text-slate-800 dark:text-white break-all text-center">
-                    {loadingV4 ? <span className="animate-pulse">Loading...</span> : ipv4}
+                    {loadingV4 ? <span className="animate-pulse">取得中...</span> : ipv4}
                 </div>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-8 border border-indigo-100 dark:border-indigo-800 flex flex-col items-center justify-center min-h-[160px]">
-                <p className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2"><Network size={16} /> IPv6 Address</p>
+                <p className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2"><Network size={16} /> IPv6アドレス</p>
                 <div className="text-lg md:text-xl font-mono font-black text-slate-800 dark:text-white break-all text-center">
-                    {loadingV6 ? <span className="animate-pulse">Loading...</span> : ipv6}
+                    {loadingV6 ? <span className="animate-pulse">取得中...</span> : ipv6}
                 </div>
             </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-            <h3 className="font-bold text-gray-500 text-xs uppercase tracking-widest mb-3 flex items-center gap-2"><Smartphone size={14} /> User Agent</h3>
+            <h3 className="font-bold text-gray-500 text-xs uppercase tracking-widest mb-3 flex items-center gap-2"><Smartphone size={14} /> ユーザーエージェント</h3>
             <p className="text-xs text-gray-400 font-mono break-all">{userAgent}</p>
         </div>
       </div>

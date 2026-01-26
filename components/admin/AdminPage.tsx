@@ -7,7 +7,8 @@ import {
   Download, Upload, Database, Server, Zap, ShieldCheck,
   TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity,
   ShieldQuestion, ToggleLeft, ToggleRight, Filter, Search, AppWindow,
-  PieChart as PieIcon, ArrowUpRight, X, ChevronRight, MousePointer2
+  PieChart as PieIcon, ArrowUpRight, X, ChevronRight, MousePointer2,
+  HardDrive, Cpu, Microchip
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -17,6 +18,11 @@ import { TOOLS } from '../../constants/toolsData';
 interface Message { id: string; timestamp: string; ip: string; name: string; contact: string; message: string; }
 interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; duration?: number; }
 interface DosPattern { count: number; seconds: number; block_minutes: number; }
+interface ServerResources {
+  cpu: number;
+  mem: { total: number; used: number; percent: number; };
+  disk: { total: number; used: number; percent: number; };
+}
 interface AdminConfig {
   smtp_host: string; smtp_port: number; smtp_user: string; smtp_pass?: string; alert_email: string;
   dos_patterns: DosPattern[];
@@ -34,6 +40,7 @@ const AdminPage: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [stats, setStats] = useState<{total_pv: number, today_pv: number, recent_logs: AccessLog[]}>({ total_pv: 0, today_pv: 0, recent_logs: [] });
+  const [serverResources, setServerResources] = useState<ServerResources | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [blockedIps, setBlockedIps] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +124,7 @@ const AdminPage: React.FC = () => {
         setStats(data.stats || { total_pv: 0, today_pv: 0, recent_logs: [] });
         setMessages(data.messages || []);
         setBlockedIps(data.blocked_ips || {});
+        setServerResources(data.server_resources || null);
         if (isFirst && data.config) {
             setConfig(prev => ({ 
               ...prev, 
@@ -212,6 +220,14 @@ const AdminPage: React.FC = () => {
     setActiveTab('logs');
   };
 
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
   useEffect(() => {
     if (token) {
       fetchData(true);
@@ -241,7 +257,7 @@ const AdminPage: React.FC = () => {
       <header className="bg-slate-900 text-white border-b border-white/10 h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
-          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.7.0</span></h1>
+          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.7.1</span></h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl overflow-x-auto no-scrollbar">
            {[
@@ -260,6 +276,65 @@ const AdminPage: React.FC = () => {
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 space-y-8 no-scrollbar bg-slate-50 dark:bg-dark">
         {activeTab === 'dashboard' && (
            <div className="space-y-10 animate-fade-in max-w-7xl mx-auto w-full pb-20">
+              
+              {/* Server Resources Monitoring */}
+              <section className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                   <h3 className="text-xl font-black">サーバー状態</h3>
+                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                      REAL-TIME
+                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   {[
+                     { 
+                       label: 'CPU負荷', 
+                       val: serverResources?.cpu ?? 0, 
+                       icon: Cpu, 
+                       color: 'text-amber-500', 
+                       sub: '直近1分間',
+                       percent: Math.min(Math.round(serverResources?.cpu ?? 0), 100)
+                     },
+                     { 
+                       label: 'メモリ使用率', 
+                       val: serverResources?.mem.percent ?? 0, 
+                       icon: Microchip, 
+                       color: 'text-blue-500', 
+                       sub: serverResources ? `${formatSize(serverResources.mem.used)} / ${formatSize(serverResources.mem.total)}` : '--',
+                       percent: serverResources?.mem.percent ?? 0
+                     },
+                     { 
+                       label: 'ディスク使用率', 
+                       val: serverResources?.disk.percent ?? 0, 
+                       icon: HardDrive, 
+                       color: 'text-purple-500', 
+                       sub: serverResources ? `${formatSize(serverResources.disk.used)} / ${formatSize(serverResources.disk.total)}` : '--',
+                       percent: serverResources?.disk.percent ?? 0
+                     }
+                   ].map((res, i) => (
+                      <div key={i} className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                         <div className="flex justify-between items-start mb-4">
+                            <div className={`${res.color} bg-gray-50 dark:bg-gray-800 p-2 rounded-xl`}>
+                               <res.icon size={20} />
+                            </div>
+                            <span className="text-2xl font-black font-mono tabular-nums">{res.percent}%</span>
+                         </div>
+                         <p className="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1">{res.label}</p>
+                         <p className="text-[10px] font-bold text-gray-500 truncate mb-4">{res.sub}</p>
+                         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-1000 ${
+                                res.percent > 90 ? 'bg-red-500' : res.percent > 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`} 
+                              style={{ width: `${res.percent}%` }}
+                            />
+                         </div>
+                      </div>
+                   ))}
+                </div>
+              </section>
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                  {[
                    { label: '本日PV', val: stats.today_pv, color: 'text-blue-600', icon: Activity },
@@ -325,8 +400,10 @@ const AdminPage: React.FC = () => {
                       const app = TOOLS.find(t => t.id === appId);
                       if (!app) return null;
                       const count = appStats[appId] || 0;
-                      const totalAppHits = Object.values(appStats).reduce((a, b) => a + b, 0);
-                      const ratio = totalAppHits > 0 ? (count / totalAppHits * 100).toFixed(1) : '0';
+                      // FIX: Add explicit types for reduce function parameters to avoid "unknown" type errors.
+                      const totalAppHits = Object.values(appStats).reduce((a: number, b: number) => a + b, 0);
+                      // FIX: Ensure totalAppHits is treated as a number for comparison and arithmetic.
+                      const ratio = (totalAppHits as number) > 0 ? (count / (totalAppHits as number) * 100).toFixed(1) : '0';
                       return (
                         <div 
                           key={appId} 

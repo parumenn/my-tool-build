@@ -4,7 +4,7 @@ import {
   Save, Trash2, Bold, Italic, Underline, List, Type, Link as LinkIcon, 
   Code, Quote, Palette, Heading1, Heading2, CheckSquare, Eraser, 
   FilePlus, PanelLeftClose, PanelLeftOpen, ChevronLeft, Info, 
-  ShieldCheck, Zap, Eye, Terminal
+  ShieldCheck, Zap, Eye, Terminal, ChevronDown
 } from 'lucide-react';
 
 interface Note {
@@ -14,13 +14,22 @@ interface Note {
   updated: string;
 }
 
+const LANGUAGES = [
+  { id: 'javascript', name: 'JavaScript' },
+  { id: 'python', name: 'Python' },
+  { id: 'html', name: 'HTML' },
+  { id: 'css', name: 'CSS' },
+  { id: 'sql', name: 'SQL' },
+  { id: 'bash', name: 'Shell' }
+];
+
 const Notepad: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>(() => {
     const saved = localStorage.getItem('maitool_notes');
     return saved ? JSON.parse(saved) : [{
       id: '1', 
       title: 'ようこそ！', 
-      content: '<div class="p-4 bg-blue-50 border-l-4 border-blue-500"><b>まいつーるメモへようこそ！</b><br>このエディタはリッチテキストとHTMLコードの両方に対応しています。</div>', 
+      content: '<div class="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500"><b>まいつーるメモへようこそ！</b><br>このエディタはリッチテキストとHTMLコードの両方に対応しています。</div>', 
       updated: new Date().toLocaleString()
     }];
   });
@@ -29,9 +38,9 @@ const Notepad: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [mobileView, setMobileView] = useState<'list' | 'editor'>(notes.length > 0 ? 'editor' : 'list');
   const [isCodeMode, setIsCodeMode] = useState(false);
+  const [selectedLang, setSelectedLang] = useState('javascript');
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // 画面リサイズ監視
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setIsSidebarOpen(true);
@@ -40,12 +49,10 @@ const Notepad: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ノート保存
   useEffect(() => {
     localStorage.setItem('maitool_notes', JSON.stringify(notes));
   }, [notes]);
 
-  // アクティブノートが切り替わった時にエディタの内容を更新
   useEffect(() => {
     const activeNote = notes.find(n => n.id === activeId);
     if (activeNote && editorRef.current && !isCodeMode) {
@@ -94,6 +101,12 @@ const Notepad: React.FC = () => {
     handleContentInput();
   };
 
+  const insertCodeBlock = () => {
+    const langName = LANGUAGES.find(l => l.id === selectedLang)?.name || 'Code';
+    const codeHtml = `<pre class="bg-slate-900 text-green-400 p-4 rounded-lg my-4 font-mono text-sm relative group overflow-x-auto"><div class="absolute right-2 top-2 text-[10px] uppercase font-bold text-slate-500 opacity-50 group-hover:opacity-100 transition-opacity">${langName}</div><code>\n// Write your ${langName} here...\n</code></pre><p><br></p>`;
+    execCmd('insertHTML', codeHtml);
+  };
+
   const toggleCodeMode = () => {
     setIsCodeMode(!isCodeMode);
   };
@@ -110,7 +123,7 @@ const Notepad: React.FC = () => {
           ${mobileView === 'list' ? 'flex' : 'hidden md:flex'}
           bg-gray-50 dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex-col overflow-hidden transition-all duration-300 z-20
         `}>
-          <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-900">
+          <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-white dark:bg-slate-900 shrink-0">
             <h3 className="font-black text-gray-700 dark:text-gray-200">メモ一覧</h3>
             <button onClick={createNote} className="p-2 bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400 rounded-lg hover:opacity-80 transition-opacity">
               <FilePlus size={20}/>
@@ -152,16 +165,11 @@ const Notepad: React.FC = () => {
           {activeNote ? (
             <>
               {/* エディタヘッダー */}
-              <div className="p-3 border-b dark:border-gray-700 bg-white dark:bg-dark-lighter flex flex-col gap-3">
+              <div className="p-3 border-b dark:border-gray-700 bg-white dark:bg-dark-lighter flex flex-col gap-3 shrink-0">
                 <div className="flex items-center gap-2">
-                  {/* モバイル用戻るボタン */}
-                  <button onClick={() => setMobileView('list')} className="md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-                    <ChevronLeft size={24}/>
-                  </button>
-                  
-                  {/* サイドバー開閉ボタン（デスクトップ） */}
-                  <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden md:block p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                    {isSidebarOpen ? <PanelLeftClose size={20}/> : <PanelLeftOpen size={20}/>}
+                  {/* サイドバー切替（デスクトップ・モバイル共用） */}
+                  <button onClick={() => { if(window.innerWidth < 768) setMobileView('list'); else setIsSidebarOpen(!isSidebarOpen); }} className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center gap-1">
+                    {window.innerWidth < 768 ? <ChevronLeft size={24}/> : (isSidebarOpen ? <PanelLeftClose size={20}/> : <PanelLeftOpen size={20}/>)}
                   </button>
 
                   <input 
@@ -172,16 +180,18 @@ const Notepad: React.FC = () => {
                     placeholder="タイトルを入力..."
                   />
 
-                  <button 
-                    onClick={toggleCodeMode} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      isCodeMode ? 'bg-slate-800 text-white shadow-inner' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                    title={isCodeMode ? "プレビューモードへ" : "HTML編集モードへ"}
-                  >
-                    {isCodeMode ? <Eye size={14}/> : <Code size={14}/>}
-                    <span className="hidden sm:inline">{isCodeMode ? 'プレビュー' : 'HTML編集'}</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={toggleCodeMode} 
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        isCodeMode ? 'bg-slate-800 text-white shadow-inner' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                      title={isCodeMode ? "リッチテキストへ" : "HTMLソース編集"}
+                    >
+                      {isCodeMode ? <Eye size={14}/> : <Code size={14}/>}
+                      <span className="hidden sm:inline">{isCodeMode ? 'プレビュー' : 'HTML編集'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* ツールバー */}
@@ -207,6 +217,22 @@ const Notepad: React.FC = () => {
                       <Quote size={18}/>
                     </button>
                     <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 my-auto shrink-0"></div>
+                    
+                    {/* コーディング機能（言語選択 & 挿入） */}
+                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 rounded-lg border dark:border-slate-700">
+                       <select 
+                         value={selectedLang} 
+                         onChange={(e) => setSelectedLang(e.target.value)} 
+                         className="bg-transparent text-[10px] font-black uppercase text-slate-500 outline-none cursor-pointer pr-1"
+                       >
+                         {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                       </select>
+                       <button onClick={insertCodeBlock} className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded text-indigo-600 dark:text-indigo-400" title="コードブロック挿入">
+                        <Terminal size={16}/>
+                       </button>
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 my-auto shrink-0"></div>
                     <button onClick={() => execCmd('insertUnorderedList')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-300" title="箇条書き">
                       <List size={18}/>
                     </button>
@@ -218,9 +244,6 @@ const Notepad: React.FC = () => {
                       if (url) execCmd('createLink', url);
                     }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-300" title="リンク">
                       <LinkIcon size={18}/>
-                    </button>
-                    <button onClick={() => execCmd('formatBlock', 'pre')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-300" title="コードブロック">
-                      <Terminal size={18}/>
                     </button>
                     <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1 my-auto shrink-0"></div>
                     <button onClick={() => execCmd('removeFormat')} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-red-400" title="書式をクリア">
@@ -237,14 +260,14 @@ const Notepad: React.FC = () => {
                     value={activeNote.content}
                     onChange={(e) => updateActiveNote({ content: e.target.value })}
                     spellCheck={false}
-                    className="absolute inset-0 w-full h-full p-6 font-mono text-sm bg-slate-900 text-green-400 outline-none resize-none"
+                    className="absolute inset-0 w-full h-full p-6 font-mono text-sm bg-slate-900 text-green-400 outline-none resize-none leading-relaxed"
                   />
                 ) : (
                   <div 
                     ref={editorRef} 
                     contentEditable 
                     onInput={handleContentInput} 
-                    className="absolute inset-0 w-full h-full p-6 md:p-10 outline-none overflow-y-auto prose dark:prose-invert max-w-none prose-headings:font-black prose-pre:bg-slate-800 prose-pre:text-green-400"
+                    className="absolute inset-0 w-full h-full p-6 md:p-10 outline-none overflow-y-auto prose dark:prose-invert max-w-none prose-headings:font-black prose-pre:bg-slate-900 prose-pre:text-green-400 prose-pre:shadow-2xl"
                     spellCheck={false}
                   />
                 )}
@@ -264,12 +287,12 @@ const Notepad: React.FC = () => {
          <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />プロ仕様のWebメモ帳：リッチテキストとHTMLの完全統合</h2>
          <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-lime-600" />見たまま編集とコード編集</h3>
-               <p>当エディタは、直感的なリッチテキスト編集（WYSIWYG）と、高度なカスタマイズが可能なHTMLコード編集モードを搭載しています。「太字」や「見出し」などの基本装飾はもちろん、コードモードに切り替えることで、複雑なレイアウトやプログラムの断片をそのまま保存することが可能です。エンジニアの技術メモからライターの下書きまで幅広く対応します。</p>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-lime-600" />言語別コードブロック機能</h3>
+               <p>当エディタは、プログラムコードの保存に特化した機能を搭載しています。JavaScript, Python, SQLなどの言語を選択してコードブロックを挿入することで、シンタックスハイライト風のデザインで技術メモを整理できます。HTMLモードに切り替えれば、より詳細なソース編集も可能です。</p>
             </div>
             <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-lime-600" />セキュアなローカルストレージ運用</h3>
-               <p>入力された全てのデータはお使いのブラウザ内（LocalStorage）にのみ保存されます。アカウント登録は不要で、作成したメモが外部サーバーに送信されることは一切ありません。機密情報の取り扱いや、完全なプライベート環境での思考整理に最適です。ブラウザを閉じても内容は保持され、次回アクセス時にシームレスに再開できます。</p>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-lime-600" />安全なローカルストレージ運用</h3>
+               <p>サイドバーのトグル操作により、多数のメモを効率的に管理できます。すべてのデータはブラウザ内のLocalStorageにのみ保存され、外部への送信は一切ありません。機密性の高い開発メモや、個人的なアイデア帳として、プライバシーが守られた環境で安心してご利用いただけます。</p>
             </div>
          </div>
       </article>

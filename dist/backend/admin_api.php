@@ -4,6 +4,7 @@
  * - Supports Data Persistence with File Locking
  * - Real-time DOS Protection
  * - Admin Password Management
+ * - Server Resource Monitoring
  */
 
 // エラー出力を抑制してJSONを保護
@@ -41,13 +42,51 @@ function load_json($file) {
     return json_decode($content, true) ?: [];
 }
 function save_json($file, $data) {
-    // LOCK_EX を使用して、同時書き込みによるファイル破損（データ消失）を防止
     file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 }
 function get_client_ip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'];
+}
+
+// Get Server Resource Stats
+function get_server_stats() {
+    $stats = [
+        'cpu' => 0,
+        'mem' => ['total' => 0, 'used' => 0, 'percent' => 0],
+        'disk' => ['total' => 0, 'used' => 0, 'percent' => 0]
+    ];
+
+    // CPU Load (Unix/Linux)
+    if (function_exists('sys_getloadavg')) {
+        $load = sys_getloadavg();
+        $stats['cpu'] = $load[0] * 10; // Simple percentage estimation
+    }
+
+    // Memory Info (Linux)
+    if (file_exists('/proc/meminfo')) {
+        $meminfo = file_get_contents('/proc/meminfo');
+        if (preg_match('/MemTotal:\s+(\d+)/', $meminfo, $matches)) $stats['mem']['total'] = $matches[1] * 1024;
+        if (preg_match('/MemAvailable:\s+(\d+)/', $meminfo, $matches)) {
+            $available = $matches[1] * 1024;
+            $stats['mem']['used'] = $stats['mem']['total'] - $available;
+            if ($stats['mem']['total'] > 0) {
+                $stats['mem']['percent'] = round(($stats['mem']['used'] / $stats['mem']['total']) * 100, 1);
+            }
+        }
+    }
+
+    // Disk Usage
+    $disk_total = disk_total_space('/');
+    $disk_free = disk_free_space('/');
+    $stats['disk']['total'] = $disk_total;
+    $stats['disk']['used'] = $disk_total - $disk_free;
+    if ($disk_total > 0) {
+        $stats['disk']['percent'] = round(($stats['disk']['used'] / $disk_total) * 100, 1);
+    }
+
+    return $stats;
 }
 
 // SMTP Class
@@ -211,6 +250,7 @@ if ($action === 'fetch_dashboard') {
         ],
         'messages' => load_json($MESSAGES_FILE),
         'blocked_ips' => $blocked,
+        'server_resources' => get_server_stats(),
         'config' => [
             'smtp_host' => $config['smtp_host'], 'smtp_port' => $config['smtp_port'], 
             'smtp_user' => $config['smtp_user'], 'alert_email' => $config['alert_email'],
