@@ -98,29 +98,35 @@ const AdminPage: React.FC = () => {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Map Initialization Logic
+  // Map Initialization Logic (Revised)
   useEffect(() => {
     let isMounted = true;
 
     const initMap = async () => {
-      // ダッシュボードタブでない、またはコンテナがない場合は初期化しない
-      if (activeTab !== 'dashboard' || !mapContainerRef.current) return;
-
-      // 既にマップがある場合は何もしない（updateMapDataに任せる）
-      if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize(); // タブ切り替え後のサイズ再計算
-          return;
-      }
+      // ダッシュボードでない場合、またはコンテナがない場合は何もしない
+      if (activeTab !== 'dashboard') return;
 
       const L = await loadLeaflet();
-      if (!isMounted || !mapContainerRef.current) return;
+      if (!isMounted) return;
+
+      // DOMレンダリング待ち (コンテナサイズ0対策)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!mapContainerRef.current) return;
+
+      // 既存のマップインスタンスがあれば完全に破棄する (タブ切り替え対策)
+      if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+          mapMarkersRef.current = [];
+          mapLinesRef.current = [];
+      }
       
       try {
           // Initialize Map
           const map = L.map(mapContainerRef.current, {
               scrollWheelZoom: false,
               attributionControl: false,
-              zoomControl: false // 独自の場所に置きたい場合
+              zoomControl: false 
           }).setView([25, 0], 2);
           
           L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
@@ -136,9 +142,7 @@ const AdminPage: React.FC = () => {
           mapInstanceRef.current = map;
           
           // 初期化直後にデータを描画
-          if (stats.recent_logs.length > 0) {
-              updateMapData();
-          }
+          updateMapMarkers();
       } catch (e) {
           console.error("Map init failed", e);
       }
@@ -146,7 +150,7 @@ const AdminPage: React.FC = () => {
 
     initMap();
 
-    // Cleanup when unmounting dashboard tab
+    // Cleanup: タブが切り替わる時、マップインスタンスを破棄する
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
@@ -156,10 +160,17 @@ const AdminPage: React.FC = () => {
         mapLinesRef.current = [];
       }
     };
-  }, [activeTab]); // stats.recent_logs を依存配列に入れると無限ループの可能性があるので外す
+  }, [activeTab]);
 
-  // Update Map Data Logic
-  const updateMapData = async () => {
+  // データ更新時にマーカーのみ更新
+  useEffect(() => {
+      if (activeTab === 'dashboard' && mapInstanceRef.current) {
+          updateMapMarkers();
+      }
+  }, [stats.recent_logs, geoData]); 
+
+  // Update Map Markers Logic
+  const updateMapMarkers = async () => {
     const L = await loadLeaflet();
     if (!mapInstanceRef.current || !L) return;
 
@@ -176,7 +187,7 @@ const AdminPage: React.FC = () => {
         
         let data = geoData[ip];
         if (!data) {
-            // Fetch if missing (Rate limit handling is implied by browser)
+            // Fetch if missing
             fetch(`https://ipwho.is/${ip}`)
                 .then(res => res.json())
                 .then(json => {
@@ -211,13 +222,6 @@ const AdminPage: React.FC = () => {
         }
     }
   };
-
-  // GeoDataやログが更新されたらマップを更新
-  useEffect(() => {
-      if (activeTab === 'dashboard' && mapInstanceRef.current) {
-          updateMapData();
-      }
-  }, [stats.recent_logs, geoData]); 
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
