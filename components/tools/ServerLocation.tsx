@@ -1,6 +1,25 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, Search, MapPin, Server, Building, Wifi, AlertTriangle, Route, Activity, Info, ShieldCheck, Database, Loader2, Maximize, Minimize, RefreshCw, Cpu, Move, ChevronRight } from 'lucide-react';
+import { Globe, Search, MapPin, Server, Building, Wifi, AlertTriangle, Route, Activity, Info, ShieldCheck, Database, Loader2, RefreshCw, Cpu, Move, ArrowRight, Zap } from 'lucide-react';
+
+// LeafletをCDNから動的に読み込むためのヘルパー
+const loadLeaflet = (): Promise<any> => {
+  return new Promise((resolve) => {
+    if ((window as any).L) {
+      resolve((window as any).L);
+      return;
+    }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = () => resolve((window as any).L);
+    document.head.appendChild(script);
+  });
+};
 
 const getFlagEmoji = (countryCode: string) => {
   if (!countryCode) return '🏳️';
@@ -16,22 +35,6 @@ interface TraceHop {
   hop: number; ip: string; rtt: string; geo?: GeoData | null; loading?: boolean;
 }
 
-// 高精細な世界地図SVGパスデータ
-const WORLD_MAP_PATHS = [
-  // 北米・グリーンランド
-  "M120,130 L160,110 L220,95 L280,110 L310,135 L280,185 L240,225 L180,215 L140,185 Z M215,65 L275,55 L315,75 L285,100 L235,90 Z",
-  // 南米
-  "M245,235 L285,245 L315,285 L325,355 L305,425 L265,405 L245,325 Z",
-  // ユーラシア・アジア
-  "M445,155 L515,135 L595,115 L745,105 L875,125 L935,165 L915,245 L795,285 L745,325 L675,305 L615,355 L545,425 L475,385 L435,325 L415,245 L435,185 Z",
-  // アフリカ
-  "M435,245 L495,225 L555,255 L575,325 L535,405 L485,435 L445,385 L425,305 Z",
-  // オーストラリア
-  "M775,365 L845,355 L905,385 L895,435 L815,455 L775,425 Z",
-  // 日本・島嶼
-  "M865,185 L875,180 L878,190 L868,195 Z M885,205 L895,200 L898,210 L888,215 Z"
-];
-
 const ServerLocation: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'lookup' | 'trace'>('lookup');
   const [input, setInput] = useState('');
@@ -44,11 +47,78 @@ const ServerLocation: React.FC = () => {
   const [traceHops, setTraceHops] = useState<TraceHop[]>([]);
   const [traceError, setTraceError] = useState<string | null>(null);
 
-  // 地図の表示状態管理 (ズーム & パン)
-  const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<any[]>([]);
+  const polylineRef = useRef<any>(null);
+
+  // マップの初期化
+  useEffect(() => {
+    let mapInstance: any;
+    loadLeaflet().then((L) => {
+      if (!mapContainerRef.current) return;
+      
+      mapInstance = L.map(mapContainerRef.current, {
+        scrollWheelZoom: true,
+        dragging: true,
+        zoomControl: false,
+        attributionControl: false // 右下のアトリビューションを無効化
+      }).setView([20, 0], 2);
+
+      // CARTO Dark Matterタイルの導入
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(mapInstance);
+
+      // ズームコントロールを手動で追加（左上）
+      L.control.zoom({ position: 'topleft' }).addTo(mapInstance);
+
+      mapRef.current = mapInstance;
+    });
+
+    return () => {
+      if (mapInstance) mapInstance.remove();
+    };
+  }, []);
+
+  // マップ操作時のページスクロール防止
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const preventDefault = (e: WheelEvent) => {
+      e.stopPropagation();
+    };
+
+    container.addEventListener('wheel', preventDefault, { passive: true });
+    return () => container.removeEventListener('wheel', preventDefault);
+  }, []);
+
+  const clearMap = () => {
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+    if (polylineRef.current) {
+      polylineRef.current.remove();
+      polylineRef.current = null;
+    }
+  };
+
+  const addMarker = (lat: number, lon: number, title: string, color: string) => {
+    const L = (window as any).L;
+    if (!L || !mapRef.current) return;
+
+    const icon = L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px ${color};"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
+    });
+
+    const marker = L.marker([lat, lon], { icon }).addTo(mapRef.current);
+    marker.bindPopup(`<div class="p-1 font-bold text-xs">${title}</div>`);
+    markersRef.current.push(marker);
+    return marker;
+  };
 
   const isPrivateIp = (ip: string) => /^(10\.|127\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(ip);
 
@@ -70,15 +140,12 @@ const ServerLocation: React.FC = () => {
     return null;
   };
 
-  const focusOnPosition = (lat: number, lon: number) => {
-    const coords = getMapCoordinates(lat, lon);
-    setViewState({ scale: 2.5, x: (500 - coords.x) * 2.5, y: (250 - coords.y) * 2.5 });
-  };
-
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input) return;
     setLoading(true); setError(null); setData(null);
+    clearMap();
+
     try {
       let hostname = input.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
       const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
@@ -95,7 +162,9 @@ const ServerLocation: React.FC = () => {
       const geoInfo = await getGeoData(targetIp);
       if (!geoInfo) throw new Error('位置情報を取得できませんでした');
       setData(geoInfo);
-      focusOnPosition(geoInfo.latitude, geoInfo.longitude);
+      
+      addMarker(geoInfo.latitude, geoInfo.longitude, `ターゲット: ${geoInfo.ip}`, '#3b82f6');
+      mapRef.current.flyTo([geoInfo.latitude, geoInfo.longitude], 6);
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 
@@ -103,6 +172,8 @@ const ServerLocation: React.FC = () => {
     e.preventDefault();
     if (!traceInput) return;
     setTraceLoading(true); setTraceError(null); setTraceHops([]);
+    clearMap();
+
     try {
       let hostname = traceInput.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
       const response = await fetch(`./backend/traceroute.php?host=${hostname}`);
@@ -110,18 +181,20 @@ const ServerLocation: React.FC = () => {
       
       let json;
       try {
-        // レスポンス文字列からJSON部分を抽出してパース (ノイズ対策)
         const start = text.indexOf('{');
         const end = text.lastIndexOf('}');
         if (start === -1 || end === -1) throw new Error();
         json = JSON.parse(text.substring(start, end + 1));
       } catch (parseError) {
-        throw new Error('サーバーからの応答が不正な形式です');
+        throw new Error('サーバーからの応答が不正です。');
       }
 
       if (json.error) throw new Error(json.error);
       const initialHops = (json.hops || []).map((h: any) => ({ ...h, loading: true, geo: null }));
       setTraceHops(initialHops);
+
+      const pathCoords: [number, number][] = [];
+      const L = (window as any).L;
 
       for (let i = 0; i < initialHops.length; i++) {
           const hop = initialHops[i];
@@ -130,32 +203,27 @@ const ServerLocation: React.FC = () => {
             continue;
           }
           const geo = await getGeoData(hop.ip);
+          if (geo) {
+            pathCoords.push([geo.latitude, geo.longitude]);
+            const isLast = i === initialHops.length - 1;
+            const color = i === 0 ? '#10b981' : isLast ? '#3b82f6' : '#6366f1';
+            addMarker(geo.latitude, geo.longitude, `#${hop.hop} ${geo.city}`, color);
+            
+            if (pathCoords.length > 1 && L) {
+              if (polylineRef.current) polylineRef.current.remove();
+              polylineRef.current = L.polyline(pathCoords, {
+                color: '#10b981',
+                weight: 3,
+                opacity: 0.6,
+                dashArray: '5, 10'
+              }).addTo(mapRef.current);
+            }
+            mapRef.current.flyTo([geo.latitude, geo.longitude], 4);
+          }
           setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, geo, loading: false } : h));
-          if (geo) focusOnPosition(geo.latitude, geo.longitude);
       }
     } catch (err: any) { setTraceError(err.message); } finally { setTraceLoading(false); }
   };
-
-  const getMapCoordinates = (lat: number, lon: number) => {
-    const x = (lon + 180) * (1000 / 360);
-    const latRad = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
-    const y = (1 - (Math.log(Math.tan(Math.PI / 4 + latRad / 2)) / Math.PI)) * 250;
-    return { x, y };
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setViewState(prev => ({ ...prev, scale: Math.max(1, Math.min(10, prev.scale * delta)) }));
-  };
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - viewState.x, y: e.clientY - viewState.y });
-  };
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setViewState(prev => ({ ...prev, x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }));
-  };
-  const handleMouseUp = () => setIsDragging(false);
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 pb-20">
@@ -173,6 +241,7 @@ const ServerLocation: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         {/* 操作パネル */}
          <div className="lg:col-span-1 flex flex-col gap-6">
             {activeTab === 'lookup' ? (
                <div className="bg-white dark:bg-dark-lighter rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -232,7 +301,7 @@ const ServerLocation: React.FC = () => {
                                     <span className="text-base">{getFlagEmoji(hop.geo.country)}</span>
                                     <div className="min-w-0"><p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 truncate">{hop.geo.city}, {hop.geo.country_name}</p></div>
                                  </div>
-                              ) : hop.ip !== 'Request timed out' && <p className="text-[9px] text-gray-400">位置情報なし（内部ホップ）</p>}
+                              ) : hop.ip !== 'Request timed out' && <p className="text-[9px] text-gray-400">位置情報なし (内部ホップ)</p>}
                            </div>
                         </div>
                      ))}
@@ -241,95 +310,79 @@ const ServerLocation: React.FC = () => {
             )}
          </div>
 
-         <div className="lg:col-span-2">
+         {/* 実際の地図ビジュアライザー */}
+         <div className="lg:col-span-2 relative group">
             <div 
-                ref={containerRef}
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                className={`relative w-full aspect-[1.6/1] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                ref={mapContainerRef}
+                className="relative w-full aspect-[1.6/1] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 z-0"
             >
-               <div className="absolute top-6 right-6 flex flex-col gap-2 z-50">
-                  <button onClick={() => setViewState(prev => ({...prev, scale: Math.min(10, prev.scale + 0.5)}))} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><Maximize size={18} /></button>
-                  <button onClick={() => setViewState(prev => ({...prev, scale: Math.max(1, prev.scale - 0.5)}))} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><Minimize size={18} /></button>
-                  <button onClick={() => setViewState({ scale: 1, x: 0, y: 0 })} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><RefreshCw size={18} /></button>
+               <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10 pointer-events-none opacity-0 group-data-[loading=true]:opacity-100 transition-opacity">
+                  <Loader2 className="animate-spin text-indigo-500" size={40} />
                </div>
+            </div>
 
-               <div 
-                className="w-full h-full transition-transform duration-500 ease-out origin-center"
-                style={{ transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})` }}
-               >
-                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4f46e5 1.5px, transparent 1.5px)', backgroundSize: '25px 25px' }}></div>
-                  <svg viewBox="0 0 1000 500" className="w-full h-full overflow-visible pointer-events-none">
-                     {WORLD_MAP_PATHS.map((p, idx) => (
-                        <path key={idx} d={p} className="fill-slate-800/80 stroke-indigo-500/20 stroke-[0.4]" />
-                     ))}
-                     
-                     {activeTab === 'trace' && traceHops.map((hop, i) => {
-                        if (i === 0 || !hop.geo || !traceHops[i-1].geo) return null;
-                        const p1 = getMapCoordinates(traceHops[i-1].geo!.latitude, traceHops[i-1].geo!.longitude);
-                        const p2 = getMapCoordinates(hop.geo!.latitude, hop.geo!.longitude);
-                        const cpX = (p1.x + p2.x) / 2;
-                        const cpY = Math.min(p1.y, p2.y) - 50;
-                        return (
-                        <g key={`path-${i}`}>
-                            <path d={`M ${p1.x} ${p1.y} Q ${cpX} ${cpY} ${p2.x} ${p2.y}`} fill="none" stroke="url(#trace-grad)" strokeWidth="2" className="animate-dash" strokeDasharray="8,8" style={{ filter: 'drop-shadow(0 0 8px #6366f1)' }} />
-                            <defs><linearGradient id="trace-grad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4f46e5" /><stop offset="100%" stopColor="#818cf8" /></linearGradient></defs>
-                        </g>
-                        );
-                     })}
-
-                     {activeTab === 'lookup' && data && (
-                        <g transform={`translate(${getMapCoordinates(data.latitude, data.longitude).x}, ${getMapCoordinates(data.latitude, data.longitude).y})`}>
-                           <circle r="15" fill="#4f46e5" className="animate-ping opacity-30" />
-                           <circle r="6" fill="#4f46e5" className="stroke-white stroke-2 shadow-2xl" />
-                        </g>
-                     )}
-
-                     {activeTab === 'trace' && traceHops.map((hop, i) => hop.geo && (
-                        <g key={i} transform={`translate(${getMapCoordinates(hop.geo.latitude, hop.geo.longitude).x}, ${getMapCoordinates(hop.geo.latitude, hop.geo.longitude).y})`} className="group">
-                           <circle r="12" fill="#4f46e5" className="animate-pulse opacity-20" />
-                           <circle r="5" fill="#6366f1" className="stroke-white/40 stroke-1" />
-                           <text y="-16" textAnchor="middle" className="fill-white text-[9px] font-black drop-shadow-md">{hop.hop}</text>
-                           <text y="20" textAnchor="middle" className="fill-indigo-300 text-[6px] font-bold uppercase tracking-wider">{hop.geo.city}</text>
-                        </g>
-                     ))}
-                  </svg>
+            {/* カスタムレジェンド */}
+            <div className="absolute top-6 right-6 flex flex-col gap-2 z-10 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl pointer-events-none">
+               <div className="flex items-center gap-3 text-[10px] font-black text-white uppercase tracking-wider">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500 border border-white shadow-[0_0_5px_#10b981]"></div> 出発地点
                </div>
+               <div className="flex items-center gap-3 text-[10px] font-black text-white uppercase tracking-wider">
+                  <div className="w-3 h-3 rounded-full bg-indigo-500 border border-white shadow-[0_0_5px_#6366f1]"></div> 経由地点
+               </div>
+               <div className="flex items-center gap-3 text-[10px] font-black text-white uppercase tracking-wider">
+                  <div className="w-3 h-3 rounded-full bg-blue-500 border border-white shadow-[0_0_5px_#3b82f6]"></div> 到達地点
+               </div>
+            </div>
 
-               <div className="absolute bottom-6 left-6 flex items-center gap-3 bg-slate-900/80 backdrop-blur-xl px-5 py-3 rounded-full border border-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] shadow-2xl z-50">
-                  <Activity size={14} className="text-emerald-400 animate-pulse" /> Infrastructure Engine 5.0
-               </div>
-               
-               <div className="absolute bottom-6 right-6 hidden md:flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl text-[9px] font-bold text-slate-400 border border-white/5">
-                  <Move size={12} /> ドラッグで移動 / ホイールでズーム
-               </div>
+            {/* ステータスバッジ */}
+            <div className="absolute bottom-6 left-6 flex items-center gap-3 bg-slate-900/80 backdrop-blur-xl px-5 py-3 rounded-full border border-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] shadow-2xl z-10">
+               <Activity size={14} className="text-emerald-400 animate-pulse" /> Accurate Route Map 5.2
+            </div>
+            
+            <div className="absolute bottom-6 right-6 hidden md:flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl text-[9px] font-bold text-slate-400 border border-white/5 z-10">
+               <Move size={12} /> ドラッグで移動 / ホイールでズーム
             </div>
          </div>
       </div>
 
       <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm transition-all">
-         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />ネットワーク経路の可視化と診断</h2>
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />精密なネットワーク経路の可視化</h2>
          <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Cpu size={18} className="text-indigo-500" />次世代ビジュアライザー</h3>
-               <p>新しい地図エンジンは、より詳細な世界地図のシルエットと、自由自在なズーム・パン操作を提供します。特定のドメインやIPまでの通信がどの国や都市を経由し、どのような遅延（RTT）が発生しているかを、直感的に観察することが可能です。インフラエンジニアから一般ユーザーまで、ネットワークの健康状態を把握するのに最適です。</p>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Cpu size={18} className="text-indigo-500" />リアルタイム地図エンジン</h3>
+               <p>当ツールはOpenStreetMapおよびCARTOの最新地理データを統合した地図エンジンを採用しています。正確な海岸線と都市位置に基づいたマッピングにより、tracerouteコマンドで取得したパケットが世界を旅する様子をリアルに再現します。</p>
             </div>
             <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" />セキュアな診断設計</h3>
-               <p>診断処理はすべて、バックエンドでのセキュアな実行環境とフロントエンドでの安全なGeoIP照会を組み合わせて行われます。お客様のドメイン情報が外部に意図せず流出することはありません。また、すべての変換処理はお使いのブラウザ内で行われるため、機密性の高いインフラ調査にも安心してご利用いただけます。</p>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" />最適化された操作性</h3>
+               <p>地図操作中に画面全体がスクロールしてしまうストレスを解消するため、高度なイベント制御を実装しています。マウスホイールでのズームやドラッグでのパン操作が地図内に限定されるため、詳細な経路確認をスムーズに行うことが可能です。</p>
             </div>
          </div>
       </article>
-      
+
+      {/* ページ最下部のアトリビューション表記 */}
+      <div className="text-[10px] text-gray-400 text-center mt-8 pb-4">
+        Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="hover:underline">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer" className="hover:underline">CARTO</a>
+      </div>
+
       <style>{`
-        @keyframes dash {
-          to { stroke-dashoffset: -24; }
+        .leaflet-container {
+          background: #0a1128 !important;
         }
-        .animate-dash {
-          animation: dash 1.5s linear infinite;
+        .leaflet-popup-content-wrapper {
+          background: rgba(15, 23, 42, 0.9);
+          color: white;
+          border-radius: 12px;
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .leaflet-popup-tip {
+          background: rgba(15, 23, 42, 0.9);
+        }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+          background-color: rgba(15, 23, 42, 0.8) !important;
+          color: white !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
+          backdrop-filter: blur(4px);
         }
       `}</style>
     </div>

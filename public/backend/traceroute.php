@@ -18,7 +18,7 @@ $host = $_GET['host'] ?? '';
 if (empty($host)) {
     ob_clean();
     http_response_code(400);
-    echo json_encode(['error' => 'ホスト名またはIPアドレスを入力してください']);
+    echo json_encode(['error' => 'Host is required']);
     exit;
 }
 
@@ -30,19 +30,19 @@ $host = explode('/', $host)[0];
 if (!filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) && !filter_var($host, FILTER_VALIDATE_IP)) {
     ob_clean();
     http_response_code(400);
-    echo json_encode(['error' => '無効なホスト名またはIPアドレスの形式です']);
+    echo json_encode(['error' => 'Invalid hostname or IP']);
     exit;
 }
 
 // 2. OS Detection & Command Setup
 $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-$maxHops = 15; 
+$maxHops = 20; // Limit hops
 $escapedHost = escapeshellarg($host);
 $command = "";
 
 if ($isWindows) {
     // Windows: tracert
-    $command = "tracert -d -h $maxHops -w 500 $escapedHost";
+    $command = "tracert -d -h $maxHops -w 100 $escapedHost";
 } else {
     // Linux: Find traceroute binary
     $binary = '';
@@ -56,6 +56,7 @@ if ($isWindows) {
     if (empty($binary)) {
         $binary = 'traceroute';
     }
+    // -n: no DNS lookup, -m: max hops, -w: timeout, -q: queries per hop
     $command = "$binary -n -m $maxHops -w 1 -q 1 $escapedHost 2>&1";
 }
 
@@ -69,17 +70,21 @@ $hops = [];
 foreach ($output as $line) {
     $line = trim($line);
     if (empty($line)) continue;
-    if (preg_match('/(traceroute|tracing|tracert)/i', $line) && !preg_match('/^\s*\d/', $line)) continue;
     
     // Extract IP
     if (preg_match('/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/', $line, $ipMatch)) {
         $ip = $ipMatch[1];
+        
+        // Extract Hop Number
         preg_match('/^\s*(\d+)/', $line, $hopMatch);
         $hopNum = $hopMatch[1] ?? count($hops) + 1;
+
+        // Extract RTT
         $rtt = '*';
         if (preg_match('/([\d\.<]+)\s*ms/', $line, $rttMatch)) {
             $rtt = $rttMatch[1] . ' ms';
         }
+
         $hops[] = [
             'hop' => (int)$hopNum,
             'ip' => $ip,
@@ -92,7 +97,7 @@ foreach ($output as $line) {
 if (empty($hops)) {
     ob_clean();
     http_response_code(500);
-    echo json_encode(['error' => '経路解析に失敗しました。サーバーの制限を確認してください。']);
+    echo json_encode(['error' => '経路情報を取得できませんでした。サーバー設定を確認してください。']);
     exit;
 }
 
