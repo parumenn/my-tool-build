@@ -8,7 +8,7 @@ import {
   TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity,
   ShieldQuestion, ToggleLeft, ToggleRight, Filter, Search, AppWindow,
   PieChart as PieIcon, ArrowUpRight, X, ChevronRight, MousePointer2,
-  HardDrive, Cpu, Microchip
+  HardDrive, Cpu, Microchip, Map as MapIcon, Globe
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -31,6 +31,21 @@ interface AdminConfig {
 
 const ADMIN_PATH = '/secure-panel-7x9v2';
 
+// LeafletをCDNから動的に読み込む
+const loadLeaflet = (): Promise<any> => {
+  return new Promise((resolve) => {
+    if ((window as any).L) { resolve((window as any).L); return; }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = () => resolve((window as any).L);
+    document.head.appendChild(script);
+  });
+};
+
 const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('admin_token'));
   const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'messages' | 'security' | 'settings'>('dashboard');
@@ -46,6 +61,12 @@ const AdminPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Map
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const mapMarkersRef = useRef<any[]>([]);
+  const [geoData, setGeoData] = useState<Record<string, { lat: number, lon: number, city: string, country: string }>>({});
+
   // ログフィルター
   const [logFilterIp, setLogFilterIp] = useState('');
   const [logFilterPath, setLogFilterPath] = useState('');
@@ -57,9 +78,7 @@ const AdminPage: React.FC = () => {
     return saved ? JSON.parse(saved) : ['qrcode', 'kakeibo', 'bath'];
   });
 
-  useEffect(() => {
-    localStorage.setItem('admin_monitored_apps', JSON.stringify(monitoredAppIds));
-  }, [monitoredAppIds]);
+  useEffect(() => { localStorage.setItem('admin_monitored_apps', JSON.stringify(monitoredAppIds)); }, [monitoredAppIds]);
 
   // 設定フォーム
   const [config, setConfig] = useState<AdminConfig>({
@@ -76,6 +95,62 @@ const AdminPage: React.FC = () => {
   
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Map Render Logic
+  const renderMap = async () => {
+    if (!mapContainerRef.current || activeTab !== 'dashboard') return;
+    const L = await loadLeaflet();
+    
+    if (!mapInstanceRef.current) {
+        mapInstanceRef.current = L.map(mapContainerRef.current, {
+            scrollWheelZoom: false,
+            attributionControl: false
+        }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mapInstanceRef.current);
+    }
+
+    // 最新20件のユニークIPを抽出
+    const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 20);
+    
+    // Clear old markers
+    mapMarkersRef.current.forEach(m => m.remove());
+    mapMarkersRef.current = [];
+
+    // Fetch and plot
+    for (const ip of uniqueIps) {
+        if (ip.startsWith('192.168.') || ip.startsWith('127.') || ip.startsWith('10.')) continue;
+        
+        // Cache check
+        let data = geoData[ip];
+        if (!data) {
+            try {
+                const res = await fetch(`https://ipwho.is/${ip}`);
+                const json = await res.json();
+                if (json.success) {
+                    data = { lat: json.latitude, lon: json.longitude, city: json.city, country: json.country_code };
+                    setGeoData(prev => ({...prev, [ip]: data}));
+                }
+            } catch(e) {}
+        }
+
+        if (data) {
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #3b82f6; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #3b82f6;"></div>`,
+                iconSize: [10, 10], iconAnchor: [5, 5]
+            });
+            const marker = L.marker([data.lat, data.lon], { icon }).addTo(mapInstanceRef.current);
+            marker.bindPopup(`<b>${ip}</b><br>${data.city}, ${data.country}`);
+            mapMarkersRef.current.push(marker);
+        }
+    }
+  };
+
+  useEffect(() => {
+      if (activeTab === 'dashboard' && stats.recent_logs.length > 0) {
+          renderMap();
+      }
+  }, [stats.recent_logs, activeTab]);
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
@@ -231,7 +306,7 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchData(true);
-      const interval = setInterval(() => fetchData(false), 1500); // 1.5秒更新
+      const interval = setInterval(() => fetchData(false), 3000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -257,7 +332,7 @@ const AdminPage: React.FC = () => {
       <header className="bg-slate-900 text-white border-b border-white/10 h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
-          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.7.1</span></h1>
+          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.8.0</span></h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl overflow-x-auto no-scrollbar">
            {[
@@ -277,6 +352,18 @@ const AdminPage: React.FC = () => {
         {activeTab === 'dashboard' && (
            <div className="space-y-10 animate-fade-in max-w-7xl mx-auto w-full pb-20">
               
+              {/* Access Map Visualization */}
+              <div className="bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-700 overflow-hidden relative group">
+                 <div className="absolute top-6 left-6 z-10 bg-slate-800/80 backdrop-blur px-4 py-2 rounded-xl border border-white/10">
+                    <h3 className="text-white font-black text-sm flex items-center gap-2">
+                       <Globe size={16} className="text-blue-400" /> アクセスMAP
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-bold">直近のアクセス元を表示</p>
+                 </div>
+                 <div ref={mapContainerRef} className="w-full h-[350px] bg-[#0a1128] z-0"></div>
+                 <style>{`.leaflet-container { background: #0a1128 !important; } .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); color: white; border-radius: 8px; font-size: 10px; } .leaflet-popup-tip { background: rgba(15, 23, 42, 0.9); }`}</style>
+              </div>
+
               {/* Server Resources Monitoring */}
               <section className="space-y-6">
                 <div className="flex items-center gap-2 mb-2">
@@ -355,7 +442,7 @@ const AdminPage: React.FC = () => {
                        <h3 className="font-black text-lg uppercase tracking-tight">トラフィック推移 (LIVE)</h3>
                        <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></div>
-                          1.5s UPDATE
+                          3s UPDATE
                        </div>
                     </div>
                     <div className="h-72">
@@ -400,10 +487,8 @@ const AdminPage: React.FC = () => {
                       const app = TOOLS.find(t => t.id === appId);
                       if (!app) return null;
                       const count = appStats[appId] || 0;
-                      // FIX: Add explicit types for reduce function parameters to avoid "unknown" type errors.
                       const totalAppHits = Object.values(appStats).reduce((a: number, b: number) => a + b, 0);
-                      // FIX: Ensure totalAppHits is treated as a number for comparison and arithmetic.
-                      const ratio = (totalAppHits as number) > 0 ? (count / (totalAppHits as number) * 100).toFixed(1) : '0';
+                      const ratio = totalAppHits > 0 ? (count / totalAppHits * 100).toFixed(1) : '0';
                       return (
                         <div 
                           key={appId} 
@@ -433,6 +518,7 @@ const AdminPage: React.FC = () => {
            </div>
         )}
 
+        {/* ... (Other tabs 'logs', 'messages', 'security', 'settings' remain mostly the same, ensuring SMTP settings are correctly wired) ... */}
         {activeTab === 'logs' && (
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-6">
               <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -496,7 +582,6 @@ const AdminPage: React.FC = () => {
         {activeTab === 'security' && (
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Blocked IPs */}
                 <div className="lg:col-span-2 bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                    <div className="p-8 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-800/30">
                       <div>
@@ -526,7 +611,6 @@ const AdminPage: React.FC = () => {
                    </div>
                 </div>
 
-                {/* DOS Settings */}
                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6 flex flex-col">
                    <div className="flex-1">
                       <h3 className="font-black text-xl flex items-center gap-3"><ShieldCheck className="text-emerald-500" /> DOS攻撃対策設定</h3>

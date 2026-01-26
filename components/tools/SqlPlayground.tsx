@@ -11,7 +11,7 @@ const SqlPlayground: React.FC = () => {
   useEffect(() => {
     try {
       alasql('CREATE TABLE IF NOT EXISTS users (id INT, name STRING, role STRING, age INT)');
-      const res = alasql('SELECT * FROM users');
+      const res = alasql('SELECT * FROM users') as any[];
       if (res.length === 0) {
         alasql("INSERT INTO users VALUES (1, 'Alice', 'Admin', 28), (2, 'Bob', 'User', 35), (3, 'Charlie', 'User', 22), (4, 'Dave', 'Manager', 40)");
       }

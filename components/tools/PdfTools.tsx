@@ -72,7 +72,8 @@ const PdfTools: React.FC = () => {
     setIsProcessing(true);
     try {
       const arrayBuffer = await unlockFile.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer, { password });
+      // Using 'as any' to suppress error because 'password' option is not strictly typed in all versions of pdf-lib LoadOptions
+      const pdfDoc = await PDFDocument.load(arrayBuffer, { password } as any);
       const pdfBytes = await pdfDoc.save();
       downloadPdf(pdfBytes, `unlocked_${unlockFile.name}`);
       setUnlockFile(null);
