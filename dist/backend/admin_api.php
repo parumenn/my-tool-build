@@ -24,8 +24,10 @@ $DATA_DIR = __DIR__ . '/data';
 
 // 万が一リンクが切れていた場合のフォールバック（ディレクトリ作成）
 if (!file_exists($DATA_DIR)) {
-    mkdir($DATA_DIR, 0777, true);
-    file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
+    if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
+        // 作成失敗時はエラーを返さず、一時的に動作させる（ログは消えるがアプリは落ちない）
+    }
+    @file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
 }
 
 $MESSAGES_FILE    = $DATA_DIR . '/messages.json';
