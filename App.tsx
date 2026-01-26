@@ -194,13 +194,13 @@ const Layout: React.FC = () => {
                     <div className="text-xs font-bold text-gray-600 dark:text-gray-300 select-none">
                       {isJP ? (
                         <>
-                          <Link to="/terms" target="_blank" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                          <a href="#/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
                             利用規約
-                          </Link>
+                          </a>
                           ・
-                          <Link to="/privacy" target="_blank" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                          <a href="#/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
                             プライバシーポリシー
-                          </Link>
+                          </a>
                           を読んで同意した
                         </>
                       ) : 'I have read and agree to the terms of service.'}

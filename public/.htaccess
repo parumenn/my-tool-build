@@ -2,10 +2,16 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # index.php を優先的に処理
+  DirectoryIndex index.php index.html
+
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-  RewriteRule . /index.html [L]
+  
+  # すべてのリクエストを index.php にルーティング
+  RewriteRule . /index.php [L]
 </IfModule>
 
 # --- 強力な圧縮設定 (Gzip) ---

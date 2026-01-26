@@ -1,4 +1,16 @@
 
+<?php
+// index.php
+// 通常アクセス時もセキュリティチェックを行うためのエントリーポイント
+
+// セキュリティチェックロジックの読み込み
+require_once __DIR__ . '/backend/security.php';
+
+// HTMLモードでチェック実行（ブロック時はHTMLエラーページを表示してexit）
+run_security_check(false);
+
+// チェックを通過した場合、以下のSPAコンテンツを表示
+?>
 <!DOCTYPE html>
 <html lang="ja">
   <head>
@@ -228,9 +240,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
 
-
-  <link rel="stylesheet" href="./index.css">
-<link rel="stylesheet" href="./index.css">
     <script type="importmap">
 {
   "imports": {
@@ -255,7 +264,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-CbdTdNg7.js"></script>
+  <link rel="stylesheet" href="./index.css">
 </head>
   <body class="bg-gray-50 text-slate-800 antialiased dark:bg-dark dark:text-gray-100 transition-colors duration-200">
     <div id="root">
@@ -278,5 +287,6 @@
         </div>
       </div>
     </div>
-</body>
+    <script type="module" src="./index.tsx"></script>
+  </body>
 </html>
