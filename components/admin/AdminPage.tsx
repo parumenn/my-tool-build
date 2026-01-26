@@ -129,9 +129,12 @@ const AdminPage: React.FC = () => {
               scrollWheelZoom: true, // 拡大縮小を許可
               attributionControl: false,
               zoomControl: true // コントロールを表示
-          }).setView([36, 138], 5); // 日本全体が見える位置
+          }).setView([36, 138], 2); // 日本全体が見える位置
           
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
+            maxZoom: 19,
+            noWrap: true // 無限スクロール防止
+          }).addTo(map);
           
           // Server Location Marker (Tokyo)
           const serverIcon = L.divIcon({

@@ -63,11 +63,12 @@ const ServerLocation: React.FC = () => {
         dragging: true,
         zoomControl: false,
         attributionControl: false // 右下のアトリビューションを無効化
-      }).setView([20, 0], 2);
+      }).setView([36, 138], 2);
 
       // CARTO Dark Matterタイルの導入
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
+        maxZoom: 19,
+        noWrap: true
       }).addTo(mapInstance);
 
       // ズームコントロールを手動で追加（左上）
