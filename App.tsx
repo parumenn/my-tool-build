@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight, FileText, Shield } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
 
@@ -266,6 +265,14 @@ const Layout: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* サイドバー用のバックドロップ（スマホ表示時のみ） */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden animate-fade-in"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
 
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-dark-lighter border-r border-gray-200 dark:border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>

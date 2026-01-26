@@ -6,15 +6,20 @@
   # index.php を優先的に処理
   DirectoryIndex index.php
 
-  # Prevent direct access to index.html to enforce security check in index.php
-  RewriteRule ^index\.html$ /index.php [L,R=301]
+  # index.html への直接アクセスを index.php に内部リライト
+  RewriteRule ^index\.html$ index.php [L]
 
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  # 存在するファイルへのリクエストのうち、index.html 以外は直接配信
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteCond %{REQUEST_FILENAME} !index\.html
+  RewriteRule ^ - [L]
+
+  # 存在するディレクトリは直接配信
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   
-  # すべてのリクエストを index.php にルーティング
-  RewriteRule . /index.php [L]
+  # それ以外（SPAのルートなど）は index.php にルーティング
+  RewriteRule . index.php [L]
 </IfModule>
 
 # --- 強力な圧縮設定 (Gzip) ---

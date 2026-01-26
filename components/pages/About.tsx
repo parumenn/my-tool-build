@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Info, ShieldCheck, Zap, Globe, Lock } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 const About: React.FC = () => {
   return (
@@ -19,8 +19,8 @@ const About: React.FC = () => {
 
           <hr className="border-gray-100 dark:border-gray-800" />
 
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <ShieldCheck className="text-emerald-500" /> プライバシーファーストの設計思想
+          <h3 className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">
+            プライバシーファーストの設計思想
           </h3>
           <p>
             当サイトの最大の特徴は、<strong>「徹底したローカル処理」</strong>です。<br/>
@@ -34,16 +34,16 @@ const About: React.FC = () => {
             </ul>
           </div>
 
-          <h3 className="text-xl font-bold flex items-center gap-2 mt-8">
-            <Zap className="text-yellow-500" /> 高速で快適な動作
+          <h3 className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">
+            高速で快適な動作
           </h3>
           <p>
             最新のWeb技術（React, Vite, WebAssemblyなど）を駆使し、ネイティブアプリのような軽快な操作感を実現しています。<br/>
             サーバー通信を極力減らすことで、通信環境が不安定な場所でもサクサク動作します。
           </p>
 
-          <h3 className="text-xl font-bold flex items-center gap-2 mt-8">
-            <Globe className="text-indigo-500" /> 運営方針
+          <h3 className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">
+            運営方針
           </h3>
           <p>
             当サイトは個人開発によって運営されており、すべての機能を完全無料で提供しています。<br/>
