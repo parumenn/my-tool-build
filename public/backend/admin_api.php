@@ -31,16 +31,26 @@ $TOKENS_FILE      = $DATA_DIR . '/active_tokens.json';
 
 function load_json($file) {
     if (!file_exists($file)) return [];
-    $content = file_get_contents($file);
+    $content = @file_get_contents($file);
     return json_decode($content, true) ?: [];
 }
 function save_json($file, $data) {
-    file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    @file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 function get_client_ip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'];
+}
+
+// ヘッダー取得のフォールバック
+function get_admin_token() {
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (isset($headers['X-Admin-Token'])) return $headers['X-Admin-Token'];
+        if (isset($headers['x-admin-token'])) return $headers['x-admin-token'];
+    }
+    return $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
 }
 
 function get_server_stats() {
@@ -83,10 +93,11 @@ if (isset($blocked[$ip])) {
     exit;
 }
 
-$token_header = getallheaders()['X-Admin-Token'] ?? '';
+$token_header = get_admin_token();
 $tokens = load_json($TOKENS_FILE);
-$is_admin = isset($tokens[$token_header]) && $tokens[$token_header] > $now;
+$is_admin = !empty($token_header) && isset($tokens[$token_header]) && $tokens[$token_header] > $now;
 
+// DOS保護（管理者以外に適用）
 if (!$is_admin) {
     $track = load_json($REQ_TRACK_FILE);
     if (!isset($track[$ip])) $track[$ip] = ['times' => []];
@@ -125,11 +136,42 @@ if ($action === 'login') {
     }
 } elseif ($action === 'log_access') {
     $logs = load_json($ACCESS_LOG_FILE);
-    array_unshift($logs, ['timestamp' => microtime(true), 'date' => date('Y-m-d H:i:s'), 'ip' => $ip, 'path' => $input['path'] ?? '/', 'status' => $input['status'] ?? 200]);
+    array_unshift($logs, [
+        'timestamp' => microtime(true), 
+        'date' => date('Y-m-d H:i:s'), 
+        'ip' => $ip, 
+        'path' => $input['path'] ?? '/', 
+        'status' => $input['status'] ?? 200
+    ]);
     save_json($ACCESS_LOG_FILE, array_slice($logs, 0, 1000));
     $response = ['status' => 'ok'];
 } elseif ($action === 'fetch_dashboard' && $is_admin) {
-    $response = ['stats' => ['total_pv' => 0, 'today_pv' => 0, 'recent_logs' => array_slice(load_json($ACCESS_LOG_FILE), 0, 100)], 'blocked_ips' => $blocked, 'server_resources' => get_server_stats()];
+    $logs = load_json($ACCESS_LOG_FILE);
+    $total_pv = count($logs);
+    $today = date('Y-m-d');
+    $today_pv = 0;
+    foreach ($logs as $l) {
+        if (strpos($l['date'], $today) === 0) $today_pv++;
+    }
+
+    $response = [
+        'stats' => [
+            'total_pv' => $total_pv, 
+            'today_pv' => $today_pv, 
+            'recent_logs' => array_slice($logs, 0, 100)
+        ], 
+        'blocked_ips' => $blocked, 
+        'server_resources' => get_server_stats(),
+        'messages' => load_json($MESSAGES_FILE),
+        'config' => [
+            'smtp_host' => $config['smtp_host'],
+            'smtp_port' => $config['smtp_port'],
+            'smtp_user' => $config['smtp_user'],
+            'alert_email' => $config['alert_email'],
+            'dos_patterns' => $config['dos_patterns'],
+            'dos_notify_enabled' => $config['dos_notify_enabled']
+        ]
+    ];
 } else {
     $response = ['status' => 'ignored'];
 }

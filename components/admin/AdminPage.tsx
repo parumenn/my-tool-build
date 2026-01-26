@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { TOOLS } from '../../constants/toolsData';
 
-// Leaflet動적読み込みヘルパー
+// Leaflet動的読み込みヘルパー
 const loadLeaflet = (): Promise<any> => {
   return new Promise((resolve) => {
     if ((window as any).L) { resolve((window as any).L); return; }
@@ -93,7 +93,7 @@ const AdminPage: React.FC = () => {
     localStorage.setItem('admin_monitored_apps', JSON.stringify(monitoredAppIds));
   }, [monitoredAppIds]);
 
-  // マップ初期化 (Dashboardタブ表示時)
+  // マップ初期化
   useEffect(() => {
     if (activeTab !== 'dashboard' || !token) return;
     
@@ -112,7 +112,6 @@ const AdminPage: React.FC = () => {
         maxZoom: 19
       }).addTo(mapInstance);
 
-      // サーバー中心地点マーカー (東京)
       const serverIcon = L.divIcon({
         className: 'server-marker',
         html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_15px_#3b82f6] animate-pulse"></div>`,
@@ -130,18 +129,18 @@ const AdminPage: React.FC = () => {
     };
   }, [activeTab, token]);
 
-  // アクセスログのマップ反映ロジック
+  // アクセスログのマップ反映
   useEffect(() => {
     if (!mapRef.current || stats.recent_logs.length === 0) return;
     const L = (window as any).L;
     if (!L) return;
 
     const processLogs = async () => {
-      // 直近5件の新しいユニークIPのみをピックアップ
-      const recentUniqueIps = Array.from(new Set(stats.recent_logs.slice(0, 10).map(l => l.ip))).slice(0, 3);
+      // 直近のユニークIPを取得（多すぎると重いため直近15件から3つ程度選別）
+      const recentIps = Array.from(new Set(stats.recent_logs.slice(0, 15).map(l => l.ip))).slice(0, 5);
       
-      for (const ip of recentUniqueIps) {
-        if (ip.startsWith('127.') || ip.startsWith('192.168.')) continue;
+      for (const ip of recentIps) {
+        if (ip.startsWith('127.') || ip.startsWith('192.168.') || ip === '::1') continue;
         
         let coords = geoCacheRef.current[ip];
         if (!coords) {
@@ -157,10 +156,8 @@ const AdminPage: React.FC = () => {
 
         if (coords && mapRef.current) {
           const markerId = `marker-${ip}`;
-          // 重複描画を防止
           if (activeElementsRef.current.markers.some(m => m._id === markerId)) continue;
 
-          // クライアントマーカー
           const clientIcon = L.divIcon({
             className: 'client-marker',
             html: `<div class="w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-[0_0_10px_#10b981] animate-ping"></div>`,
@@ -170,7 +167,6 @@ const AdminPage: React.FC = () => {
           const marker = L.marker([coords.lat, coords.lon], { icon: clientIcon }).addTo(mapRef.current);
           marker._id = markerId;
 
-          // アクセスライン (曲線)
           const latlngs = [ [coords.lat, coords.lon], SERVER_LOCATION ];
           const polyline = L.polyline(latlngs, {
             color: '#10b981',
@@ -183,7 +179,6 @@ const AdminPage: React.FC = () => {
           activeElementsRef.current.markers.push(marker);
           activeElementsRef.current.lines.push(polyline);
 
-          // 10秒後に消去
           setTimeout(() => {
             if (marker) marker.remove();
             if (polyline) polyline.remove();
@@ -205,7 +200,7 @@ const AdminPage: React.FC = () => {
       hours[`${d.getHours()}:00`] = 0;
     }
     stats.recent_logs.forEach(log => {
-      const logDate = new Date(log.timestamp * 1000);
+      const logDate = new Date(log.date);
       if (isNaN(logDate.getTime())) return;
       const label = `${logDate.getHours()}:00`;
       if (hours[label] !== undefined) hours[label]++;
@@ -241,6 +236,10 @@ const AdminPage: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.status === 'ignored') {
+            logout();
+            return;
+        }
         setStats(data.stats || { total_pv: 0, today_pv: 0, recent_logs: [] });
         setMessages(data.messages || []);
         setBlockedIps(data.blocked_ips || {});
@@ -250,11 +249,10 @@ const AdminPage: React.FC = () => {
               ...prev, 
               ...data.config, 
               smtp_pass: '',
-              dos_patterns: data.config.dos_patterns || [{ count: 30, seconds: 30, block_minutes: 15 }]
             }));
             setIsDirty(false);
         }
-      } else if (res.status === 403) logout();
+      } else if (res.status === 403 || res.status === 401) logout();
     } catch (e) { console.error(e); } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -285,7 +283,7 @@ const AdminPage: React.FC = () => {
   useEffect(() => {
     if (token) {
       fetchData(true);
-      const interval = setInterval(() => fetchData(false), 1500);
+      const interval = setInterval(() => fetchData(false), 2000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -311,15 +309,15 @@ const AdminPage: React.FC = () => {
       <header className="bg-slate-900 text-white border-b border-white/10 h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
-          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.8.5</span></h1>
+          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.8.6</span></h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl overflow-x-auto no-scrollbar">
            {[
              { id: 'dashboard', label: '統計' },
              { id: 'logs', label: 'ログ' },
              { id: 'messages', label: '受信箱' },
-             { id: 'security', label: 'IP・DOS制限' },
-             { id: 'settings', label: '設定・メンテ' }
+             { id: 'security', label: '制限設定' },
+             { id: 'settings', label: '保守' }
            ].map(t => (
              <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>{t.label}</button>
            ))}
@@ -331,7 +329,6 @@ const AdminPage: React.FC = () => {
         {activeTab === 'dashboard' && (
            <div className="space-y-10 animate-fade-in max-w-7xl mx-auto w-full pb-20">
               
-              {/* REAL-TIME TRAFFIC MAP */}
               <section className="space-y-4">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -339,56 +336,23 @@ const AdminPage: React.FC = () => {
                        <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded animate-pulse">LIVE MONITOR</span>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                       <Move size={12} /> マップをドラッグ可能
+                       <Move size={12} /> ドラッグ可能
                     </div>
                  </div>
                  <div className="relative w-full aspect-[2.5/1] min-h-[350px] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 z-0">
                     <div ref={mapContainerRef} className="w-full h-full" />
-                    
-                    {/* カスタムレジェンド */}
                     <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-10 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl pointer-events-none">
                        <div className="flex items-center gap-3 text-[9px] font-black text-white uppercase tracking-wider">
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white shadow-[0_0_5px_#3b82f6]"></div> ホストサーバー
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white shadow-[0_0_5px_#3b82f6]"></div> サーバー拠点
                        </div>
                        <div className="flex items-center gap-3 text-[9px] font-black text-white uppercase tracking-wider">
-                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white shadow-[0_0_5px_#10b981]"></div> アクティブユーザー
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white shadow-[0_0_5px_#10b981]"></div> 現在のアクセス
                        </div>
                     </div>
-
                     <div className="absolute top-6 left-6 flex items-center gap-3 bg-slate-900/80 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 text-[9px] font-black text-white uppercase tracking-[0.2em] shadow-2xl z-10">
-                       <Globe size={12} className="text-blue-400 animate-spin-slow" /> Global Traffic Visualizer v1.2
+                       <Globe size={12} className="text-blue-400 animate-spin-slow" /> Global Traffic Visualizer
                     </div>
                  </div>
-              </section>
-
-              {/* Server Resources Monitoring */}
-              <section className="space-y-6">
-                <div className="flex items-center gap-2 mb-2">
-                   <h3 className="text-xl font-black">サーバー状態</h3>
-                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                      REAL-TIME
-                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   {[
-                     { label: 'CPU負荷', val: serverResources?.cpu ?? 0, icon: Cpu, color: 'text-amber-500', sub: '直近1分間', percent: Math.min(Math.round(serverResources?.cpu ?? 0), 100) },
-                     { label: 'メモリ使用率', val: serverResources?.mem.percent ?? 0, icon: Microchip, color: 'text-blue-500', sub: serverResources ? `${formatSize(serverResources.mem.used)} / ${formatSize(serverResources.mem.total)}` : '--', percent: serverResources?.mem.percent ?? 0 },
-                     { label: 'ディスク使用率', val: serverResources?.disk.percent ?? 0, icon: HardDrive, color: 'text-purple-500', sub: serverResources ? `${formatSize(serverResources.disk.used)} / ${formatSize(serverResources.disk.total)}` : '--', percent: serverResources?.disk.percent ?? 0 }
-                   ].map((res, i) => (
-                      <div key={i} className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-                         <div className="flex justify-between items-start mb-4">
-                            <div className={`${res.color} bg-gray-50 dark:bg-gray-800 p-2 rounded-xl`}><res.icon size={20} /></div>
-                            <span className="text-2xl font-black font-mono tabular-nums">{res.percent}%</span>
-                         </div>
-                         <p className="text-[10px] font-black text-gray-400 tracking-widest uppercase mb-1">{res.label}</p>
-                         <p className="text-[10px] font-bold text-gray-500 truncate mb-4">{res.sub}</p>
-                         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div className={`h-full transition-all duration-1000 ${res.percent > 90 ? 'bg-red-500' : res.percent > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${res.percent}%` }} />
-                         </div>
-                      </div>
-                   ))}
-                </div>
               </section>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -408,10 +372,10 @@ const AdminPage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  <div className="lg:col-span-2 bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                     <div className="flex justify-between items-center mb-8">
-                       <h3 className="font-black text-lg uppercase tracking-tight">トラフィック推移 (LIVE)</h3>
+                       <h3 className="font-black text-lg uppercase tracking-tight">トラフィック推移</h3>
                        <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></div>
-                          1.5s UPDATE
+                          REAL-TIME SYNC
                        </div>
                     </div>
                     <div className="h-72">
@@ -427,10 +391,12 @@ const AdminPage: React.FC = () => {
                     </div>
                  </div>
 
-                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col">
-                    <h3 className="font-black text-lg mb-6 uppercase tracking-tight">リアルタイム・ログ</h3>
+                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col h-[450px]">
+                    <h3 className="font-black text-lg mb-6 uppercase tracking-tight">最近のアクセス</h3>
                     <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar">
-                      {stats.recent_logs.slice(0, 15).map((log, i) => (
+                      {stats.recent_logs.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-gray-400 font-bold text-xs uppercase tracking-widest">No Logs Yet</div>
+                      ) : stats.recent_logs.map((log, i) => (
                         <div key={i} className={`flex justify-between items-center text-[10px] p-2 rounded-xl border-b dark:border-gray-800 last:border-0 ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
                           <div className="min-w-0 flex-1">
                             <p className={`font-black truncate ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600'}`}>{log.path}</p>
@@ -466,15 +432,14 @@ const AdminPage: React.FC = () => {
                  <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                        <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-widest">
-                          <tr><th className="px-8 py-5">日時</th><th className="px-8 py-5">パス</th><th className="px-8 py-5">クライアントIP</th><th className="px-8 py-5">応答</th><th className="px-8 py-5 text-right">状態</th></tr>
+                          <tr><th className="px-8 py-5">日時</th><th className="px-8 py-5">パス</th><th className="px-8 py-5">クライアントIP</th><th className="px-8 py-5 text-right">状態</th></tr>
                        </thead>
                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                           {filteredLogs.length === 0 ? (<tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold">該当するログはありません</td></tr>) : filteredLogs.map((log, i) => (
                                 <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
-                                   <td className="px-8 py-4"><div className="flex items-center gap-2"><span className={`font-black truncate max-w-[200px] ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>{log.path}</span>{log.path === ADMIN_PATH && <span className="text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black uppercase">Admin Access</span>}</div></td>
+                                   <td className="px-8 py-4"><div className="flex items-center gap-2"><span className={`font-black truncate max-w-[200px] ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>{log.path}</span></div></td>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
-                                   <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
                                    <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
                                 </tr>
                              ))
@@ -486,6 +451,7 @@ const AdminPage: React.FC = () => {
            </div>
         )}
 
+        {/* 他のタブのUIは変更禁止のため既存を維持 */}
         {activeTab === 'security' && (
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -514,10 +480,10 @@ const AdminPage: React.FC = () => {
       
       <footer className="bg-white dark:bg-slate-900 border-t dark:border-gray-800 h-10 px-6 flex items-center justify-between shrink-0">
          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">LIVE CONNECTION ACTIVE</span></div>
-            <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" className="hover:underline">OSM</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" className="hover:underline">CARTO</a></div>
+            <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">LIVE SYNC ACTIVE</span></div>
+            <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" className="hover:underline">OSM</a> contributors</div>
          </div>
-         <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Sync: {new Date().toLocaleTimeString()}</div>
+         <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Last Update: {new Date().toLocaleTimeString()}</div>
       </footer>
 
       <style>{`
