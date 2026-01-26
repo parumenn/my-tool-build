@@ -2,7 +2,7 @@
 import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight } from 'lucide-react';
+import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight, FileText, Shield } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
 
 // 遅延読み込みコンポーネント
@@ -70,7 +70,10 @@ const Layout: React.FC = () => {
   const [showAds, setShowAds] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [isTermsChecked, setIsTermsChecked] = useState(false);
-  const [showTermsDetail, setShowTermsDetail] = useState(false);
+  
+  // モーダル用ステート
+  const [showTermsPreview, setShowTermsPreview] = useState(false);
+  const [showPrivacyPreview, setShowPrivacyPreview] = useState(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -194,13 +197,19 @@ const Layout: React.FC = () => {
                     <div className="text-xs font-bold text-gray-600 dark:text-gray-300 select-none">
                       {isJP ? (
                         <>
-                          <a href="#/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                          <span 
+                            onClick={(e) => { e.stopPropagation(); setShowTermsPreview(true); }}
+                            className="text-blue-600 dark:text-blue-400 underline hover:no-underline cursor-pointer"
+                          >
                             利用規約
-                          </a>
+                          </span>
                           ・
-                          <a href="#/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                          <span 
+                            onClick={(e) => { e.stopPropagation(); setShowPrivacyPreview(true); }}
+                            className="text-blue-600 dark:text-blue-400 underline hover:no-underline cursor-pointer"
+                          >
                             プライバシーポリシー
-                          </a>
+                          </span>
                           を読んで同意した
                         </>
                       ) : 'I have read and agree to the terms of service.'}
@@ -224,6 +233,36 @@ const Layout: React.FC = () => {
                       : 'By clicking, you agree to our local storage and cookie usage.'}
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 利用規約 オーバーレイ */}
+        {showTermsPreview && (
+          <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowTermsPreview(false)}>
+            <div className="bg-white dark:bg-dark-lighter w-full max-w-2xl h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
+                <h3 className="font-black flex items-center gap-2"><FileText size={18}/> 利用規約</h3>
+                <button onClick={() => setShowTermsPreview(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"><X size={20}/></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <Suspense fallback={<LoadingSkeleton />}><Terms /></Suspense>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* プライバシーポリシー オーバーレイ */}
+        {showPrivacyPreview && (
+          <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowPrivacyPreview(false)}>
+            <div className="bg-white dark:bg-dark-lighter w-full max-w-2xl h-[80vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
+                <h3 className="font-black flex items-center gap-2"><Shield size={18}/> プライバシーポリシー</h3>
+                <button onClick={() => setShowPrivacyPreview(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"><X size={20}/></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <Suspense fallback={<LoadingSkeleton />}><Privacy /></Suspense>
               </div>
             </div>
           </div>

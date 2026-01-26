@@ -4,7 +4,10 @@
   RewriteBase /
   
   # index.php を優先的に処理
-  DirectoryIndex index.php index.html
+  DirectoryIndex index.php
+
+  # Prevent direct access to index.html to enforce security check in index.php
+  RewriteRule ^index\.html$ /index.php [L,R=301]
 
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
