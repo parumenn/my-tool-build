@@ -1,3 +1,4 @@
+
 <?php
 ob_start();
 error_reporting(0);
@@ -18,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Directory Setup
+// シンボリックリンクを使用する場合も、PHP側はこのパスのままでOKです（リンク先を透過的に参照します）
 $DATA_DIR = __DIR__ . '/data';
 if (!file_exists($DATA_DIR)) {
     mkdir($DATA_DIR, 0777, true);
@@ -115,14 +117,76 @@ function get_client_ip() {
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'];
 }
+
 function get_server_stats() {
     $stats = ['cpu' => 0, 'mem' => ['total' => 0, 'used' => 0, 'percent' => 0], 'disk' => ['total' => 0, 'used' => 0, 'percent' => 0]];
-    if (function_exists('sys_getloadavg')) { $load = @sys_getloadavg(); if ($load) $stats['cpu'] = $load[0] * 10; }
-    $disk_total = @disk_total_space('/'); $disk_free = @disk_free_space('/');
+
+    // --- Memory (Linux) ---
+    // /proc/meminfo から正確な値を読み取る
+    if (@is_readable('/proc/meminfo')) {
+        $meminfo = file_get_contents('/proc/meminfo');
+        $total = 0; $avail = 0;
+        if (preg_match('/MemTotal:\s+(\d+)/', $meminfo, $matches)) $total = $matches[1] * 1024;
+        // MemAvailable is the most accurate metric for "available" memory
+        if (preg_match('/MemAvailable:\s+(\d+)/', $meminfo, $matches)) $avail = $matches[1] * 1024;
+        
+        if ($total > 0) {
+            $used = $total - $avail;
+            $stats['mem'] = [
+                'total' => $total,
+                'used' => $used,
+                'percent' => round(($used / $total) * 100, 1)
+            ];
+        }
+    }
+
+    // --- CPU (Linux) ---
+    // /proc/stat を2回読み取り、その差分から使用率を計算する
+    if (@is_readable('/proc/stat')) {
+        // Snapshot 1
+        $stat1 = file_get_contents('/proc/stat');
+        usleep(100000); // Wait 100ms
+        // Snapshot 2
+        $stat2 = file_get_contents('/proc/stat');
+
+        $get_cpu_info = function($source) {
+            // "cpu  2234 0 1230 4560 ..." の行を取得
+            if (preg_match('/^cpu\s+(.*)/m', $source, $matches)) {
+                $parts = preg_split('/\s+/', trim($matches[1]));
+                // user+nice+system+idle+iowait+irq+softirq+steal
+                $total_time = array_sum($parts);
+                $idle_time = $parts[3]; 
+                return ['total' => $total_time, 'idle' => $idle_time];
+            }
+            return null;
+        };
+
+        $info1 = $get_cpu_info($stat1);
+        $info2 = $get_cpu_info($stat2);
+
+        if ($info1 && $info2) {
+            $total_delta = $info2['total'] - $info1['total'];
+            $idle_delta = $info2['idle'] - $info1['idle'];
+            if ($total_delta > 0) {
+                $usage = ($total_delta - $idle_delta) / $total_delta;
+                $stats['cpu'] = round($usage * 100, 1);
+            }
+        }
+    } else {
+        // Fallback for non-Linux env
+        $load = sys_getloadavg();
+        if ($load) $stats['cpu'] = min(100, round($load[0] * 10)); 
+    }
+
+    // --- Disk ---
+    $disk_total = @disk_total_space('.');
+    $disk_free = @disk_free_space('.');
     if ($disk_total !== false) {
-        $stats['disk']['total'] = $disk_total; $stats['disk']['used'] = $disk_total - $disk_free;
+        $stats['disk']['total'] = $disk_total; 
+        $stats['disk']['used'] = $disk_total - $disk_free;
         $stats['disk']['percent'] = round(($stats['disk']['used'] / $disk_total) * 100, 1);
     }
+    
     return $stats;
 }
 
