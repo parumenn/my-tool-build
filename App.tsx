@@ -11,6 +11,11 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Settings = lazy(() => import('./components/Settings'));
 const AdminPage = lazy(() => import('./components/admin/AdminPage'));
 
+// Static Pages
+const About = lazy(() => import('./components/pages/About'));
+const Privacy = lazy(() => import('./components/pages/Privacy'));
+const Terms = lazy(() => import('./components/pages/Terms'));
+
 // ツールコンポーネントのインポート
 const QRCodeGenerator = lazy(() => import('./components/tools/QRCodeGenerator'));
 const CharacterCounter = lazy(() => import('./components/tools/CharacterCounter'));
@@ -189,13 +194,13 @@ const Layout: React.FC = () => {
                     <div className="text-xs font-bold text-gray-600 dark:text-gray-300 select-none">
                       {isJP ? (
                         <>
-                          <button 
-                            className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); setShowTermsDetail(true); }}
-                          >
-                            利用規約・個人情報の取り扱い
-                            <ExternalLink size={12} />
-                          </button>
+                          <Link to="/terms" target="_blank" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                            利用規約
+                          </Link>
+                          ・
+                          <Link to="/privacy" target="_blank" className="text-blue-600 dark:text-blue-400 underline hover:no-underline flex items-center gap-1 inline-flex" onClick={(e) => e.stopPropagation()}>
+                            プライバシーポリシー
+                          </Link>
                           を読んで同意した
                         </>
                       ) : 'I have read and agree to the terms of service.'}
@@ -220,54 +225,6 @@ const Layout: React.FC = () => {
                   </p>
                 </div>
               </div>
-
-              {/* 利用規約詳細オーバーレイ */}
-              {showTermsDetail && (
-                <div className="absolute inset-0 z-[110] bg-white dark:bg-dark flex flex-col animate-fade-in">
-                  <div className="flex items-center justify-between p-6 border-b dark:border-gray-800 shrink-0">
-                    <h3 className="font-black text-lg">{isJP ? '利用規約・個人情報の取り扱い' : 'Terms of Service'}</h3>
-                    <button onClick={() => setShowTermsDetail(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"><X size={20} /></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-6 text-xs md:text-sm leading-relaxed space-y-6 no-scrollbar">
-                    <div>
-                      <h4 className="font-black text-blue-600 mb-2">1. 取得する情報および収集方法</h4>
-                      <p className="text-gray-500 dark:text-gray-400">当サイトでは、サービスの提供およびセキュリティ向上のため、以下の情報を自動的に収集します。</p>
-                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
-                        <li>アクセスログ: IPアドレス、ブラウザの種類、閲覧日時、遷移元URL。</li>
-                        <li>Cookie（クッキー）: ユーザーの識別および利便性向上のために使用します。</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-black text-blue-600 mb-2">2. 利用目的</h4>
-                      <p className="text-gray-500 dark:text-gray-400">収集した情報は、以下の目的でのみ利用します。</p>
-                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
-                        <li>不正アクセスの検知・防止: サーバー攻撃やスパム行為からサイトを保護するため。</li>
-                        <li>サービスの維持・改善: 読み込み速度の最適化や不具合改修のため。</li>
-                        <li>法令に基づく対応: 公的機関から法的な要請があった場合、法令に基づきログを開示することがあります。</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-black text-blue-600 mb-2">3. Cookieの利用同意と無効化</h4>
-                      <p className="text-gray-500 dark:text-gray-400">ユーザーは、当サイトを利用することでCookieの使用に同意したものとみなされます。ブラウザの設定によりCookieを無効化できますが、一部機能が正常に動作しない可能性があります。</p>
-                    </div>
-                    <div>
-                      <h4 className="font-black text-blue-600 mb-2">4. 禁止事項</h4>
-                      <ul className="list-disc list-inside mt-2 space-y-1 text-gray-500">
-                        <li>本サイトの解析、改ざん、または修正行為。</li>
-                        <li>短時間での過度な連続アクセス（DoS攻撃等）による負荷。</li>
-                        <li>不正なスクリプトを実行する行為。</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-black text-blue-600 mb-2">5. 免責事項</h4>
-                      <p className="text-gray-500 dark:text-gray-400">情報の正確性や通信環境に起因するトラブル、および本サイト利用による損害について、当社は一切の責任を負わないものとします。</p>
-                    </div>
-                  </div>
-                  <div className="p-6 border-t dark:border-gray-800 shrink-0">
-                    <button onClick={() => setShowTermsDetail(false)} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">{isJP ? '戻る' : 'Back'}</button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -303,7 +260,12 @@ const Layout: React.FC = () => {
               <Suspense fallback={<LoadingSkeleton />}>
                 <Routes>
                   <Route path="/" element={<Dashboard addedToolIds={addedTools} onToggleAdded={(id) => setAddedTools(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} onReorder={() => {}} />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
                   <Route path="/settings" element={<Settings />} />
+                  
+                  {/* Tools */}
                   <Route path="/qrcode" element={<QRCodeGenerator />} />
                   <Route path="/count" element={<CharacterCounter />} />
                   <Route path="/picker" element={<ColorPickerTool />} />

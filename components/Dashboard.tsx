@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
-import { ArrowRight, Plus, Check, ShieldCheck, Search, Info } from 'lucide-react';
+import { ArrowRight, Plus, Check, ShieldCheck, Search, Info, Zap, Smartphone, Globe } from 'lucide-react';
 
 interface DashboardProps {
   addedToolIds: string[];
@@ -63,70 +63,93 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
 
   return (
     <div className="max-w-6xl mx-auto pb-24">
-      <div className="mb-8 text-center px-4">
-        <h2 className="text-2xl md:text-4xl font-black text-slate-800 dark:text-white mb-3">ダッシュボード</h2>
-        <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-2xl text-emerald-700 dark:text-emerald-300 text-[10px] md:text-xs font-black border border-emerald-100 dark:border-emerald-800 mb-6">
-           <ShieldCheck size={14} /> <span>データはブラウザ内にのみ保存されます</span>
-        </div>
+      {/* イントロダクション・ヒーローセクション */}
+      <div className="mb-12 text-center px-4 py-8 bg-gradient-to-b from-white to-gray-50 dark:from-dark-lighter dark:to-dark rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm animate-fade-in">
+        <h2 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-white mb-4 tracking-tight">
+          ブラウザひとつで、<br className="md:hidden"/>すべて完結。
+        </h2>
+        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
+          「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。<br/>
+          QRコード作成、家計簿、PDF編集、画像変換など、40種類以上のツールを安全なローカル処理で提供します。
+        </p>
         
+        <div className="flex flex-wrap justify-center gap-4 mb-8">
+           <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
+              <ShieldCheck className="text-emerald-500" size={18} />
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-300">完全ローカル処理</span>
+           </div>
+           <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
+              <Zap className="text-yellow-500" size={18} />
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-300">登録・ログイン不要</span>
+           </div>
+           <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-100 dark:border-gray-700 shadow-sm">
+              <Smartphone className="text-blue-500" size={18} />
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-300">スマホ・PC対応</span>
+           </div>
+        </div>
+
         <div className="relative max-w-md mx-auto">
            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-           <input type="text" className="block w-full pl-12 pr-6 py-4 border-2 border-gray-100 dark:border-gray-700 rounded-2xl bg-white dark:bg-dark-lighter text-[16px] text-gray-900 dark:text-white placeholder-gray-400 focus:border-blue-500 shadow-sm transition-all" placeholder="ツールを検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+           <input type="text" className="block w-full pl-12 pr-6 py-4 border-2 border-gray-100 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-900 text-[16px] text-gray-900 dark:text-white placeholder-gray-400 focus:border-blue-500 shadow-sm transition-all" placeholder="使いたいツールを検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
       <div className="px-4 space-y-12">
+        {/* マイアプリセクション */}
         <section>
           <h3 className="text-lg md:text-xl font-black text-gray-800 dark:text-gray-200 mb-5 flex items-center gap-2 px-2">
-              <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span> マイアプリ
+              <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span> マイアプリ (お気に入り)
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayedMyApps.length > 0 ? displayedMyApps.map((tool) => renderToolCard(tool, true)) : (
-                  <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm">
-                      {searchTerm ? '見つかりませんでした' : '下のリストからアプリを追加してください'}
+                  <div className="col-span-full py-12 text-center text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-sm font-bold">
+                      {searchTerm ? '見つかりませんでした' : 'よく使うツールを「＋」ボタンでここに追加できます'}
                   </div>
               )}
           </div>
         </section>
 
+        {/* 全ツールセクション */}
         <section>
            <h3 className="text-lg md:text-xl font-black text-gray-800 dark:text-gray-200 mb-5 flex items-center gap-2 px-2">
-               <span className="w-1.5 h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></span> 全ツール
+               <span className="w-1.5 h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></span> すべてのツール
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {otherTools.map((tool) => renderToolCard(tool, false))}
             </div>
         </section>
 
+        {/* 詳細な機能説明（SEO対策・コンテンツボリューム増加） */}
         <section className="animate-fade-in pt-8">
-          <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:p-8 rounded-3xl border border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-              <Info className="text-blue-500" size={24} /> 
-              まいつーるについて
+          <div className="bg-gray-50 dark:bg-gray-800/50 p-8 md:p-12 rounded-[2.5rem] border border-gray-100 dark:border-gray-700">
+            <h3 className="text-xl md:text-2xl font-black text-gray-800 dark:text-white mb-6 flex items-center gap-3">
+              <Globe className="text-blue-500" size={28} /> 
+              まいつーるが選ばれる理由
             </h3>
-            <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
-              「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。
-              QRコード作成、家計簿、PDF編集、画像変換、パスワード生成など、日常や業務で役立つ40種類以上のツールをブラウザひとつで利用できます。
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm md:text-base text-gray-600 dark:text-gray-300">
-              <div className="bg-white/50 dark:bg-dark-lighter/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <h4 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                  <span className="w-1 h-4 bg-blue-500 rounded-full"></span> 主な機能カテゴリ
-                </h4>
-                <ul className="list-disc list-inside space-y-1.5 ml-1 opacity-90">
-                  <li>開発者向けツール（JSON整形、Base64、正規表現、SQL）</li>
-                  <li>画像・PDF編集（リサイズ、形式変換、結合、透かし）</li>
-                  <li>生活便利ツール（家計簿、タイマー、単位変換、QRコード）</li>
-                  <li>ネットワーク（IP確認、スピードテスト、ポート開放確認）</li>
-                </ul>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div>
+                <h4 className="font-bold text-lg text-gray-800 dark:text-white mb-3">1. 圧倒的な手軽さ</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  アプリのインストールや面倒な会員登録は一切不要です。ブラウザを開くだけですぐに使えるため、PC、スマートフォン、タブレットなど、デバイスを選ばずに作業を開始できます。
+                </p>
               </div>
-              <div className="bg-white/50 dark:bg-dark-lighter/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <h4 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                  <span className="w-1 h-4 bg-emerald-500 rounded-full"></span> 安心のセキュリティ
-                </h4>
-                <p className="leading-relaxed opacity-90">
-                  当サイトの多くのツール（画像加工、家計簿、メモなど）は、データ処理をすべてお使いのブラウザ内（クライアントサイド）で行います。
-                  サーバーにファイルをアップロードしたり、個人情報を保存したりすることはありません。
+              <div>
+                <h4 className="font-bold text-lg text-gray-800 dark:text-white mb-3">2. 徹底したセキュリティ</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  当サイトのツールは、基本的にサーバー通信を行わず、お使いのブラウザ内（クライアントサイド）で処理を完結させます。画像データや機密テキストが外部に送信されることはないため、ビジネス用途でも安心してご利用いただけます。
+                </p>
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-gray-800 dark:text-white mb-3">3. 豊富なツールラインナップ</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  開発者向けの「JSON整形」「正規表現チェッカー」から、日常生活で役立つ「家計簿」「QRコード作成」「単位変換」まで、40種類以上のツールを網羅しています。
+                </p>
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-gray-800 dark:text-white mb-3">4. データの永続化</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  家計簿やメモ帳などのデータは、ブラウザのローカルストレージに自動保存されます。次回アクセス時も続きから作業でき、設定画面からJSONファイルとしてバックアップ・復元も可能です。
                 </p>
               </div>
             </div>

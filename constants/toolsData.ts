@@ -25,7 +25,7 @@ export const TOOLS: Tool[] = [
   { id: 'server-loc', name: 'サーバー位置情報', path: '/server-loc', description: 'ドメインやIPの所在地を表示', icon: Globe, color: 'text-indigo-500', lightBg: 'bg-indigo-50' },
   { id: 'binary', name: '2進数変換', path: '/binary', description: '10進数と2進数の相互変換', icon: Binary, color: 'text-teal-500', lightBg: 'bg-teal-50' },
   { id: 'timer', name: 'タイマー・SW', path: '/timer', description: '多機能タイマーとストップウォッチ', icon: Timer, color: 'text-rose-600', lightBg: 'bg-rose-50' },
-  { id: 'notepad', name: 'Webメモ帳', path: '/notepad', description: 'ブラウザ保存の多機能テキストエディタ', icon: StickyNote, color: 'text-lime-600', lightBg: 'bg-lime-50' },
+  { id: 'notepad', name: 'Webメモ帳（プレビュー）', path: '/notepad', description: 'ブラウザ保存の多機能テキストエディタ', icon: StickyNote, color: 'text-lime-600', lightBg: 'bg-lime-50' },
   { id: 'calculator', name: 'オンライン計算機', path: '/calculator', description: '履歴機能付きのシンプル計算機', icon: Calculator, color: 'text-orange-600', lightBg: 'bg-orange-50' },
   { id: 'scoreboard', name: 'スコアボード', path: '/scoreboard', description: '試合やゲームの得点管理', icon: Trophy, color: 'text-yellow-700', lightBg: 'bg-yellow-50' },
   { id: 'unit', name: '単位変換', path: '/unit', description: '長さ・重さ・温度などの変換', icon: Scale, color: 'text-fuchsia-500', lightBg: 'bg-fuchsia-50' },

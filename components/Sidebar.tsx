@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
-import { LayoutGrid, Plus, Settings } from 'lucide-react';
+import { LayoutGrid, Plus, Settings, Info, Shield, FileText } from 'lucide-react';
 
 interface SidebarContentProps {
   addedToolIds: string[];
@@ -87,8 +87,21 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         )}
       </div>
 
-      <div className="pt-4 mt-auto">
-        <NavLink to="/settings" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+      <div className="pt-4 mt-auto space-y-1 border-t border-gray-100 dark:border-gray-800">
+        <p className="px-4 py-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+          Information
+        </p>
+        <NavLink to="/about" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+          <Info size={16} /> <span>当サイトについて</span>
+        </NavLink>
+        <NavLink to="/privacy" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+          <Shield size={16} /> <span>プライバシーポリシー</span>
+        </NavLink>
+        <NavLink to="/terms" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+          <FileText size={16} /> <span>利用規約</span>
+        </NavLink>
+        <div className="my-2"></div>
+        <NavLink to="/settings" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
           <Settings size={20} />
           <span>設定</span>
         </NavLink>
