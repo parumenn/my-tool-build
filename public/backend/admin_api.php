@@ -19,8 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Directory Setup
-// シンボリックリンクを使用する場合も、PHP側はこのパスのままでOKです（リンク先を透過的に参照します）
+// シンボリックリンクにより、このパスはサーバー上の永続化ディレクトリを参照します
 $DATA_DIR = __DIR__ . '/data';
+
+// 万が一リンクが切れていた場合のフォールバック（ディレクトリ作成）
 if (!file_exists($DATA_DIR)) {
     mkdir($DATA_DIR, 0777, true);
     file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
@@ -121,13 +123,11 @@ function get_client_ip() {
 function get_server_stats() {
     $stats = ['cpu' => 0, 'mem' => ['total' => 0, 'used' => 0, 'percent' => 0], 'disk' => ['total' => 0, 'used' => 0, 'percent' => 0]];
 
-    // --- Memory (Linux) ---
-    // /proc/meminfo から正確な値を読み取る
+    // --- Memory (Linux /proc/meminfo) ---
     if (@is_readable('/proc/meminfo')) {
         $meminfo = file_get_contents('/proc/meminfo');
         $total = 0; $avail = 0;
         if (preg_match('/MemTotal:\s+(\d+)/', $meminfo, $matches)) $total = $matches[1] * 1024;
-        // MemAvailable is the most accurate metric for "available" memory
         if (preg_match('/MemAvailable:\s+(\d+)/', $meminfo, $matches)) $avail = $matches[1] * 1024;
         
         if ($total > 0) {
@@ -140,20 +140,18 @@ function get_server_stats() {
         }
     }
 
-    // --- CPU (Linux) ---
-    // /proc/stat を2回読み取り、その差分から使用率を計算する
+    // --- CPU (Linux /proc/stat) ---
     if (@is_readable('/proc/stat')) {
-        // Snapshot 1
+        // 1回目の取得
         $stat1 = file_get_contents('/proc/stat');
-        usleep(100000); // Wait 100ms
-        // Snapshot 2
+        usleep(100000); // 0.1秒待機
+        // 2回目の取得
         $stat2 = file_get_contents('/proc/stat');
 
         $get_cpu_info = function($source) {
-            // "cpu  2234 0 1230 4560 ..." の行を取得
             if (preg_match('/^cpu\s+(.*)/m', $source, $matches)) {
                 $parts = preg_split('/\s+/', trim($matches[1]));
-                // user+nice+system+idle+iowait+irq+softirq+steal
+                // user + nice + system + idle + iowait + irq + softirq + steal
                 $total_time = array_sum($parts);
                 $idle_time = $parts[3]; 
                 return ['total' => $total_time, 'idle' => $idle_time];
@@ -173,7 +171,7 @@ function get_server_stats() {
             }
         }
     } else {
-        // Fallback for non-Linux env
+        // Fallback (ロードアベレージ)
         $load = sys_getloadavg();
         if ($load) $stats['cpu'] = min(100, round($load[0] * 10)); 
     }
