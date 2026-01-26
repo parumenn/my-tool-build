@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, LogOut, Loader2, 
@@ -15,7 +14,6 @@ import {
 } from 'recharts';
 import { TOOLS } from '../../constants/toolsData';
 
-// Leaflet動的読み込みヘルパー
 const loadLeaflet = (): Promise<any> => {
   return new Promise((resolve) => {
     if ((window as any).L) { resolve((window as any).L); return; }
@@ -32,7 +30,6 @@ const loadLeaflet = (): Promise<any> => {
 
 interface Message { id: string; timestamp: string; ip: string; name: string; contact: string; message: string; }
 interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; duration?: number; }
-interface DosPattern { count: number; seconds: number; block_minutes: number; }
 interface ServerResources {
   cpu: number;
   mem: { total: number; used: number; percent: number; };
@@ -40,12 +37,12 @@ interface ServerResources {
 }
 interface AdminConfig {
   smtp_host: string; smtp_port: number; smtp_user: string; smtp_pass?: string; alert_email: string;
-  dos_patterns: DosPattern[];
+  dos_patterns: any[];
   dos_notify_enabled: boolean;
 }
 
 const ADMIN_PATH = '/secure-panel-7x9v2';
-const SERVER_LOCATION: [number, number] = [35.6895, 139.6917]; // 東京
+const SERVER_LOCATION: [number, number] = [35.6895, 139.6917];
 
 const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('admin_token'));
@@ -55,142 +52,169 @@ const AdminPage: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [stats, setStats] = useState<{total_pv: number, today_pv: number, recent_logs: AccessLog[]}>({ total_pv: 0, today_pv: 0, recent_logs: [] });
+  const [stats, setStats] = useState({ total_pv: 0, today_pv: 0, recent_logs: [] as AccessLog[] });
   const [serverResources, setServerResources] = useState<ServerResources | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [blockedIps, setBlockedIps] = useState<Record<string, any>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // マップ関連
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const activeElementsRef = useRef<{markers: any[], lines: any[]}>({ markers: [], lines: [] });
   const geoCacheRef = useRef<Record<string, {lat: number, lon: number}>>({});
 
+  const [config, setConfig] = useState<AdminConfig>({
+    smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass: '', alert_email: '',
+    dos_patterns: [], dos_notify_enabled: true
+  });
+  const [newPass, setNewPass] = useState('');
+  const [newPassConfirm, setNewPassConfirm] = useState('');
+  const [configMsg, setConfigMsg] = useState('');
+  const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
+
   const [logFilterIp, setLogFilterIp] = useState('');
   const [logFilterPath, setLogFilterPath] = useState('');
   const [logFilterDate, setLogFilterDate] = useState('');
 
-  const [monitoredAppIds, setMonitoredAppIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('admin_monitored_apps');
-    return saved ? JSON.parse(saved) : ['qrcode', 'kakeibo', 'bath'];
-  });
-
-  const [config, setConfig] = useState<AdminConfig>({
-    smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass: '', alert_email: '',
-    dos_patterns: [{ count: 30, seconds: 30, block_minutes: 15 }],
-    dos_notify_enabled: true
-  });
-  const [configMsg, setConfigMsg] = useState('');
-  const [isDirty, setIsDirty] = useState(false);
-  const [newPass, setNewPass] = useState('');
-  const [newPassConfirm, setNewPassConfirm] = useState('');
-  const [isTestingEmail, setIsTestingEmail] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    localStorage.setItem('admin_monitored_apps', JSON.stringify(monitoredAppIds));
-  }, [monitoredAppIds]);
-
   // マップ初期化
   useEffect(() => {
     if (activeTab !== 'dashboard' || !token) return;
-    
     let mapInstance: any;
     loadLeaflet().then((L) => {
       if (!mapContainerRef.current) return;
-      
       mapInstance = L.map(mapContainerRef.current, {
-        scrollWheelZoom: false,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
         dragging: true,
-        zoomControl: false,
+        zoomControl: true,
         attributionControl: false
       }).setView([20, 0], 2);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19
-      }).addTo(mapInstance);
-
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mapInstance);
       const serverIcon = L.divIcon({
         className: 'server-marker',
         html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_15px_#3b82f6] animate-pulse"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+        iconSize: [16, 16], iconAnchor: [8, 8]
       });
       L.marker(SERVER_LOCATION, { icon: serverIcon }).addTo(mapInstance);
-
       mapRef.current = mapInstance;
     });
-
-    return () => {
-      if (mapInstance) mapInstance.remove();
-      mapRef.current = null;
-    };
+    return () => { if (mapInstance) mapInstance.remove(); mapRef.current = null; };
   }, [activeTab, token]);
 
-  // アクセスログのマップ反映
+  // マップ上のリアルタイム・プロット
   useEffect(() => {
     if (!mapRef.current || stats.recent_logs.length === 0) return;
     const L = (window as any).L;
     if (!L) return;
 
     const processLogs = async () => {
-      // 直近のユニークIPを取得（多すぎると重いため直近15件から3つ程度選別）
-      const recentIps = Array.from(new Set(stats.recent_logs.slice(0, 15).map(l => l.ip))).slice(0, 5);
-      
-      for (const ip of recentIps) {
-        if (ip.startsWith('127.') || ip.startsWith('192.168.') || ip === '::1') continue;
-        
+      const recentUniqueIps = Array.from(new Set(stats.recent_logs.slice(0, 10).map(l => l.ip))).slice(0, 3);
+      for (const ip of recentUniqueIps) {
+        if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.')) continue;
         let coords = geoCacheRef.current[ip];
         if (!coords) {
           try {
             const res = await fetch(`https://ipwho.is/${ip}`);
             const json = await res.json();
-            if (json.success) {
-              coords = { lat: json.latitude, lon: json.longitude };
-              geoCacheRef.current[ip] = coords;
-            }
+            if (json.success) { coords = { lat: json.latitude, lon: json.longitude }; geoCacheRef.current[ip] = coords; }
           } catch (e) { continue; }
         }
-
         if (coords && mapRef.current) {
           const markerId = `marker-${ip}`;
           if (activeElementsRef.current.markers.some(m => m._id === markerId)) continue;
-
           const clientIcon = L.divIcon({
             className: 'client-marker',
             html: `<div class="w-3 h-3 bg-emerald-400 rounded-full border-2 border-white shadow-[0_0_10px_#10b981] animate-ping"></div>`,
-            iconSize: [12, 12],
-            iconAnchor: [6, 6]
+            iconSize: [12, 12], iconAnchor: [6, 6]
           });
           const marker = L.marker([coords.lat, coords.lon], { icon: clientIcon }).addTo(mapRef.current);
           marker._id = markerId;
-
-          const latlngs = [ [coords.lat, coords.lon], SERVER_LOCATION ];
-          const polyline = L.polyline(latlngs, {
-            color: '#10b981',
-            weight: 2,
-            opacity: 0.4,
-            dashArray: '5, 10',
-            className: 'animate-access-line'
+          const polyline = L.polyline([[coords.lat, coords.lon], SERVER_LOCATION], {
+            color: '#10b981', weight: 2, opacity: 0.4, dashArray: '5, 10', className: 'animate-access-line'
           }).addTo(mapRef.current);
-
           activeElementsRef.current.markers.push(marker);
           activeElementsRef.current.lines.push(polyline);
-
           setTimeout(() => {
-            if (marker) marker.remove();
-            if (polyline) polyline.remove();
+            if (marker) marker.remove(); if (polyline) polyline.remove();
             activeElementsRef.current.markers = activeElementsRef.current.markers.filter(m => m !== marker);
             activeElementsRef.current.lines = activeElementsRef.current.lines.filter(l => l !== polyline);
           }, 10000);
         }
       }
     };
-
     processLogs();
   }, [stats.recent_logs]);
+
+  const fetchData = async (isFirst = false) => {
+    if (!token) return;
+    if (isFirst) setIsLoading(true);
+    setIsRefreshing(true);
+    try {
+      const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', { headers: { 'X-Admin-Token': token } });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data.stats || { total_pv: 0, today_pv: 0, recent_logs: [] });
+        setMessages(data.messages || []);
+        setBlockedIps(data.blocked_ips || {});
+        setServerResources(data.server_resources || null);
+        if (isFirst && data.config) setConfig({ ...data.config, smtp_pass: '' });
+      } else if (res.status === 403 || res.status === 401) logout();
+    } catch (e) { console.error(e); } finally { setIsLoading(false); setIsRefreshing(false); }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch('./backend/admin_api.php?action=login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (res.ok) { setToken(data.token); sessionStorage.setItem('admin_token', data.token); } 
+      else setLoginError(data.error);
+    } catch (e) { setLoginError('通信エラー'); } finally { setIsLoggingIn(false); }
+  };
+
+  const handleUpdateConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingConfig(true); setConfigMsg('');
+    try {
+      const res = await fetch('./backend/admin_api.php?action=save_config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token! },
+        body: JSON.stringify(config)
+      });
+      if (res.ok) setConfigMsg('設定を保存しました');
+      else setConfigMsg('保存に失敗しました');
+    } catch (e) { setConfigMsg('通信エラー'); } finally { setIsUpdatingConfig(false); }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPass !== newPassConfirm) { alert('確認用パスワードが一致しません'); return; }
+    if (!confirm('パスワードを変更しますか？変更後は全セッションが切断されます。')) return;
+    try {
+      const res = await fetch('./backend/admin_api.php?action=update_password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token! },
+        body: JSON.stringify({ new_password: newPass })
+      });
+      if (res.ok) { alert('パスワードを更新しました。再ログインしてください。'); logout(); }
+      else alert('更新に失敗しました');
+    } catch (e) { alert('通信エラー'); }
+  };
+
+  const logout = () => { setToken(null); sessionStorage.removeItem('admin_token'); };
+
+  useEffect(() => {
+    if (token) {
+      fetchData(true);
+      const interval = setInterval(() => fetchData(false), 3000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
@@ -208,15 +232,6 @@ const AdminPage: React.FC = () => {
     return Object.entries(hours).map(([name, pv]) => ({ name, pv }));
   }, [stats.recent_logs]);
 
-  const appStats = useMemo(() => {
-    const counts: Record<string, number> = {};
-    stats.recent_logs.forEach(log => {
-      const tool = TOOLS.find(t => t.path === log.path);
-      if (tool) counts[tool.id] = (counts[tool.id] || 0) + 1;
-    });
-    return counts;
-  }, [stats.recent_logs]);
-
   const filteredLogs = useMemo(() => {
     return stats.recent_logs.filter(log => {
       const matchIp = !logFilterIp || log.ip.includes(logFilterIp);
@@ -225,68 +240,6 @@ const AdminPage: React.FC = () => {
       return matchIp && matchPath && matchDate;
     });
   }, [stats.recent_logs, logFilterIp, logFilterPath, logFilterDate]);
-
-  const fetchData = async (isFirst = false) => {
-    if (!token) return;
-    if (isFirst) setIsLoading(true);
-    if (!isFirst) setIsRefreshing(true);
-    try {
-      const res = await fetch('./backend/admin_api.php?action=fetch_dashboard', {
-        headers: { 'X-Admin-Token': token }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'ignored') {
-            logout();
-            return;
-        }
-        setStats(data.stats || { total_pv: 0, today_pv: 0, recent_logs: [] });
-        setMessages(data.messages || []);
-        setBlockedIps(data.blocked_ips || {});
-        setServerResources(data.server_resources || null);
-        if (isFirst && data.config) {
-            setConfig(prev => ({ 
-              ...prev, 
-              ...data.config, 
-              smtp_pass: '',
-            }));
-            setIsDirty(false);
-        }
-      } else if (res.status === 403 || res.status === 401) logout();
-    } catch (e) { console.error(e); } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    try {
-      const res = await fetch('./backend/admin_api.php?action=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setToken(data.token);
-        sessionStorage.setItem('admin_token', data.token);
-      } else setLoginError(data.error);
-    } catch (e) { setLoginError('通信エラー'); } finally { setIsLoggingIn(false); }
-  };
-
-  const logout = () => { setToken(null); sessionStorage.removeItem('admin_token'); };
-  const drillDownToApp = (path: string) => { setLogFilterPath(path); setLogFilterIp(''); setLogFilterDate(''); setActiveTab('logs'); };
-  const formatSize = (bytes: number) => { if (bytes === 0) return '0 B'; const k = 1024; const sizes = ['B', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]; };
-
-  useEffect(() => {
-    if (token) {
-      fetchData(true);
-      const interval = setInterval(() => fetchData(false), 2000);
-      return () => clearInterval(interval);
-    }
-  }, [token]);
 
   if (!token) return (
     <div className="fixed inset-0 z-[200] bg-slate-900 flex items-center justify-center p-4">
@@ -306,18 +259,18 @@ const AdminPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] dark:bg-dark text-slate-800 dark:text-gray-100 flex flex-col fixed inset-0 z-[150] overflow-hidden">
-      <header className="bg-slate-900 text-white border-b border-white/10 h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
+      <header className="bg-slate-900 text-white h-16 flex items-center justify-between px-6 shrink-0 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="bg-red-600 p-1.5 rounded-lg"><ShieldAlert size={20} /></div>
-          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v2.8.6</span></h1>
+          <h1 className="text-lg font-black tracking-tight">管理コンソール <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono">v3.0.0</span></h1>
         </div>
         <div className="flex bg-white/10 backdrop-blur-md p-1 rounded-xl overflow-x-auto no-scrollbar">
            {[
-             { id: 'dashboard', label: '統計' },
-             { id: 'logs', label: 'ログ' },
+             { id: 'dashboard', label: 'ダッシュボード' },
+             { id: 'logs', label: 'ログ解析' },
              { id: 'messages', label: '受信箱' },
-             { id: 'security', label: '制限設定' },
-             { id: 'settings', label: '保守' }
+             { id: 'security', label: 'セキュリティ' },
+             { id: 'settings', label: '設定・保守' }
            ].map(t => (
              <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>{t.label}</button>
            ))}
@@ -328,29 +281,17 @@ const AdminPage: React.FC = () => {
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 space-y-8 no-scrollbar bg-slate-50 dark:bg-dark">
         {activeTab === 'dashboard' && (
            <div className="space-y-10 animate-fade-in max-w-7xl mx-auto w-full pb-20">
-              
               <section className="space-y-4">
                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                       <h3 className="text-xl font-black">ライブ・トラフィック・マップ</h3>
-                       <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded animate-pulse">LIVE MONITOR</span>
-                    </div>
+                    <h3 className="text-xl font-black">ライブ・トラフィック・マップ</h3>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                       <Move size={12} /> ドラッグ可能
+                       <Move size={12} /> ホイールでズーム可能
                     </div>
                  </div>
-                 <div className="relative w-full aspect-[2.5/1] min-h-[350px] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 z-0">
+                 <div className="relative w-full aspect-[2.5/1] min-h-[400px] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 z-0">
                     <div ref={mapContainerRef} className="w-full h-full" />
-                    <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-10 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl pointer-events-none">
-                       <div className="flex items-center gap-3 text-[9px] font-black text-white uppercase tracking-wider">
-                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white shadow-[0_0_5px_#3b82f6]"></div> サーバー拠点
-                       </div>
-                       <div className="flex items-center gap-3 text-[9px] font-black text-white uppercase tracking-wider">
-                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white shadow-[0_0_5px_#10b981]"></div> 現在のアクセス
-                       </div>
-                    </div>
                     <div className="absolute top-6 left-6 flex items-center gap-3 bg-slate-900/80 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 text-[9px] font-black text-white uppercase tracking-[0.2em] shadow-2xl z-10">
-                       <Globe size={12} className="text-blue-400 animate-spin-slow" /> Global Traffic Visualizer
+                       <Globe size={12} className="text-blue-400 animate-spin-slow" /> Realtime Visualization
                     </div>
                  </div>
               </section>
@@ -371,13 +312,7 @@ const AdminPage: React.FC = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                  <div className="lg:col-span-2 bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <div className="flex justify-between items-center mb-8">
-                       <h3 className="font-black text-lg uppercase tracking-tight">トラフィック推移</h3>
-                       <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></div>
-                          REAL-TIME SYNC
-                       </div>
-                    </div>
+                    <h3 className="font-black text-lg mb-8 uppercase tracking-tight">トラフィック推移</h3>
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
@@ -390,19 +325,16 @@ const AdminPage: React.FC = () => {
                       </ResponsiveContainer>
                     </div>
                  </div>
-
-                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col h-[450px]">
+                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col h-[420px]">
                     <h3 className="font-black text-lg mb-6 uppercase tracking-tight">最近のアクセス</h3>
                     <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar">
-                      {stats.recent_logs.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-gray-400 font-bold text-xs uppercase tracking-widest">No Logs Yet</div>
-                      ) : stats.recent_logs.map((log, i) => (
-                        <div key={i} className={`flex justify-between items-center text-[10px] p-2 rounded-xl border-b dark:border-gray-800 last:border-0 ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
-                          <div className="min-w-0 flex-1">
-                            <p className={`font-black truncate ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600'}`}>{log.path}</p>
+                      {stats.recent_logs.slice(0, 20).map((log, i) => (
+                        <div key={i} className="flex justify-between items-center text-[10px] p-2 rounded-xl border-b dark:border-gray-800 last:border-0">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-black truncate text-blue-600">{log.path}</p>
                             <p className="text-gray-400 font-mono">{log.ip}</p>
                           </div>
-                          <p className="text-gray-500 font-bold ml-4 whitespace-nowrap">{log.date.split(' ')[1]}</p>
+                          <p className="text-gray-500 font-bold whitespace-nowrap">{log.date.split(' ')[1]}</p>
                         </div>
                       ))}
                     </div>
@@ -417,16 +349,12 @@ const AdminPage: React.FC = () => {
                  <div className="p-8 border-b dark:border-gray-800 bg-slate-50 dark:bg-slate-800/30 space-y-6">
                     <div className="flex justify-between items-center">
                        <h3 className="font-black text-xl flex items-center gap-2"><Filter className="text-blue-500"/> ログフィルタリング</h3>
-                       <div className="flex items-center gap-4">
-                          {logFilterPath && <button onClick={() => setLogFilterPath('')} className="text-[10px] bg-blue-100 text-blue-600 px-3 py-1 rounded-full font-black flex items-center gap-1">Path: {logFilterPath} <X size={12}/></button>}
-                          <button onClick={() => { setLogFilterIp(''); setLogFilterPath(''); setLogFilterDate(''); }} className="text-[10px] text-gray-400 font-black hover:text-red-500 transition-colors">リセット</button>
-                          <button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button>
-                       </div>
+                       <button onClick={() => fetchData(false)} className="p-2 text-gray-400 hover:text-blue-500"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                       <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} /><input type="text" placeholder="IPアドレス..." value={logFilterIp} onChange={e => setLogFilterIp(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" /></div>
-                       <div className="relative"><AppWindow className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} /><input type="text" placeholder="パス (例: /bath)" value={logFilterPath} onChange={e => setLogFilterPath(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" /></div>
-                       <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} /><input type="text" placeholder="日付 (YYYY-MM-DD)" value={logFilterDate} onChange={e => setLogFilterDate(e.target.value)} className="w-full pl-9 pr-3 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" /></div>
+                       <input type="text" placeholder="IPアドレス..." value={logFilterIp} onChange={e => setLogFilterIp(e.target.value)} className="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
+                       <input type="text" placeholder="パス (例: /bath)" value={logFilterPath} onChange={e => setLogFilterPath(e.target.value)} className="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
+                       <input type="text" placeholder="日付 (YYYY-MM-DD)" value={logFilterDate} onChange={e => setLogFilterDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border dark:border-gray-700 dark:bg-gray-900 text-xs font-bold" />
                     </div>
                  </div>
                  <div className="overflow-x-auto">
@@ -435,15 +363,14 @@ const AdminPage: React.FC = () => {
                           <tr><th className="px-8 py-5">日時</th><th className="px-8 py-5">パス</th><th className="px-8 py-5">クライアントIP</th><th className="px-8 py-5 text-right">状態</th></tr>
                        </thead>
                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {filteredLogs.length === 0 ? (<tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold">該当するログはありません</td></tr>) : filteredLogs.map((log, i) => (
-                                <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
-                                   <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
-                                   <td className="px-8 py-4"><div className="flex items-center gap-2"><span className={`font-black truncate max-w-[200px] ${log.path === ADMIN_PATH ? 'text-red-600' : 'text-blue-600 dark:text-blue-400'}`}>{log.path}</span></div></td>
-                                   <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
-                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
-                                </tr>
-                             ))
-                          }
+                          {filteredLogs.map((log, i) => (
+                             <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                <td className="px-8 py-4 font-mono text-[11px] text-gray-500">{log.date}</td>
+                                <td className="px-8 py-4 font-black text-blue-600">{log.path}</td>
+                                <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
+                                <td className="px-8 py-4 text-right"><span className="px-2 py-0.5 rounded text-[10px] font-black bg-green-100 text-green-600">{log.status || 200}</span></td>
+                             </tr>
+                          ))}
                        </tbody>
                     </table>
                  </div>
@@ -451,58 +378,128 @@ const AdminPage: React.FC = () => {
            </div>
         )}
 
-        {/* 他のタブのUIは変更禁止のため既存を維持 */}
+        {activeTab === 'messages' && (
+           <div className="space-y-4 animate-fade-in max-w-5xl mx-auto w-full pb-20">
+              {messages.length === 0 ? (
+                <div className="text-center py-24 bg-white dark:bg-dark-lighter rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-400 font-black uppercase tracking-widest">受信メッセージはありません</div>
+              ) : messages.map(m => (
+                <div key={m.id} className="bg-white dark:bg-dark-lighter p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700">
+                   <div className="flex justify-between mb-4 items-center">
+                      <span className="font-black text-blue-600 flex items-center gap-2"><User size={18} /> {m.name} <span className="text-[10px] font-normal text-gray-400">({m.contact})</span></span>
+                      <span className="text-[10px] text-gray-400 font-mono">{m.timestamp}</span>
+                   </div>
+                   <p className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl whitespace-pre-wrap text-sm leading-relaxed border dark:border-gray-800">{m.message}</p>
+                </div>
+              ))}
+           </div>
+        )}
+
         {activeTab === 'security' && (
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                   <div className="p-8 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-800/30"><div><h3 className="font-black text-xl flex items-center gap-2"><XCircle className="text-red-500" /> 遮断中のIP</h3><p className="text-xs text-gray-400 mt-1">過剰リクエストにより制限された端末</p></div><button onClick={() => fetchData(false)} className="p-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:text-blue-500 transition-colors"><RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} /></button></div>
-                   <div className="overflow-x-auto min-h-[300px]"><table className="w-full text-sm text-left"><thead className="text-[10px] uppercase font-black text-gray-400 bg-gray-50 dark:bg-slate-800"><tr><th className="px-8 py-3">IP</th><th className="px-8 py-3">理由</th><th className="px-8 py-3">期限</th><th className="px-8 py-3 text-right">操作</th></tr></thead><tbody className="divide-y divide-gray-100 dark:divide-gray-800">{Object.entries(blockedIps).length === 0 ? (<tr><td colSpan={4} className="text-center py-20 text-gray-400 font-bold">遮断中のIPはありません</td></tr>) : Object.entries(blockedIps).map(([ip, item]: [string, any]) => (<tr key={ip} className="hover:bg-slate-50 dark:hover:bg-gray-800/50"><td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td><td className="px-8 py-6"><span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded font-black">{item.reason || '手動'}</span></td><td className="px-8 py-6 text-xs font-bold text-gray-500">{item.expiry >= 2147483640 ? '永久' : new Date(item.expiry * 1000).toLocaleString()}</td><td className="px-8 py-6 text-right"><button onClick={() => {}} className="px-6 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all">解除</button></td></tr>))}</tbody></table></div>
-                </div>
-                <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
-                   <h3 className="font-black text-xl flex items-center gap-3"><ShieldCheck className="text-emerald-500" /> セキュリティ設定</h3>
-                   <div className="mt-6 flex-1 text-gray-400 text-center py-20 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl">
-                      <p className="font-black text-xs uppercase tracking-widest">Configuration Panel Locked</p>
-                   </div>
-                </div>
+              <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                 <div className="p-8 border-b bg-slate-50 dark:bg-slate-800/30">
+                    <h3 className="font-black text-xl flex items-center gap-2"><XCircle className="text-red-500" /> 自動遮断されたIP</h3>
+                 </div>
+                 <div className="overflow-x-auto min-h-[300px]">
+                    <table className="w-full text-sm text-left">
+                       <thead className="text-[10px] uppercase font-black text-gray-400 bg-gray-50 dark:bg-slate-800">
+                          <tr><th className="px-8 py-3">IPアドレス</th><th className="px-8 py-3">理由</th><th className="px-8 py-3">期限</th></tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {Object.entries(blockedIps).length === 0 ? (
+                             <tr><td colSpan={3} className="text-center py-20 text-gray-400 font-bold">現在、遮断中のIPはありません</td></tr>
+                          ) : Object.entries(blockedIps).map(([ip, item]: [string, any]) => (
+                             <tr key={ip} className="hover:bg-slate-50">
+                                <td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td>
+                                <td className="px-8 py-6 font-bold">{item.reason || 'DOS攻撃検知'}</td>
+                                <td className="px-8 py-6 text-xs text-gray-500">{new Date(item.expiry * 1000).toLocaleString()}</td>
+                             </tr>
+                          ))}
+                       </tbody>
+                    </table>
+                 </div>
               </div>
            </div>
         )}
 
-        {activeTab === 'messages' && (
-           <div className="space-y-4 animate-fade-in max-w-5xl mx-auto w-full pb-20">{messages.length === 0 ? (<div className="text-center py-24 bg-white dark:bg-dark-lighter rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-400 font-black uppercase tracking-widest">受信メッセージはありません</div>) : messages.map(m => (<div key={m.id} className="bg-white dark:bg-dark-lighter p-6 sm:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow group"><div className="flex flex-col sm:flex-row justify-between mb-6 gap-2"><span className="font-black text-blue-600 flex items-center gap-3"><div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-gray-400"><User size={20} /></div>{m.name} <span className="text-[10px] font-normal text-gray-400">({m.contact || '連絡先なし'})</span></span><span className="text-[10px] text-gray-400 font-mono bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border dark:border-gray-700">{m.timestamp} (IP: {m.ip})</span></div><p className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl whitespace-pre-wrap leading-relaxed text-sm text-gray-700 dark:text-gray-300 font-medium border dark:border-gray-800">{m.message}</p></div>))}</div>
-        )}
-
         {activeTab === 'settings' && (
-           <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-10 pb-20"><div className="grid grid-cols-1 lg:grid-cols-2 gap-8"><div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6"><h3 className="font-black text-xl flex items-center gap-3"><Mail className="text-pink-500" /> 通知用 SMTP 設定</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ホスト名</label><input type="text" value={config.smtp_host} disabled className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900 opacity-50" /></div><div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ポート</label><input type="number" value={config.smtp_port} disabled className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900 opacity-50" /></div></div></div><div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6"><h3 className="font-black text-xl flex items-center gap-3"><KeyRound className="text-blue-500" /> パスワードの更新</h3><div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-start gap-3"><AlertTriangle className="text-blue-600 shrink-0 mt-0.5" size={16} /><p className="text-[10px] text-blue-800 dark:text-blue-300 font-bold leading-relaxed">セキュリティのため、変更後はすべてのセッションが切断されます。</p></div></div></div></div>
+           <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-10 pb-20">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 {/* SMTP設定パネル */}
+                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6">
+                    <h3 className="font-black text-xl flex items-center gap-3"><Mail className="text-pink-500" /> 通知用 SMTP 設定</h3>
+                    <form onSubmit={handleUpdateConfig} className="space-y-4">
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black text-gray-400 uppercase">ホスト名</label>
+                             <input type="text" value={config.smtp_host} onChange={e => setConfig({...config, smtp_host: e.target.value})} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" placeholder="smtp.example.com" />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-black text-gray-400 uppercase">ポート</label>
+                             <input type="number" value={config.smtp_port} onChange={e => setConfig({...config, smtp_port: Number(e.target.value)})} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" placeholder="587" />
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase">ユーザーID</label>
+                          <input type="text" value={config.smtp_user} onChange={e => setConfig({...config, smtp_user: e.target.value})} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase">パスワード (変更時のみ入力)</label>
+                          <input type="password" value={config.smtp_pass} onChange={e => setConfig({...config, smtp_pass: e.target.value})} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase">通知先メールアドレス</label>
+                          <input type="email" value={config.alert_email} onChange={e => setConfig({...config, alert_email: e.target.value})} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" />
+                       </div>
+                       {configMsg && <p className="text-xs font-bold text-blue-500">{configMsg}</p>}
+                       <button type="submit" disabled={isUpdatingConfig} className="w-full py-4 bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black rounded-2xl hover:opacity-90 flex items-center justify-center gap-2">
+                          {isUpdatingConfig ? <Loader2 className="animate-spin" /> : <Save size={20} />} 設定を更新
+                       </button>
+                    </form>
+                 </div>
+
+                 {/* セキュリティ/パスワード更新パネル */}
+                 <div className="bg-white dark:bg-dark-lighter p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm space-y-6">
+                    <h3 className="font-black text-xl flex items-center gap-3"><KeyRound className="text-blue-500" /> 管理パスワードの更新</h3>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-start gap-3">
+                       <AlertTriangle className="text-blue-600 shrink-0 mt-0.5" size={16} />
+                       <p className="text-[10px] text-blue-800 dark:text-blue-300 font-bold leading-relaxed">
+                          セキュリティのため、定期的な変更を推奨します。変更後は現在のセッションを含むすべてのログインが無効化されます。
+                       </p>
+                    </div>
+                    <form onSubmit={handleUpdatePassword} className="space-y-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase">新しいパスワード</label>
+                          <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase">新しいパスワード (確認)</label>
+                          <input type="password" value={newPassConfirm} onChange={e => setNewPassConfirm(e.target.value)} className="w-full p-3 border rounded-xl font-bold dark:bg-slate-900" />
+                       </div>
+                       <button type="submit" disabled={!newPass} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-100 dark:shadow-none transition-all flex items-center justify-center gap-2">
+                          <ShieldCheck size={20} /> パスワードを更新して再起動
+                       </button>
+                    </form>
+                 </div>
+              </div>
+           </div>
         )}
       </main>
       
       <footer className="bg-white dark:bg-slate-900 border-t dark:border-gray-800 h-10 px-6 flex items-center justify-between shrink-0">
          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">LIVE SYNC ACTIVE</span></div>
-            <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" className="hover:underline">OSM</a> contributors</div>
+            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" className="hover:underline">OSM</a> contributors</div>
          </div>
-         <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Last Update: {new Date().toLocaleTimeString()}</div>
+         <div className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Sync: {new Date().toLocaleTimeString()}</div>
       </footer>
 
       <style>{`
-        @keyframes access-line {
-          to { stroke-dashoffset: -15; }
-        }
-        .animate-access-line {
-          animation: access-line 1s linear infinite;
-        }
-        .animate-spin-slow {
-          animation: spin 8s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .leaflet-container {
-          background: #0a1128 !important;
-        }
+        @keyframes access-line { to { stroke-dashoffset: -15; } }
+        .animate-access-line { animation: access-line 1s linear infinite; }
+        .animate-spin-slow { animation: spin 8s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .leaflet-container { background: #0a1128 !important; border-radius: 2rem; }
       `}</style>
     </div>
   );
