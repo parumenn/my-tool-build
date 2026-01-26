@@ -1,88 +1,259 @@
+
 <!DOCTYPE html>
 <html lang="ja">
   <head>
+    <!-- 
+      The Moneytizer CMP (InMobi Choice) 
+      GDPR準拠のため、他のスクリプトより前に実行される必要があります
+    -->
+    <script type="text/javascript" async=true>
+    (function() {
+      var host = "www.themoneytizer.com";
+      var element = document.createElement('script');
+      var firstScript = document.getElementsByTagName('script')[0];
+      var url = 'https://cmp.inmobi.com'
+        .concat('/choice/', '6Fv0cGNfc_bw8', '/', host, '/choice.js?tag_version=V3');
+      var uspTries = 0;
+      var uspTriesLimit = 3;
+      element.async = true;
+      element.type = 'text/javascript';
+      element.src = url;
+
+      firstScript.parentNode.insertBefore(element, firstScript);
+
+      // 日本からのアクセス判定（UI言語切り替え用）
+      var userLang = navigator.language || navigator.userLanguage;
+      var isJP = userLang && userLang.toLowerCase().indexOf('ja') !== -1;
+
+      function makeStub() {
+        var TCF_LOCATOR_NAME = '__tcfapiLocator';
+        var queue = [];
+        var win = window;
+        var cmpFrame;
+
+        function addFrame() {
+          var doc = win.document;
+          var otherCMP = !!(win.frames[TCF_LOCATOR_NAME]);
+
+          if (!otherCMP) {
+            if (doc.body) {
+              var iframe = doc.createElement('iframe');
+
+              iframe.style.cssText = 'display:none';
+              iframe.name = TCF_LOCATOR_NAME;
+              doc.body.appendChild(iframe);
+            } else {
+              setTimeout(addFrame, 5);
+            }
+          }
+          return !otherCMP;
+        }
+
+        function tcfAPIHandler() {
+          var gdprApplies;
+          var args = arguments;
+
+          if (!args.length) {
+            return queue;
+          } else if (args[0] === 'setGdprApplies') {
+            if (
+              args.length > 3 &&
+              args[2] === 2 &&
+              typeof args[3] === 'boolean'
+            ) {
+              gdprApplies = args[3];
+              if (typeof args[2] === 'function') {
+                args[2]('set', true);
+              }
+            }
+          } else if (args[0] === 'ping') {
+            var retr = {
+              gdprApplies: gdprApplies,
+              cmpLoaded: false,
+              cmpStatus: 'stub'
+            };
+
+            if (typeof args[2] === 'function') {
+              args[2](retr);
+            }
+          } else {
+            if(args[0] === 'init' && typeof args[3] === 'object') {
+              // 日本語アクセスの場合はUI言語をjaに設定
+              var initOptions = { tag_version: 'V3' };
+              if (isJP) {
+                initOptions.language = 'ja';
+              }
+              args[3] = Object.assign(args[3], initOptions);
+            }
+            queue.push(args);
+          }
+        }
+
+        function postMessageEventHandler(event) {
+          var msgIsString = typeof event.data === 'string';
+          var json = {};
+
+          try {
+            if (msgIsString) {
+              json = JSON.parse(event.data);
+            } else {
+              json = event.data;
+            }
+          } catch (ignore) {}
+
+          var payload = json.__tcfapiCall;
+
+          if (payload) {
+            window.__tcfapi(
+              payload.command,
+              payload.version,
+              function(retValue, success) {
+                var returnMsg = {
+                  __tcfapiReturn: {
+                    returnValue: retValue,
+                    success: success,
+                    callId: payload.callId
+                  }
+                };
+                if (msgIsString) {
+                  returnMsg = JSON.stringify(returnMsg);
+                }
+                if (event && event.source && event.source.postMessage) {
+                  event.source.postMessage(returnMsg, '*');
+                }
+              },
+              payload.parameter
+            );
+          }
+        }
+
+        while (win) {
+          try {
+            if (win.frames[TCF_LOCATOR_NAME]) {
+              cmpFrame = win;
+              break;
+            }
+          } catch (ignore) {}
+
+          if (win === window.top) {
+            break;
+          }
+          win = win.parent;
+        }
+        if (!cmpFrame) {
+          addFrame();
+          win.__tcfapi = tcfAPIHandler;
+          win.addEventListener('message', postMessageEventHandler, false);
+        }
+      };
+
+      makeStub();
+
+      var uspStubFunction = function() {
+        var arg = arguments;
+        if (typeof window.__uspapi !== uspStubFunction) {
+          setTimeout(function() {
+            if (typeof window.__uspapi !== 'undefined') {
+              window.__uspapi.apply(window.__uspapi, arg);
+            }
+          }, 500);
+        }
+      };
+
+      var checkIfUspIsReady = function() {
+        uspTries++;
+        if (window.__uspapi === uspStubFunction && uspTries < uspTriesLimit) {
+          console.warn('USP is not accessible');
+        } else {
+          clearInterval(uspInterval);
+        }
+      };
+
+      if (typeof window.__uspapi === 'undefined') {
+        window.__uspapi = uspStubFunction;
+        var uspInterval = setInterval(checkIfUspIsReady, 6000);
+      }
+    })();
+    </script>
+
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="まいつーるは、40種類以上のWebツールをインストール不要・無料で提供するWebサービスです。ブラウザ完結設計。" />
     
-    <meta name="google-adsense-account" content="ca-pub-8961158026153736">
-    <title>まいつーる - Web Utility Suite</title>
+    <title>まいつーる - 無料便利Webツール集</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
     
-    <!-- Highlight.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    
-    <!-- Tailwind CSS via CDN with Typography Plugin -->
+    <!-- CSSを最優先で読み込み、App Shellを表示 -->
+        
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
       tailwind.config = {
-        darkMode: 'class', // Enable class-based dark mode
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
               primary: '#3b82f6',
               secondary: '#6366f1',
-              dark: '#0f172a', // Slate 900
-              'dark-lighter': '#1e293b', // Slate 800
+              dark: '#0f172a',
+              'dark-lighter': '#1e293b',
               light: '#f8fafc',
             },
             fontFamily: {
               sans: ['Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', 'sans-serif'],
             },
-            // Customize typography for dark mode visibility
-            typography: (theme) => ({
-              DEFAULT: {
-                css: {
-                  code: {
-                    backgroundColor: theme('colors.gray.100'),
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    fontWeight: '600',
-                  },
-                  'code::before': {
-                    content: '""',
-                  },
-                  'code::after': {
-                    content: '""',
-                  },
-                  pre: {
-                    backgroundColor: theme('colors.gray.800'),
-                    color: theme('colors.gray.100'),
-                  },
-                },
-              },
-            }),
           }
         }
       }
     </script>
-<script type="importmap">
+    
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
-    "react/": "https://esm.sh/react@18.3.1/",
     "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.28.0?deps=react@18.3.1,react-dom@18.3.1",
     "react-helmet-async": "https://esm.sh/react-helmet-async@2.0.5?deps=react@18.3.1",
-    "lucide-react": "https://esm.sh/lucide-react@0.344.0?deps=react@18.3.1",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?deps=react@18.3.1,react-dom@18.3.1",
-    "recharts": "https://esm.sh/recharts@2.12.2?deps=react@18.3.1,react-dom@18.3.1",
+    "lucide-react": "https://esm.sh/lucide-react@0.453.0?deps=react@18.3.1",
+    "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.3.1,react-dom@18.3.1",
     "diff": "https://esm.sh/diff@5.2.0",
     "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
     "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.0.379",
     "@pdf-lib/fontkit": "https://esm.sh/@pdf-lib/fontkit@1.1.1",
     "dompurify": "https://esm.sh/dompurify@3.0.9",
     "alasql": "https://esm.sh/alasql@4.3.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 text-slate-800 antialiased dark:bg-dark dark:text-gray-100 transition-colors duration-200">
-    <div id="root"></div>
+    <div id="root">
+      <div class="flex h-screen bg-gray-50 overflow-hidden">
+        <div class="hidden lg:block w-64 bg-white border-r border-gray-200">
+          <div class="h-16 border-b flex items-center px-4">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg"></div>
+            <div class="ml-2 h-4 bg-gray-200 rounded w-24"></div>
+          </div>
+          <div class="p-4 space-y-4">
+            <div class="h-10 bg-gray-100 rounded-xl w-full animate-pulse"></div>
+            <div class="h-10 bg-gray-100 rounded-xl w-full animate-pulse"></div>
+          </div>
+        </div>
+        <div class="flex-1 flex flex-col">
+          <header class="h-16 bg-white/80 border-b border-gray-200"></header>
+          <div class="flex-1 p-8">
+            <div class="max-w-4xl mx-auto h-48 bg-white rounded-3xl shadow-sm animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

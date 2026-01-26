@@ -50,4 +50,3 @@ if ($action === 'download') {
     http_response_code(400);
     echo "Invalid action";
 }
-?>

@@ -1,5 +1,6 @@
+
 import React, { useState, useRef } from 'react';
-import { ImageOff, Upload, Download, Trash2, CheckCircle } from 'lucide-react';
+import { ImageOff, Upload, Download, Trash2, CheckCircle, Info, ShieldCheck, Zap } from 'lucide-react';
 
 const ExifRemover: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -32,7 +33,6 @@ const ExifRemover: React.FC = () => {
         ctx.drawImage(img, 0, 0);
 
         // Convert back to blob/url (default PNG or JPEG)
-        // JPEG quality 0.95 is usually good
         const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
         const dataUrl = canvas.toDataURL(type, 0.95);
         
@@ -54,15 +54,14 @@ const ExifRemover: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-10 pb-20">
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <ImageOff className="text-red-500" />
           Exif削除 (メタデータ除去)
         </h2>
         <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm">
-           写真に含まれる位置情報(GPS)や撮影日時などのExif情報を削除し、プライバシーを保護します。<br/>
-           ※処理はすべてブラウザ内で行われ、サーバーにはアップロードされません。
+           写真に含まれる位置情報(GPS)や撮影日時などのExif情報を削除し、プライバシーを保護します。
         </p>
 
         {!file ? (
@@ -119,11 +118,24 @@ const ExifRemover: React.FC = () => {
                 </button>
              </div>
              
-             {/* Hidden canvas */}
              <canvas ref={canvasRef} className="hidden" />
           </div>
         )}
       </div>
+
+      <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />Exif削除の重要性とプライバシー保護</h2>
+         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-red-500" />写真の見えない個人情報を守る</h3>
+               <p>デジカメやスマートフォンで撮影した写真には「Exif（イグジフ）」というメタデータが含まれています。これには撮影した場所（GPS座標）や日時、使用機種などが記録されており、SNSにそのまま投稿すると自宅の場所やプライバシーが特定されるリスクがあります。当ツールはそれらを一括で安全に削除します。</p>
+            </div>
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-red-500" />ブラウザ完結のセキュアな処理</h3>
+               <p>一般的なメタデータ削除サイトとは異なり、当ツールはブラウザのCanvas機能を利用して画像を再描画することでExifを破棄します。画像がサーバーにアップロードされることは一切ないため、漏洩の心配がなく非常に安全です。投稿前の新習慣としてぜひご利用ください。</p>
+            </div>
+         </div>
+      </article>
     </div>
   );
 };

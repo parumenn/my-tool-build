@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ArrowRightLeft, Copy, Check, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Copy, Check, Trash2, Info, ShieldCheck, Zap } from 'lucide-react';
 
 const TextConverter: React.FC = () => {
   const [input, setInput] = useState('');
@@ -12,8 +13,6 @@ const TextConverter: React.FC = () => {
     } else if (mode === 'toFull') {
         result = result.replace(/[!-~]/g, s => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/ /g, "　");
     } else if (mode === 'kanaToHalf') {
-        // Simple mapping or normalize (Normalize is better but limited browser support for NFKC for this specific task sometimes)
-        // Using a basic replacement for demonstration of concept
         const map: {[key:string]: string} = {
             'ガ': 'ｶﾞ', 'ギ': 'ｷﾞ', 'グ': 'ｸﾞ', 'ゲ': 'ｹﾞ', 'ゴ': 'ｺﾞ',
             'ザ': 'ｻﾞ', 'ジ': 'ｼﾞ', 'ズ': 'ｽﾞ', 'ゼ': 'ｾﾞ', 'ゾ': 'ｿﾞ',
@@ -44,21 +43,19 @@ const TextConverter: React.FC = () => {
             'ﾊﾞ': 'バ', 'ﾋﾞ': 'ビ', 'ﾌﾞ': 'ブ', 'ﾍﾞ': 'ベ', 'ﾎﾞ': 'ボ',
             'ﾊﾟ': 'パ', 'ﾋﾟ': 'ピ', 'ﾌﾟ': 'プ', 'ﾍﾟ': 'ペ', 'ﾎﾟ': 'ポ',
             'ｳﾞ': 'ヴ', 'ｱ': 'ア', 'ｲ': 'イ', 'ｳ': 'ウ', 'ｴ': 'エ', 'ｵ': 'オ',
-            'ｶ': 'カ', 'ｷ': 'キ', 'ｸ': 'ク', 'ｹ': 'ケ', 'ｺ': 'コ',
-            'ｻ': 'サ', 'ｼ': 'シ', 'ｽ': 'ス', 'ｾ': 'セ', 'ｿ': 'ソ',
-            'ﾀ': 'タ', 'ﾁ': 'チ', 'ﾂ': 'ツ', 'ﾃ': 'テ', 'ﾄ': 'ト',
-            'ﾅ': 'ナ', 'ﾆ': 'ニ', 'ﾇ': 'ヌ', 'ﾈ': 'ネ', 'ﾉ': 'ノ',
-            'ﾊ': 'ハ', 'ﾋ': 'ヒ', 'ﾌ': 'フ', 'ﾍ': 'ヘ', 'ﾎ': 'ホ',
-            'ﾏ': 'マ', 'ﾐ': 'ミ', 'ﾑ': 'ム', 'ﾒ': 'メ', 'ﾓ': 'モ',
-            'ﾔ': 'ヤ', 'ﾕ': 'ユ', 'ﾖ': 'ヨ',
-            'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ',
-            'ﾜ': 'ワ', 'ｦ': 'ヲ', 'ﾝ': 'ン',
-            'ｧ': 'ァ', 'ｨ': 'ィ', 'ｩ': 'ゥ', 'ｪ': 'ェ', 'ｫ': 'ォ',
-            'ｯ': 'ッ', 'ｬ': 'ャ', 'ｭ': 'ュ', 'ｮ': 'ョ',
-            'ｰ': 'ー', '｡': '。', '､': '、', '｢': '「', '｣': '」', '･': '・'
+            'カ': 'カ', 'キ': 'キ', 'ク': 'ク', 'ケ': 'ケ', 'コ': 'コ',
+            'サ': 'サ', 'シ': 'シ', 'ス': 'ス', 'セ': 'セ', 'ソ': 'ソ',
+            'タ': 'タ', 'チ': 'チ', 'ツ': 'ツ', 'テ': 'テ', 'ト': 'ト',
+            'ナ': 'ナ', 'ニ': 'ニ', 'ヌ': 'ヌ', 'ネ': 'ネ', 'ノ': 'ノ',
+            'ハ': 'ハ', 'ヒ': 'ヒ', 'フ': 'フ', 'ヘ': 'ヘ', 'ホ': 'ホ',
+            'マ': 'マ', 'ミ': 'ミ', 'ム': 'ム', 'メ': 'メ', 'モ': 'モ',
+            'ヤ': 'ヤ', 'ユ': 'ユ', 'ヨ': 'ヨ',
+            'ラ': 'ラ', 'リ': 'リ', 'ル': 'ル', 'レ': 'レ', 'ロ': 'ロ',
+            'ワ': 'ワ', 'ヲ': 'ワ', 'ン': 'ン',
+            'ァ': 'ァ', 'ィ': 'ィ', 'ゥ': 'ゥ', 'ェ': 'ェ', 'ォ': 'ォ',
+            'ッ': 'ッ', 'ャ': 'ャ', 'ュ': 'ュ', 'ョ': 'ョ',
+            'ー': 'ー', '。': '。', '、': '、', '「': '「', '」': '」', '・': '・'
         };
-        // Handled combined chars separately would be better but simple replace works for 1-to-1
-        // For dakuten (voiced marks), we need to handle 2-char sequences first
         let reg = new RegExp('(' + Object.keys(map).join('|') + ')', 'g');
         result = result.replace(reg, s => map[s] || s);
     }
@@ -73,11 +70,11 @@ const TextConverter: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-10 pb-20">
        <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
              <ArrowRightLeft className="text-indigo-500" />
-             全角・半角変換
+             全角・半角一括変換
           </h2>
 
           <div className="space-y-4">
@@ -119,6 +116,20 @@ const TextConverter: React.FC = () => {
              </div>
           </div>
        </div>
+
+       <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />全角・半角変換が必要な理由と活用法</h2>
+         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-indigo-500" />システム入力や名簿作成を快適に</h3>
+               <p>古いシステムや特定の事務手続きでは、「数字は半角で」「カナは全角で」といった厳しい入力制限が設けられていることがあります。手動で打ち直すのは時間がかかり、ミスの原因にもなります。当ツールを使えば、数千文字のテキストも一瞬で指定の形式に整えることが可能です。</p>
+            </div>
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" />安全なローカル一括変換</h3>
+               <p>変換処理はお客様のブラウザ上のJavaScriptだけで行われます。入力した住所録や個人情報がインターネットを介してサーバーに送信されることはありません。外部漏洩の心配なく、業務上の機密データも安心して整形いただけます。</p>
+            </div>
+         </div>
+      </article>
     </div>
   );
 };

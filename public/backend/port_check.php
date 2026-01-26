@@ -49,4 +49,3 @@ if (is_resource($connection)) {
         'error' => $errstr
     ]);
 }
-?>

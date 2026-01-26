@@ -1,423 +1,239 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, Search, MapPin, Server, Building, Wifi, AlertTriangle, Route, ArrowRight, Activity, Layers } from 'lucide-react';
+import { Globe, Search, MapPin, Server, Building, Wifi, AlertTriangle, Route, Activity, Info, ShieldCheck, Database, Loader2, Maximize, Minimize, RefreshCw, Cpu, Move, ChevronRight } from 'lucide-react';
 
-// Helper to get flag emoji from country code
 const getFlagEmoji = (countryCode: string) => {
   if (!countryCode) return '🏳️';
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char =>  127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+  return String.fromCodePoint(...countryCode.toUpperCase().split('').map(char => 127397 + char.charCodeAt(0)));
 };
 
 interface GeoData {
-  ip: string;
-  city: string;
-  region: string;
-  country: string;
-  country_name: string;
-  org: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  asn: string;
+  ip: string; city: string; region: string; country: string; country_name: string;
+  org: string; latitude: number; longitude: number; timezone: string; asn: string;
 }
 
 interface TraceHop {
-  hop: number;
-  ip: string;
-  rtt: string;
-  geo?: GeoData | null;
-  loading?: boolean;
+  hop: number; ip: string; rtt: string; geo?: GeoData | null; loading?: boolean;
 }
+
+// 高精細な世界地図SVGパスデータ
+const WORLD_MAP_PATHS = [
+  // 北米・グリーンランド
+  "M120,130 L160,110 L220,95 L280,110 L310,135 L280,185 L240,225 L180,215 L140,185 Z M215,65 L275,55 L315,75 L285,100 L235,90 Z",
+  // 南米
+  "M245,235 L285,245 L315,285 L325,355 L305,425 L265,405 L245,325 Z",
+  // ユーラシア・アジア
+  "M445,155 L515,135 L595,115 L745,105 L875,125 L935,165 L915,245 L795,285 L745,325 L675,305 L615,355 L545,425 L475,385 L435,325 L415,245 L435,185 Z",
+  // アフリカ
+  "M435,245 L495,225 L555,255 L575,325 L535,405 L485,435 L445,385 L425,305 Z",
+  // オーストラリア
+  "M775,365 L845,355 L905,385 L895,435 L815,455 L775,425 Z",
+  // 日本・島嶼
+  "M865,185 L875,180 L878,190 L868,195 Z M885,205 L895,200 L898,210 L888,215 Z"
+];
 
 const ServerLocation: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'lookup' | 'trace'>('lookup');
-  
-  // Lookup State
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<GeoData | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Traceroute State
+  
   const [traceInput, setTraceInput] = useState('');
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceHops, setTraceHops] = useState<TraceHop[]>([]);
   const [traceError, setTraceError] = useState<string | null>(null);
 
-  // --- Common Logic ---
+  // 地図の表示状態管理 (ズーム & パン)
+  const [viewState, setViewState] = useState({ scale: 1, x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const resolveDomain = async (domain: string): Promise<string | null> => {
-    try {
-      const res = await fetch(`https://dns.google/resolve?name=${domain}`);
-      const json = await res.json();
-      if (json.Answer) {
-        const aRecord = json.Answer.find((r: any) => r.type === 1);
-        if (aRecord) return aRecord.data;
-      }
-      return null;
-    } catch (e) {
-      console.error("DNS Resolve Error", e);
-      return null;
-    }
-  };
+  const isPrivateIp = (ip: string) => /^(10\.|127\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)/.test(ip);
 
   const getGeoData = async (ip: string): Promise<GeoData | null> => {
-    let lastError: any = null;
-
-    // 1. Primary API: ipapi.co
+    if (!ip || ip === 'Request timed out' || isPrivateIp(ip)) return null;
     try {
-      const res = await fetch(`https://ipapi.co/${ip}/json/`);
-      if (res.ok) {
-        const text = await res.text();
-        try {
-            const json = JSON.parse(text);
-            if (!json.error && !json.reason && !json.reserved) {
-                return json as GeoData;
-            }
-        } catch (e) { }
+      const res = await fetch(`https://ipwho.is/${ip}`);
+      const json = await res.json();
+      if (json.success) {
+        return {
+          ip: json.ip, city: json.city, region: json.region,
+          country: json.country_code, country_name: json.country,
+          org: json.connection?.isp || json.connection?.org || 'Unknown',
+          latitude: json.latitude, longitude: json.longitude,
+          timezone: json.timezone?.id, asn: json.connection?.asn
+        };
       }
-    } catch (e) { lastError = e; }
-
-    // 2. Secondary API: ipwho.is
-    try {
-        const res = await fetch(`https://ipwho.is/${ip}`);
-        if (res.ok) {
-            const json = await res.json();
-            if (json.success) {
-                return {
-                    ip: json.ip,
-                    city: json.city,
-                    region: json.region,
-                    country: json.country_code,
-                    country_name: json.country,
-                    org: json.connection?.org || json.connection?.isp || 'N/A',
-                    latitude: json.latitude,
-                    longitude: json.longitude,
-                    timezone: json.timezone?.id || '',
-                    asn: json.connection?.asn ? String(json.connection.asn) : ''
-                };
-            }
-        }
-    } catch (e) { lastError = e; }
-
-    // 3. Tertiary API: freeipapi.com
-    try {
-        const res = await fetch(`https://freeipapi.com/api/json/${ip}`);
-        if (res.ok) {
-            const json = await res.json();
-            return {
-                ip: json.ipAddress,
-                city: json.cityName,
-                region: json.regionName,
-                country: json.countryCode,
-                country_name: json.countryName,
-                org: 'N/A',
-                latitude: json.latitude,
-                longitude: json.longitude,
-                timezone: json.timeZone,
-                asn: ''
-            };
-        }
-    } catch (e) { lastError = e; }
-
-    // 4. Quaternary API: ipinfo.io
-    try {
-        const res = await fetch(`https://ipinfo.io/${ip}/json`);
-        if (res.ok) {
-            const json = await res.json();
-            const [lat, lon] = (json.loc || "0,0").split(',').map(Number);
-            return {
-                ip: json.ip,
-                city: json.city,
-                region: json.region,
-                country: json.country,
-                country_name: json.country,
-                org: json.org,
-                latitude: lat,
-                longitude: lon,
-                timezone: json.timezone,
-                asn: ''
-            };
-        }
-    } catch (e) { lastError = e; }
-
+    } catch (e) {}
     return null;
   };
 
-  // --- Handlers ---
+  const focusOnPosition = (lat: number, lon: number) => {
+    const coords = getMapCoordinates(lat, lon);
+    setViewState({ scale: 2.5, x: (500 - coords.x) * 2.5, y: (250 - coords.y) * 2.5 });
+  };
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input) return;
-
-    setLoading(true);
-    setError(null);
-    setData(null);
-
+    setLoading(true); setError(null); setData(null);
     try {
       let hostname = input.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
       const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
       let targetIp = hostname;
-
+      
       if (!isIp) {
-        const resolvedIp = await resolveDomain(hostname);
-        if (!resolvedIp) throw new Error('ドメインのIPアドレスが見つかりませんでした。');
-        targetIp = resolvedIp;
+        const res = await fetch(`https://dns.google/resolve?name=${hostname}`);
+        const json = await res.json();
+        const aRecord = json.Answer?.find((r: any) => r.type === 1);
+        if (!aRecord) throw new Error('ドメインの名前解決に失敗しました');
+        targetIp = aRecord.data;
       }
 
       const geoInfo = await getGeoData(targetIp);
-      if (!geoInfo) throw new Error('位置情報の取得に失敗しました。');
-
+      if (!geoInfo) throw new Error('位置情報を取得できませんでした');
       setData(geoInfo);
-    } catch (err: any) {
-      setError(err.message || 'エラーが発生しました。');
-    } finally {
-      setLoading(false);
-    }
+      focusOnPosition(geoInfo.latitude, geoInfo.longitude);
+    } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 
   const handleTraceroute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!traceInput) return;
-
-    setTraceLoading(true);
-    setTraceError(null);
-    setTraceHops([]);
-
+    setTraceLoading(true); setTraceError(null); setTraceHops([]);
     try {
       let hostname = traceInput.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      const response = await fetch(`./backend/traceroute.php?host=${hostname}`);
+      const text = await response.text();
       
-      // Call Backend for Traceroute
-      const res = await fetch(`./backend/traceroute.php?host=${hostname}`);
-      if (!res.ok) throw new Error('バックエンド接続エラー');
-      
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      
-      const rawHops: any[] = json.hops || [];
-      if (rawHops.length === 0) throw new Error('経路情報が取得できませんでした（コマンド失敗の可能性があります）');
-
-      // Initialize hops with loading state
-      const initialHops: TraceHop[] = rawHops.map(h => ({
-          hop: h.hop,
-          ip: h.ip,
-          rtt: h.rtt,
-          loading: true,
-          geo: null
-      }));
-      setTraceHops(initialHops);
-
-      // Resolve GeoIP one by one to avoid rate limits and show progress
-      for (let i = 0; i < initialHops.length; i++) {
-          const hop = initialHops[i];
-          // Skip private IPs roughly to save API calls
-          if (hop.ip.startsWith('192.168.') || hop.ip.startsWith('10.') || hop.ip.startsWith('127.')) {
-              setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, loading: false } : h));
-              continue;
-          }
-
-          try {
-              const geo = await getGeoData(hop.ip);
-              setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, geo, loading: false } : h));
-          } catch (e) {
-              setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, loading: false } : h));
-          }
-          // Small delay to be nice to APIs
-          await new Promise(r => setTimeout(r, 500));
+      let json;
+      try {
+        // レスポンス文字列からJSON部分を抽出してパース (ノイズ対策)
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error();
+        json = JSON.parse(text.substring(start, end + 1));
+      } catch (parseError) {
+        throw new Error('サーバーからの応答が不正な形式です');
       }
 
-    } catch (err: any) {
-      setTraceError(err.message || 'エラーが発生しました。サーバー設定を確認してください。');
-    } finally {
-      setTraceLoading(false);
-    }
+      if (json.error) throw new Error(json.error);
+      const initialHops = (json.hops || []).map((h: any) => ({ ...h, loading: true, geo: null }));
+      setTraceHops(initialHops);
+
+      for (let i = 0; i < initialHops.length; i++) {
+          const hop = initialHops[i];
+          if (hop.ip === 'Request timed out' || isPrivateIp(hop.ip)) {
+            setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, loading: false } : h));
+            continue;
+          }
+          const geo = await getGeoData(hop.ip);
+          setTraceHops(prev => prev.map((h, idx) => idx === i ? { ...h, geo, loading: false } : h));
+          if (geo) focusOnPosition(geo.latitude, geo.longitude);
+      }
+    } catch (err: any) { setTraceError(err.message); } finally { setTraceLoading(false); }
   };
 
-  // --- Map Utilities ---
   const getMapCoordinates = (lat: number, lon: number) => {
-    const x = (lon + 180) / 360 * 100;
-    const latClamped = Math.max(-85, Math.min(85, lat));
-    const latRad = latClamped * Math.PI / 180;
-    const mercN = Math.log(Math.tan((Math.PI / 4) + (latRad / 2)));
-    const y = (0.5 - mercN / (2 * Math.PI)) * 100;
+    const x = (lon + 180) * (1000 / 360);
+    const latRad = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
+    const y = (1 - (Math.log(Math.tan(Math.PI / 4 + latRad / 2)) / Math.PI)) * 250;
     return { x, y };
   };
 
-  const lookupCoords = data ? getMapCoordinates(data.latitude, data.longitude) : { x: 50, y: 50 };
-
-  // Generate path string for traceroute
-  const getTracePath = () => {
-      const points = traceHops
-          .filter(h => h.geo && h.geo.latitude && h.geo.longitude)
-          .map(h => getMapCoordinates(h.geo!.latitude, h.geo!.longitude));
-      
-      if (points.length < 2) return '';
-
-      // Simple polyline
-      return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x * 10},${p.y * 5}`).join(' ');
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setViewState(prev => ({ ...prev, scale: Math.max(1, Math.min(10, prev.scale * delta)) }));
   };
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - viewState.x, y: e.clientY - viewState.y });
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setViewState(prev => ({ ...prev, x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }));
+  };
+  const handleMouseUp = () => setIsDragging(false);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header & Tabs */}
+    <div className="max-w-6xl mx-auto space-y-10 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-         <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <Globe className="text-indigo-500" />
-            サーバー位置情報チェッカー
-         </h2>
-         
-         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-            <button 
-               onClick={() => setActiveTab('lookup')}
-               className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'lookup' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-            >
-               <MapPin size={16} /> 位置検索
-            </button>
-            <button 
-               onClick={() => setActiveTab('trace')}
-               className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'trace' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-            >
-               <Route size={16} /> トレースルート
-            </button>
+         <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl shadow-sm">
+               <Globe className="text-indigo-500" />
+            </div>
+            <h2 className="text-2xl font-black text-gray-800 dark:text-white">サーバー位置情報 & 経路追跡</h2>
+         </div>
+         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-inner">
+            <button onClick={() => setActiveTab('lookup')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'lookup' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500'}`}>IP/ドメイン検索</button>
+            <button onClick={() => setActiveTab('trace')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'trace' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500'}`}>経路を追跡 (Trace)</button>
          </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         {/* LEFT COLUMN: Controls & Data */}
-         <div className="lg:col-span-1 space-y-6">
-            
+         <div className="lg:col-span-1 flex flex-col gap-6">
             {activeTab === 'lookup' ? (
-               <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+               <div className="bg-white dark:bg-dark-lighter rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                   <form onSubmit={handleLookup} className="space-y-4">
-                     <div>
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">ドメイン または IPアドレス</label>
-                        <input
-                           type="text"
-                           value={input}
-                           onChange={(e) => setInput(e.target.value)}
-                           placeholder="google.com"
-                           className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-lg outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-                        />
-                     </div>
-                     <button
-                        type="submit"
-                        disabled={loading || !input}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
-                     >
-                        {loading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Search size={20} />}
-                        検索
+                     <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="例: google.com" className="w-full p-4 rounded-2xl border-2 border-gray-50 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 dark:text-white font-bold focus:border-indigo-500 outline-none transition-all" />
+                     <button type="submit" disabled={loading || !input} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all active:scale-95">
+                        {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />} 解析を実行
                      </button>
                   </form>
-
-                  {error && (
-                     <div className="mt-4 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl text-red-600 dark:text-red-300 flex items-start gap-2 text-sm font-bold">
-                        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                        {error}
-                     </div>
-                  )}
-
+                  {error && <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl text-xs font-bold animate-fade-in flex items-center gap-2"><AlertTriangle size={14} /> {error}</div>}
                   {data && (
-                     <div className="mt-6 space-y-4 animate-fade-in">
-                        <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl p-5 text-white shadow-md">
-                           <div className="flex items-center gap-2 mb-1 opacity-80 text-xs uppercase font-bold">
-                              <Server size={12} /> IP Address
-                           </div>
-                           <div className="text-2xl font-mono font-bold tracking-wider mb-4">{data.ip}</div>
-                           <div className="flex items-center gap-3">
-                              <div className="text-4xl">{getFlagEmoji(data.country)}</div>
-                              <div>
-                                 <p className="font-bold text-base leading-tight">{data.country_name}</p>
-                                 <p className="text-indigo-100 text-xs">{data.region}, {data.city}</p>
-                              </div>
-                           </div>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                           <div className="flex justify-between p-2 border-b border-gray-100 dark:border-gray-700">
-                              <span className="text-gray-500 flex items-center gap-2"><Building size={14} /> ISP/Org</span>
-                              <span className="font-bold text-gray-800 dark:text-gray-200">{data.org}</span>
-                           </div>
-                           <div className="flex justify-between p-2 border-b border-gray-100 dark:border-gray-700">
-                              <span className="text-gray-500 flex items-center gap-2"><Wifi size={14} /> ASN</span>
-                              <span className="font-bold text-gray-800 dark:text-gray-200">{data.asn}</span>
-                           </div>
-                           <div className="flex justify-between p-2 border-b border-gray-100 dark:border-gray-700">
-                              <span className="text-gray-500 flex items-center gap-2"><MapPin size={14} /> 座標</span>
-                              <span className="font-mono text-gray-800 dark:text-gray-200">{data.latitude.toFixed(4)}, {data.longitude.toFixed(4)}</span>
-                           </div>
-                        </div>
-                     </div>
+                    <div className="mt-8 space-y-4 animate-scale-up">
+                       <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                          <div className="absolute -right-4 -bottom-4 opacity-20"><Globe size={100} /></div>
+                          <div className="text-sm font-bold opacity-80 mb-1 relative z-10">Target IP</div>
+                          <div className="text-xl font-mono font-black break-all mb-6 relative z-10">{data.ip}</div>
+                          <div className="flex items-center gap-4 relative z-10">
+                             <div className="text-4xl shadow-sm">{getFlagEmoji(data.country)}</div>
+                             <div className="min-w-0">
+                                <p className="font-black text-lg truncate">{data.country_name}</p>
+                                <p className="text-xs opacity-90 font-bold">{data.city}, {data.region}</p>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="grid grid-cols-1 gap-2">
+                          {[{ label: 'ISP / 事業者', val: data.org, icon: Building }, { label: 'ASN', val: data.asn, icon: Database }, { label: '座標', val: `${data.latitude}, ${data.longitude}`, icon: MapPin }].map((item, i) => (
+                             <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                                <div className="p-2 bg-white dark:bg-gray-700 rounded-lg text-indigo-500 shadow-sm"><item.icon size={14} /></div>
+                                <div className="min-w-0"><p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">{item.label}</p><p className="text-xs font-bold text-gray-700 dark:text-gray-200 truncate">{item.val}</p></div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
                   )}
                </div>
             ) : (
-               <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
-                  <form onSubmit={handleTraceroute} className="space-y-4 mb-4">
-                     <div>
-                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">ターゲット (URL/IP)</label>
-                        <div className="flex gap-2">
-                           <input
-                              type="text"
-                              value={traceInput}
-                              onChange={(e) => setTraceInput(e.target.value)}
-                              placeholder="example.com"
-                              className="flex-1 p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-                           />
-                           <button
-                              type="submit"
-                              disabled={traceLoading || !traceInput}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl font-bold transition-all disabled:opacity-50"
-                           >
-                              {traceLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <ArrowRight />}
-                           </button>
-                        </div>
+               <div className="bg-white dark:bg-dark-lighter rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-full max-h-[600px] animate-scale-up">
+                  <form onSubmit={handleTraceroute} className="space-y-4 mb-6 shrink-0">
+                     <div className="flex gap-2">
+                        <input type="text" value={traceInput} onChange={(e) => setTraceInput(e.target.value)} placeholder="例: example.com" className="flex-1 p-3 rounded-xl border-2 border-gray-50 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 dark:text-white font-bold outline-none focus:border-indigo-500 transition-all" />
+                        <button type="submit" disabled={traceLoading} className="bg-indigo-600 text-white px-4 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-95">{traceLoading ? <Loader2 className="animate-spin" /> : <Route size={20} />}</button>
                      </div>
                   </form>
-
-                  {traceError && (
-                     <div className="mb-4 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl text-red-600 dark:text-red-300 text-sm font-bold flex items-start gap-2">
-                        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                        {traceError}
-                     </div>
-                  )}
-
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-2 min-h-[300px]">
-                     {traceHops.length === 0 && !traceLoading && (
-                        <div className="text-center text-gray-400 py-10">
-                           <Layers size={48} className="mx-auto mb-2 opacity-30" />
-                           <p className="text-sm">ドメインを入力して経路を解析</p>
-                        </div>
-                     )}
-                     
-                     {traceHops.map((hop) => (
-                        <div key={hop.hop} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 text-sm">
-                           <div className="flex justify-between items-start mb-1">
-                              <div className="flex items-center gap-2">
-                                 <span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded text-xs font-bold w-6 text-center">{hop.hop}</span>
-                                 <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{hop.ip}</span>
+                  {traceError && <div className="p-4 mb-4 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl text-xs font-bold animate-fade-in flex items-center gap-2"><AlertTriangle size={14}/> {traceError}</div>}
+                  <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
+                     {traceHops.map((hop, i) => (
+                        <div key={i} className="relative pl-6 animate-fade-in">
+                           {i < traceHops.length - 1 && <div className="absolute left-[11px] top-4 w-0.5 h-full bg-gray-100 dark:bg-gray-800"></div>}
+                           <div className={`absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-sm ${hop.ip === 'Request timed out' ? 'bg-gray-100 text-gray-400' : 'bg-indigo-600 text-white'}`}>{hop.hop}</div>
+                           <div className={`p-3 rounded-xl border transition-all ${hop.geo ? 'bg-indigo-50/30 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800' : 'bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'}`}>
+                              <div className="flex justify-between items-start mb-1">
+                                 <p className="font-mono text-[10px] font-bold text-gray-800 dark:text-white break-all">{hop.ip}</p>
+                                 <span className="text-[9px] font-black text-gray-400">{hop.rtt}</span>
                               </div>
-                              <span className="text-xs text-green-600 dark:text-green-400 font-mono">{hop.rtt}</span>
-                           </div>
-                           
-                           {hop.loading ? (
-                              <div className="text-xs text-gray-400 pl-8 flex items-center gap-1">
-                                 <Activity size={10} className="animate-spin" /> 解析中...
-                              </div>
-                           ) : hop.geo ? (
-                              <div className="pl-8 text-xs space-y-0.5">
-                                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                                    <span>{getFlagEmoji(hop.geo.country)}</span>
-                                    <span className="font-bold">{hop.geo.country_name}</span>
-                                    <span className="text-gray-400">({hop.geo.city})</span>
+                              {hop.loading ? <div className="flex items-center gap-2 text-[9px] text-gray-400 font-bold"><Loader2 size={8} className="animate-spin" /> 調査中...</div> : hop.geo ? (
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-base">{getFlagEmoji(hop.geo.country)}</span>
+                                    <div className="min-w-0"><p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 truncate">{hop.geo.city}, {hop.geo.country_name}</p></div>
                                  </div>
-                                 <div className="text-gray-500 dark:text-gray-400 truncate">{hop.geo.org} ({hop.geo.asn})</div>
-                              </div>
-                           ) : (
-                              <div className="pl-8 text-xs text-gray-400">- ローカル/不明 -</div>
-                           )}
+                              ) : hop.ip !== 'Request timed out' && <p className="text-[9px] text-gray-400">位置情報なし（内部ホップ）</p>}
+                           </div>
                         </div>
                      ))}
                   </div>
@@ -425,93 +241,97 @@ const ServerLocation: React.FC = () => {
             )}
          </div>
 
-         {/* RIGHT COLUMN: Map Visualization */}
          <div className="lg:col-span-2">
-            <div className="relative w-full aspect-[1.6/1] bg-slate-900 rounded-3xl overflow-hidden border border-gray-800 shadow-2xl group">
-               {/* Map SVG */}
-               <svg
-                 viewBox="0 0 1000 500" 
-                 className="w-full h-full pointer-events-none"
-                 style={{ fill: 'currentColor' }}
+            <div 
+                ref={containerRef}
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                className={`relative w-full aspect-[1.6/1] bg-[#0a1128] rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-slate-900 ring-1 ring-white/10 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            >
+               <div className="absolute top-6 right-6 flex flex-col gap-2 z-50">
+                  <button onClick={() => setViewState(prev => ({...prev, scale: Math.min(10, prev.scale + 0.5)}))} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><Maximize size={18} /></button>
+                  <button onClick={() => setViewState(prev => ({...prev, scale: Math.max(1, prev.scale - 0.5)}))} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><Minimize size={18} /></button>
+                  <button onClick={() => setViewState({ scale: 1, x: 0, y: 0 })} className="p-3 bg-slate-900/80 backdrop-blur-md text-white border border-white/10 rounded-xl hover:bg-slate-800 transition-colors shadow-lg"><RefreshCw size={18} /></button>
+               </div>
+
+               <div 
+                className="w-full h-full transition-transform duration-500 ease-out origin-center"
+                style={{ transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})` }}
                >
-                 {/* World Map Path */}
-                 <g className="text-gray-800">
-                   <path d="M250,80 L300,80 L320,120 L280,150 L300,250 L320,350 L280,420 L250,400 L240,300 L200,200 L150,150 L180,100 Z" />
-                   <path d="M450,100 L550,80 L700,80 L800,100 L850,150 L800,200 L820,250 L750,300 L700,280 L650,350 L580,380 L520,300 L480,250 L500,200 L450,180 Z" />
-                   <path d="M780,350 L850,350 L850,400 L780,400 Z" />
-                   <path d="M860,160 L870,150 L880,170 L860,180 Z" />
-                 </g>
-                 
-                 {/* Grid */}
-                 <g stroke="currentColor" strokeWidth="0.5" className="text-gray-800 opacity-30">
-                    <line x1="0" y1="250" x2="1000" y2="250" />
-                    <line x1="500" y1="0" x2="500" y2="500" />
-                 </g>
+                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#4f46e5 1.5px, transparent 1.5px)', backgroundSize: '25px 25px' }}></div>
+                  <svg viewBox="0 0 1000 500" className="w-full h-full overflow-visible pointer-events-none">
+                     {WORLD_MAP_PATHS.map((p, idx) => (
+                        <path key={idx} d={p} className="fill-slate-800/80 stroke-indigo-500/20 stroke-[0.4]" />
+                     ))}
+                     
+                     {activeTab === 'trace' && traceHops.map((hop, i) => {
+                        if (i === 0 || !hop.geo || !traceHops[i-1].geo) return null;
+                        const p1 = getMapCoordinates(traceHops[i-1].geo!.latitude, traceHops[i-1].geo!.longitude);
+                        const p2 = getMapCoordinates(hop.geo!.latitude, hop.geo!.longitude);
+                        const cpX = (p1.x + p2.x) / 2;
+                        const cpY = Math.min(p1.y, p2.y) - 50;
+                        return (
+                        <g key={`path-${i}`}>
+                            <path d={`M ${p1.x} ${p1.y} Q ${cpX} ${cpY} ${p2.x} ${p2.y}`} fill="none" stroke="url(#trace-grad)" strokeWidth="2" className="animate-dash" strokeDasharray="8,8" style={{ filter: 'drop-shadow(0 0 8px #6366f1)' }} />
+                            <defs><linearGradient id="trace-grad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4f46e5" /><stop offset="100%" stopColor="#818cf8" /></linearGradient></defs>
+                        </g>
+                        );
+                     })}
 
-                 {/* Traceroute Path Line */}
-                 {activeTab === 'trace' && traceHops.length > 0 && (
-                    <path 
-                       d={getTracePath()} 
-                       fill="none" 
-                       stroke="#4ade80" 
-                       strokeWidth="2" 
-                       strokeDasharray="5,5"
-                       className="animate-pulse"
-                    />
-                 )}
-               </svg>
+                     {activeTab === 'lookup' && data && (
+                        <g transform={`translate(${getMapCoordinates(data.latitude, data.longitude).x}, ${getMapCoordinates(data.latitude, data.longitude).y})`}>
+                           <circle r="15" fill="#4f46e5" className="animate-ping opacity-30" />
+                           <circle r="6" fill="#4f46e5" className="stroke-white stroke-2 shadow-2xl" />
+                        </g>
+                     )}
 
-               {/* Points Overlay */}
-               <div className="absolute inset-0 pointer-events-none">
-                  {/* Single Lookup Point */}
-                  {activeTab === 'lookup' && data && (
-                     <div 
-                       className="absolute w-4 h-4 transform -translate-x-1/2 -translate-y-1/2"
-                       style={{ left: `${lookupCoords.x}%`, top: `${lookupCoords.y}%` }}
-                     >
-                        <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-75"></div>
-                        <div className="relative w-4 h-4 bg-indigo-600 border-2 border-white rounded-full shadow-lg"></div>
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                           {data.city}, {data.country}
-                        </div>
-                     </div>
-                  )}
+                     {activeTab === 'trace' && traceHops.map((hop, i) => hop.geo && (
+                        <g key={i} transform={`translate(${getMapCoordinates(hop.geo.latitude, hop.geo.longitude).x}, ${getMapCoordinates(hop.geo.latitude, hop.geo.longitude).y})`} className="group">
+                           <circle r="12" fill="#4f46e5" className="animate-pulse opacity-20" />
+                           <circle r="5" fill="#6366f1" className="stroke-white/40 stroke-1" />
+                           <text y="-16" textAnchor="middle" className="fill-white text-[9px] font-black drop-shadow-md">{hop.hop}</text>
+                           <text y="20" textAnchor="middle" className="fill-indigo-300 text-[6px] font-bold uppercase tracking-wider">{hop.geo.city}</text>
+                        </g>
+                     ))}
+                  </svg>
+               </div>
 
-                  {/* Traceroute Points */}
-                  {activeTab === 'trace' && traceHops.map((hop, i) => {
-                     if (!hop.geo) return null;
-                     const pos = getMapCoordinates(hop.geo.latitude, hop.geo.longitude);
-                     return (
-                        <div 
-                          key={hop.hop}
-                          className="absolute w-3 h-3 transform -translate-x-1/2 -translate-y-1/2"
-                          style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                        >
-                           <div className={`relative w-3 h-3 rounded-full border border-white shadow-sm ${i === traceHops.length - 1 ? 'bg-green-500 w-4 h-4 animate-bounce' : 'bg-indigo-500'}`}></div>
-                           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
-                              #{hop.hop} {hop.geo.city}
-                           </div>
-                        </div>
-                     );
-                  })}
+               <div className="absolute bottom-6 left-6 flex items-center gap-3 bg-slate-900/80 backdrop-blur-xl px-5 py-3 rounded-full border border-white/10 text-[10px] font-black text-white uppercase tracking-[0.2em] shadow-2xl z-50">
+                  <Activity size={14} className="text-emerald-400 animate-pulse" /> Infrastructure Engine 5.0
                </div>
                
-               {/* Map Legend/Overlay Info */}
-               <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm text-white p-3 rounded-xl border border-gray-700 text-xs">
-                  <div className="font-bold mb-1 flex items-center gap-2">
-                     <div className="w-2 h-2 rounded-full bg-green-500"></div> 
-                     {activeTab === 'lookup' ? 'ターゲット位置' : '到達地点'}
-                  </div>
-                  {activeTab === 'trace' && (
-                     <div className="font-bold flex items-center gap-2 text-gray-300">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div> 
-                        経由地
-                     </div>
-                  )}
+               <div className="absolute bottom-6 right-6 hidden md:flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl text-[9px] font-bold text-slate-400 border border-white/5">
+                  <Move size={12} /> ドラッグで移動 / ホイールでズーム
                </div>
             </div>
          </div>
       </div>
+
+      <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm transition-all">
+         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />ネットワーク経路の可視化と診断</h2>
+         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Cpu size={18} className="text-indigo-500" />次世代ビジュアライザー</h3>
+               <p>新しい地図エンジンは、より詳細な世界地図のシルエットと、自由自在なズーム・パン操作を提供します。特定のドメインやIPまでの通信がどの国や都市を経由し、どのような遅延（RTT）が発生しているかを、直感的に観察することが可能です。インフラエンジニアから一般ユーザーまで、ネットワークの健康状態を把握するのに最適です。</p>
+            </div>
+            <div>
+               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-indigo-500" />セキュアな診断設計</h3>
+               <p>診断処理はすべて、バックエンドでのセキュアな実行環境とフロントエンドでの安全なGeoIP照会を組み合わせて行われます。お客様のドメイン情報が外部に意図せず流出することはありません。また、すべての変換処理はお使いのブラウザ内で行われるため、機密性の高いインフラ調査にも安心してご利用いただけます。</p>
+            </div>
+         </div>
+      </article>
+      
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -24; }
+        }
+        .animate-dash {
+          animation: dash 1.5s linear infinite;
+        }
+      `}</style>
     </div>
   );
 };
