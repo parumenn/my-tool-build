@@ -6,6 +6,7 @@ ini_set('display_errors', 0);
 date_default_timezone_set('Asia/Tokyo');
 $now = time();
 
+// CORS Headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, X-Admin-Token");
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// Directory Setup
 $DATA_DIR = __DIR__ . '/data';
 if (!file_exists($DATA_DIR)) {
     mkdir($DATA_DIR, 0777, true);
@@ -29,10 +31,10 @@ $BLOCKED_IPS_FILE = $DATA_DIR . '/blocked_ips.json';
 $REQ_TRACK_FILE   = $DATA_DIR . '/request_track.json';
 $TOKENS_FILE      = $DATA_DIR . '/active_tokens.json';
 
-// --- Minimal SMTP Class (No Composer required) ---
+// --- Minimal SMTP Class ---
 class MinimalSMTP {
     private $host; private $port; private $user; private $pass;
-    private $socket; private $log = [];
+    private $socket;
 
     public function __construct($host, $port, $user, $pass) {
         $this->host = $host; $this->port = $port; $this->user = $user; $this->pass = $pass;
@@ -124,6 +126,19 @@ function get_server_stats() {
     return $stats;
 }
 
+// Polyfill for getallheaders() if not exists (Nginx etc.)
+if (!function_exists('getallheaders')) {
+    function getallheaders() {
+        $headers = [];
+        foreach ($_SERVER as $name => $value) {
+            if (substr($name, 0, 5) == 'HTTP_') {
+                $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
+            }
+        }
+        return $headers;
+    }
+}
+
 // --- Init Config ---
 $default_config = [
     'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
@@ -142,7 +157,9 @@ if (isset($blocked[$ip])) {
     ob_clean(); http_response_code(403); echo json_encode(['error' => 'IP Blocked']); exit;
 }
 
-$token_header = getallheaders()['X-Admin-Token'] ?? '';
+// Token Check (Robust)
+$headers = getallheaders();
+$token_header = $headers['X-Admin-Token'] ?? $_SERVER['HTTP_X_ADMIN_TOKEN'] ?? '';
 $tokens = load_json($TOKENS_FILE);
 $is_admin = isset($tokens[$token_header]) && $tokens[$token_header] > $now;
 
@@ -212,7 +229,7 @@ elseif ($is_admin) {
         $today = date('Y-m-d');
         $today_pv = count(array_filter($logs, function($l) use ($today) { return strpos($l['date'], $today) === 0; }));
         $response = [
-            'stats' => ['total_pv' => count($logs), 'today_pv' => $today_pv, 'recent_logs' => array_slice($logs, 0, 200)], // Increased limit for map
+            'stats' => ['total_pv' => count($logs), 'today_pv' => $today_pv, 'recent_logs' => array_slice($logs, 0, 200)], 
             'blocked_ips' => $blocked,
             'messages' => load_json($MESSAGES_FILE),
             'server_resources' => get_server_stats(),

@@ -30,7 +30,7 @@ interface AdminConfig {
 }
 
 const ADMIN_PATH = '/secure-panel-7x9v2';
-const SERVER_POS: [number, number] = [35.6895, 139.6917]; // サーバー位置（東京）
+const SERVER_POS: [number, number] = [35.6895, 139.6917]; // 東京
 
 // LeafletをCDNから動的に読み込む
 const loadLeaflet = (): Promise<any> => {
@@ -66,7 +66,7 @@ const AdminPage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const mapMarkersRef = useRef<any[]>([]);
-  const mapLinesRef = useRef<any[]>([]); // Lines Ref
+  const mapLinesRef = useRef<any[]>([]);
   const [geoData, setGeoData] = useState<Record<string, { lat: number, lon: number, city: string, country: string }>>({});
 
   // ログフィルター
@@ -98,20 +98,29 @@ const AdminPage: React.FC = () => {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Map Render Logic
+  // Map Initialization Logic
   useEffect(() => {
     let isMounted = true;
 
     const initMap = async () => {
+      // ダッシュボードタブでない、またはコンテナがない場合は初期化しない
       if (activeTab !== 'dashboard' || !mapContainerRef.current) return;
 
+      // 既にマップがある場合は何もしない（updateMapDataに任せる）
+      if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize(); // タブ切り替え後のサイズ再計算
+          return;
+      }
+
       const L = await loadLeaflet();
+      if (!isMounted || !mapContainerRef.current) return;
       
-      // Initialize Map if not exists
-      if (!mapInstanceRef.current && mapContainerRef.current) {
+      try {
+          // Initialize Map
           const map = L.map(mapContainerRef.current, {
               scrollWheelZoom: false,
-              attributionControl: false
+              attributionControl: false,
+              zoomControl: false // 独自の場所に置きたい場合
           }).setView([25, 0], 2);
           
           L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
@@ -125,14 +134,19 @@ const AdminPage: React.FC = () => {
           L.marker(SERVER_POS, { icon: serverIcon, zIndexOffset: 1000 }).addTo(map).bindPopup('<div class="font-bold text-center">OMNITOOLS SERVER<br><span class="text-xs text-gray-400">Tokyo, JP</span></div>');
 
           mapInstanceRef.current = map;
+          
+          // 初期化直後にデータを描画
+          if (stats.recent_logs.length > 0) {
+              updateMapData();
+          }
+      } catch (e) {
+          console.error("Map init failed", e);
       }
-      
-      if (isMounted) updateMapData();
     };
 
     initMap();
 
-    // Cleanup on tab switch
+    // Cleanup when unmounting dashboard tab
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
@@ -142,14 +156,14 @@ const AdminPage: React.FC = () => {
         mapLinesRef.current = [];
       }
     };
-  }, [activeTab]);
+  }, [activeTab]); // stats.recent_logs を依存配列に入れると無限ループの可能性があるので外す
 
-  // Update Map Elements
+  // Update Map Data Logic
   const updateMapData = async () => {
     const L = await loadLeaflet();
     if (!mapInstanceRef.current || !L) return;
 
-    // Clear existing
+    // Clear existing dynamic markers/lines
     mapMarkersRef.current.forEach(m => m.remove());
     mapLinesRef.current.forEach(l => l.remove());
     mapMarkersRef.current = [];
@@ -162,7 +176,7 @@ const AdminPage: React.FC = () => {
         
         let data = geoData[ip];
         if (!data) {
-            // Fetch if missing
+            // Fetch if missing (Rate limit handling is implied by browser)
             fetch(`https://ipwho.is/${ip}`)
                 .then(res => res.json())
                 .then(json => {
@@ -191,18 +205,19 @@ const AdminPage: React.FC = () => {
                 color: '#3b82f6', 
                 weight: 1, 
                 opacity: 0.4,
-                className: 'access-line'
+                className: 'access-line' // CSS class defines animation
             }).addTo(mapInstanceRef.current);
             mapLinesRef.current.push(polyline);
         }
     }
   };
 
+  // GeoDataやログが更新されたらマップを更新
   useEffect(() => {
       if (activeTab === 'dashboard' && mapInstanceRef.current) {
           updateMapData();
       }
-  }, [stats.recent_logs, geoData]); // Removed activeTab dependency here to avoid double-firing
+  }, [stats.recent_logs, geoData]); 
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
@@ -261,8 +276,13 @@ const AdminPage: React.FC = () => {
             }));
             setIsDirty(false);
         }
-      } else if (res.status === 403) logout();
-    } catch (e) { console.error(e); } finally {
+      } else if (res.status === 403) {
+          // Token expired or invalid
+          logout();
+      }
+    } catch (e) { 
+        console.error(e); 
+    } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
@@ -412,7 +432,10 @@ const AdminPage: React.FC = () => {
                     </h3>
                     <p className="text-[10px] text-gray-400 font-bold">直近のアクセス元を表示</p>
                  </div>
+                 {/* Explicitly set height and bg color */}
                  <div ref={mapContainerRef} className="w-full h-[350px] bg-[#0a1128] z-0"></div>
+                 
+                 {/* Styles for Leaflet & Animations */}
                  <style>{`
                     .leaflet-container { background: #0a1128 !important; } 
                     .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); color: white; border-radius: 8px; font-size: 10px; } 
