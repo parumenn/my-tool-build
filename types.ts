@@ -1,4 +1,3 @@
-
 import { LucideIcon } from 'lucide-react';
 
 export interface Tool {
@@ -10,7 +9,6 @@ export interface Tool {
   keywords?: string[]; // Specific keywords for meta tags
   icon: LucideIcon;
   color: string;
-  lightBg: string; // Add explicit light background color for icons
   darkColor?: string; // Color for dark mode
 }
 

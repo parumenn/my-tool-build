@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Hash, Copy, Check, Info, ShieldCheck, Zap } from 'lucide-react';
+import { Hash, Copy, Check } from 'lucide-react';
 
 const HashGenerator: React.FC = () => {
   const [input, setInput] = useState('');
@@ -36,7 +35,7 @@ const HashGenerator: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-10 pb-20">
+    <div className="max-w-4xl mx-auto space-y-6">
        <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
              <Hash className="text-slate-600 dark:text-slate-400" />
@@ -75,20 +74,6 @@ const HashGenerator: React.FC = () => {
              </div>
           </div>
        </div>
-
-       <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
-         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />ハッシュ関数の基礎と安全な生成について</h2>
-         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-slate-600" />データの同一性を検証する</h3>
-               <p>ハッシュ生成（SHA-256など）は、あるデータから「指紋」のような固定長の文字列を作成する処理です。元のデータを一文字でも変えるとハッシュ値は全く別物になるため、パスワードの安全な保存、ファイルの改ざんチェック、API通信の整合性確認など、デジタルセキュリティの根幹を支えています。</p>
-            </div>
-            <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-slate-600" />暗号学的に安全なWeb生成</h3>
-               <p>当ツールのハッシュ計算は、ブラウザ標準の `Web Crypto API` を使用しています。これは高度な暗号処理をOSレベルで安全に実行する仕組みです。また、すべての処理はお使いの端末内で完結するため、ハッシュ化したい元のテキストがサーバーに送られることはなく、プライバシーは完全に守られています。</p>
-            </div>
-         </div>
-      </article>
     </div>
   );
 };

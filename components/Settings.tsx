@@ -14,6 +14,7 @@ const Settings: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<'idle' | 'success' | 'error'>('idle');
 
+  // --- Backup & Restore Logic ---
   const handleBackup = () => {
     const data: Record<string, any> = {};
     const keysToBackup = [
@@ -51,6 +52,8 @@ const Settings: React.FC = () => {
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
+        
+        // Restore items
         Object.keys(data).forEach(key => {
           if (typeof data[key] === 'object') {
             localStorage.setItem(key, JSON.stringify(data[key]));
@@ -58,6 +61,7 @@ const Settings: React.FC = () => {
             localStorage.setItem(key, String(data[key]));
           }
         });
+
         alert('復元が完了しました。変更を反映するためにページを再読み込みします。');
         window.location.reload();
       } catch (err) {
@@ -105,6 +109,7 @@ const Settings: React.FC = () => {
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">設定</h2>
 
+      {/* Privacy Notice */}
       <div className="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-800 flex items-start gap-4">
          <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-lg text-emerald-600 dark:text-emerald-300 shrink-0">
             <Shield size={24} />
@@ -112,12 +117,13 @@ const Settings: React.FC = () => {
          <div>
             <h3 className="font-bold text-emerald-800 dark:text-emerald-400 mb-1">安全な設計</h3>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
-               当サイトのデータ管理はサーバーレスで動作しており、各アプリで入力されたデータがサーバーに送信・保存されることは一切ありません。<br/>
+               当サイトのデータ管理はサーバーレスで動作しており、各アプリで入力されたデータ（テキスト/画像等ファイルの種類を問わず）がサーバーに送信・保存されることは一切ありません。<br/>
                すべての処理はお使いのブラウザ内（ローカル）で完結しています。
             </p>
          </div>
       </div>
 
+      {/* App Settings */}
       <div className="bg-white dark:bg-dark-lighter p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <Monitor size={20} className="text-purple-500" />
@@ -128,7 +134,7 @@ const Settings: React.FC = () => {
            <div>
              <p className="font-bold text-gray-800 dark:text-gray-200">広告を表示する</p>
              <p className="text-xs text-gray-500">
-               サービスの維持にご協力ください。
+               {showAds ? 'サービスの維持にご協力ください' : '｡ﾟﾟ(*´□`*｡)°ﾟ。'}
              </p>
            </div>
            <button 
@@ -140,6 +146,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* Data Management */}
       <div className="bg-white dark:bg-dark-lighter p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
           <Database size={20} className="text-blue-500" />
@@ -147,7 +154,7 @@ const Settings: React.FC = () => {
          </h3>
          
          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-transparent dark:border-gray-700">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
                <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-gray-700 dark:text-gray-200">バックアップを作成</span>
                   <Database size={16} className="text-gray-400" />
@@ -163,7 +170,7 @@ const Settings: React.FC = () => {
                </button>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-transparent dark:border-gray-700">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
                <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-gray-700 dark:text-gray-200">データを復元</span>
                   <AlertCircle size={16} className="text-orange-400" />
@@ -188,11 +195,12 @@ const Settings: React.FC = () => {
          </div>
       </div>
 
+      {/* Contact Admin */}
       <div className="bg-white dark:bg-dark-lighter p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-         <div className="flex items-center gap-2 mb-4">
-            <Mail size={20} className="text-pink-500 dark:text-pink-400" />
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">管理者へ連絡</h3>
-         </div>
+         <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Mail size={20} className="text-pink-500 dark:text-pink-300" />
+            管理者へ連絡
+         </h3>
          <p className="text-xs text-gray-500 mb-6">
             バグ報告や機能要望など、管理者へメッセージを送信できます。<br/>
             ※返信が必要な場合はメールアドレス等を記入してください。
@@ -213,7 +221,7 @@ const Settings: React.FC = () => {
                         type="text" 
                         value={msgName}
                         onChange={(e) => setMsgName(e.target.value)}
-                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-pink-500/30 dark:text-white"
+                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
                      />
                   </div>
                   <div>
@@ -223,7 +231,7 @@ const Settings: React.FC = () => {
                         value={msgContact}
                         onChange={(e) => setMsgContact(e.target.value)}
                         placeholder="Email / Twitter等"
-                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-pink-500/30 dark:text-white"
+                        className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
                      />
                   </div>
                </div>
@@ -233,7 +241,7 @@ const Settings: React.FC = () => {
                      value={msgBody}
                      onChange={(e) => setMsgBody(e.target.value)}
                      required
-                     className="w-full p-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm h-32 resize-none outline-none focus:ring-2 focus:ring-pink-500/30 dark:text-white"
+                     className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm h-32 resize-none"
                      placeholder="ここに内容を入力してください..."
                   />
                </div>
@@ -247,22 +255,16 @@ const Settings: React.FC = () => {
                <button 
                   type="submit" 
                   disabled={isSending || !msgBody}
-                  className="w-full py-4 font-bold rounded-xl transition-all flex items-center justify-center gap-2 border-2 
-                             bg-pink-500 border-pink-500 text-white shadow-lg shadow-pink-100 dark:shadow-none
-                             dark:bg-pink-400 dark:border-pink-400 dark:text-white
-                             hover:bg-pink-600 hover:border-pink-600 dark:hover:bg-pink-500 dark:hover:border-pink-500
-                             disabled:bg-transparent disabled:border-pink-500/20 disabled:text-pink-500/40 disabled:shadow-none
-                             dark:disabled:bg-pink-400/5 dark:disabled:border-pink-400/30 dark:disabled:text-pink-400/60 dark:disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-pink-600 dark:bg-pink-400 hover:bg-pink-700 dark:hover:bg-pink-300 text-white font-bold rounded-xl transition-colors shadow-lg shadow-pink-200 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
                >
-                  {isSending ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />} 
-                  <span>送信する</span>
+                  {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} 送信する
                </button>
             </form>
          )}
       </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.5.2
+         Version 2.3.7
       </div>
     </div>
   );

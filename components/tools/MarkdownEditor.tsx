@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
-import { FileType, Eye, Info, ShieldCheck, Zap } from 'lucide-react';
+import { FileType, Eye } from 'lucide-react';
 
 const MarkdownEditor: React.FC = () => {
   const [markdown, setMarkdown] = useState<string>('# Hello Markdown\n\n- Write markdown on the left\n- See preview on the right\n\n```javascript\nconsole.log("Hello");\n```');
 
-  // Simple parser for demo
+  // Simple parser for demo (replace with a real library like react-markdown in production)
   const parseMarkdown = (text: string) => {
     return text
       .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mb-4 border-b pb-2">$1</h1>')
@@ -20,8 +19,8 @@ const MarkdownEditor: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 pb-20">
-      <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-[500px]">
+    <div className="max-w-6xl mx-auto space-y-6 h-[calc(100vh-140px)] flex flex-col">
+      <div className="bg-white dark:bg-dark-lighter rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex-1 flex flex-col">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2 shrink-0">
           <FileType className="text-slate-700 dark:text-slate-300" />
           Markdownエディタ
@@ -29,7 +28,7 @@ const MarkdownEditor: React.FC = () => {
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
            <div className="flex flex-col h-full">
-              <label className="font-bold text-gray-700 dark:text-gray-300 mb-2 block text-xs">Markdown Input</label>
+              <label className="font-bold text-gray-700 dark:text-gray-300 mb-2 block">Markdown</label>
               <textarea 
                 value={markdown}
                 onChange={(e) => setMarkdown(e.target.value)}
@@ -38,8 +37,8 @@ const MarkdownEditor: React.FC = () => {
            </div>
 
            <div className="flex flex-col h-full">
-              <label className="font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2 text-xs">
-                 <Eye size={16} /> Live Preview
+              <label className="font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                 <Eye size={16} /> プレビュー
               </label>
               <div 
                  className="flex-1 w-full p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark text-gray-800 dark:text-gray-200 overflow-y-auto prose dark:prose-invert max-w-none"
@@ -48,20 +47,6 @@ const MarkdownEditor: React.FC = () => {
            </div>
         </div>
       </div>
-
-      <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
-         <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />Markdown（マークダウン）エディタの魅力</h2>
-         <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-            <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-slate-700" />執筆をより効率的に、美しく</h3>
-               <p>Markdownは、プレーンテキストだけで構造化された文書を書くための軽量マークアップ言語です。HTMLタグを意識することなく、記号を使って見出し、箇条書き、リンクなどを素早く記述できます。当エディタはライブプレビュー機能を備えているため、完成イメージを確認しながら快適に執筆活動が行えます。</p>
-            </div>
-            <div>
-               <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-slate-700" />エンジニアからライターまで</h3>
-               <p>GitHub、Notion、各種ブログサービスなど、現代のWebライティング環境においてMarkdownは標準となっています。当ツールはブラウザ上で動作するため、外出先やログインできない環境でも即座に下書きを作成し、プレビューで確認することが可能です。入力データはローカルで処理されるため、機密情報の下書きにも適しています。</p>
-            </div>
-         </div>
-      </article>
     </div>
   );
 };
