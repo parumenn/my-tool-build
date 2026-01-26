@@ -30,6 +30,7 @@ interface AdminConfig {
 }
 
 const ADMIN_PATH = '/secure-panel-7x9v2';
+const SERVER_POS: [number, number] = [35.6895, 139.6917]; // サーバー位置（東京）
 
 // LeafletをCDNから動的に読み込む
 const loadLeaflet = (): Promise<any> => {
@@ -65,6 +66,7 @@ const AdminPage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const mapMarkersRef = useRef<any[]>([]);
+  const mapLinesRef = useRef<any[]>([]); // Lines Ref
   const [geoData, setGeoData] = useState<Record<string, { lat: number, lon: number, city: string, country: string }>>({});
 
   // ログフィルター
@@ -97,60 +99,110 @@ const AdminPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Map Render Logic
-  const renderMap = async () => {
-    if (!mapContainerRef.current || activeTab !== 'dashboard') return;
+  useEffect(() => {
+    let isMounted = true;
+
+    const initMap = async () => {
+      if (activeTab !== 'dashboard' || !mapContainerRef.current) return;
+
+      const L = await loadLeaflet();
+      
+      // Initialize Map if not exists
+      if (!mapInstanceRef.current && mapContainerRef.current) {
+          const map = L.map(mapContainerRef.current, {
+              scrollWheelZoom: false,
+              attributionControl: false
+          }).setView([25, 0], 2);
+          
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+          
+          // Server Location Marker (Tokyo)
+          const serverIcon = L.divIcon({
+              className: 'server-icon',
+              html: `<div style="background-color: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 15px #ef4444;"></div>`,
+              iconSize: [14, 14], iconAnchor: [7, 7]
+          });
+          L.marker(SERVER_POS, { icon: serverIcon, zIndexOffset: 1000 }).addTo(map).bindPopup('<div class="font-bold text-center">OMNITOOLS SERVER<br><span class="text-xs text-gray-400">Tokyo, JP</span></div>');
+
+          mapInstanceRef.current = map;
+      }
+      
+      if (isMounted) updateMapData();
+    };
+
+    initMap();
+
+    // Cleanup on tab switch
+    return () => {
+      isMounted = false;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        mapMarkersRef.current = [];
+        mapLinesRef.current = [];
+      }
+    };
+  }, [activeTab]);
+
+  // Update Map Elements
+  const updateMapData = async () => {
     const L = await loadLeaflet();
-    
-    if (!mapInstanceRef.current) {
-        mapInstanceRef.current = L.map(mapContainerRef.current, {
-            scrollWheelZoom: false,
-            attributionControl: false
-        }).setView([20, 0], 2);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mapInstanceRef.current);
-    }
+    if (!mapInstanceRef.current || !L) return;
 
-    // 最新20件のユニークIPを抽出
-    const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 20);
-    
-    // Clear old markers
+    // Clear existing
     mapMarkersRef.current.forEach(m => m.remove());
+    mapLinesRef.current.forEach(l => l.remove());
     mapMarkersRef.current = [];
+    mapLinesRef.current = [];
 
-    // Fetch and plot
+    const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 30);
+
     for (const ip of uniqueIps) {
         if (ip.startsWith('192.168.') || ip.startsWith('127.') || ip.startsWith('10.')) continue;
         
-        // Cache check
         let data = geoData[ip];
         if (!data) {
-            try {
-                const res = await fetch(`https://ipwho.is/${ip}`);
-                const json = await res.json();
-                if (json.success) {
-                    data = { lat: json.latitude, lon: json.longitude, city: json.city, country: json.country_code };
-                    setGeoData(prev => ({...prev, [ip]: data}));
-                }
-            } catch(e) {}
+            // Fetch if missing
+            fetch(`https://ipwho.is/${ip}`)
+                .then(res => res.json())
+                .then(json => {
+                    if (json.success) {
+                        setGeoData(prev => ({...prev, [ip]: { lat: json.latitude, lon: json.longitude, city: json.city, country: json.country_code }}));
+                    }
+                })
+                .catch(() => {});
+            continue;
         }
 
         if (data) {
+            // Marker
             const icon = L.divIcon({
                 className: 'custom-div-icon',
-                html: `<div style="background-color: #3b82f6; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #3b82f6;"></div>`,
-                iconSize: [10, 10], iconAnchor: [5, 5]
+                html: `<div style="background-color: #3b82f6; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; box-shadow: 0 0 8px #3b82f6;"></div>`,
+                iconSize: [8, 8], iconAnchor: [4, 4]
             });
             const marker = L.marker([data.lat, data.lon], { icon }).addTo(mapInstanceRef.current);
             marker.bindPopup(`<b>${ip}</b><br>${data.city}, ${data.country}`);
             mapMarkersRef.current.push(marker);
+
+            // Access Line (Animated)
+            const latlngs = [[data.lat, data.lon], SERVER_POS];
+            const polyline = L.polyline(latlngs, { 
+                color: '#3b82f6', 
+                weight: 1, 
+                opacity: 0.4,
+                className: 'access-line'
+            }).addTo(mapInstanceRef.current);
+            mapLinesRef.current.push(polyline);
         }
     }
   };
 
   useEffect(() => {
-      if (activeTab === 'dashboard' && stats.recent_logs.length > 0) {
-          renderMap();
+      if (activeTab === 'dashboard' && mapInstanceRef.current) {
+          updateMapData();
       }
-  }, [stats.recent_logs, activeTab]);
+  }, [stats.recent_logs, geoData]); // Removed activeTab dependency here to avoid double-firing
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
@@ -361,7 +413,18 @@ const AdminPage: React.FC = () => {
                     <p className="text-[10px] text-gray-400 font-bold">直近のアクセス元を表示</p>
                  </div>
                  <div ref={mapContainerRef} className="w-full h-[350px] bg-[#0a1128] z-0"></div>
-                 <style>{`.leaflet-container { background: #0a1128 !important; } .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); color: white; border-radius: 8px; font-size: 10px; } .leaflet-popup-tip { background: rgba(15, 23, 42, 0.9); }`}</style>
+                 <style>{`
+                    .leaflet-container { background: #0a1128 !important; } 
+                    .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); color: white; border-radius: 8px; font-size: 10px; } 
+                    .leaflet-popup-tip { background: rgba(15, 23, 42, 0.9); }
+                    @keyframes dash {
+                      to { stroke-dashoffset: -20; }
+                    }
+                    .access-line {
+                      stroke-dasharray: 5, 10;
+                      animation: dash 1s linear infinite;
+                    }
+                 `}</style>
               </div>
 
               {/* Server Resources Monitoring */}
