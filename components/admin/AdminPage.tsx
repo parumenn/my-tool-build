@@ -62,12 +62,13 @@ const AdminPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Map
+  // Map States
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const mapMarkersRef = useRef<any[]>([]);
   const mapLinesRef = useRef<any[]>([]);
   const [geoData, setGeoData] = useState<Record<string, { lat: number, lon: number, city: string, country: string }>>({});
+  const fetchedIps = useRef<Set<string>>(new Set()); // 二重リクエスト防止用
 
   // ログフィルター
   const [logFilterIp, setLogFilterIp] = useState('');
@@ -98,22 +99,23 @@ const AdminPage: React.FC = () => {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Map Initialization Logic (Revised)
+  // --- Map Logic Start ---
+
+  // 1. Map Initialization
   useEffect(() => {
     let isMounted = true;
 
     const initMap = async () => {
-      // ダッシュボードでない場合、またはコンテナがない場合は何もしない
-      if (activeTab !== 'dashboard') return;
+      if (activeTab !== 'dashboard' || !mapContainerRef.current) return;
 
       const L = await loadLeaflet();
       if (!isMounted) return;
 
-      // DOMレンダリング待ち (コンテナサイズ0対策)
+      // DOMレンダリング待ち
       await new Promise(resolve => setTimeout(resolve, 100));
       if (!mapContainerRef.current) return;
 
-      // 既存のマップインスタンスがあれば完全に破棄する (タブ切り替え対策)
+      // 既存のマップインスタンスがあれば再利用せず破棄して作り直す（安全のため）
       if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
@@ -122,12 +124,12 @@ const AdminPage: React.FC = () => {
       }
       
       try {
-          // Initialize Map
+          // Initialize Map with Zoom Enabled
           const map = L.map(mapContainerRef.current, {
-              scrollWheelZoom: false,
+              scrollWheelZoom: true, // 拡大縮小を許可
               attributionControl: false,
-              zoomControl: false 
-          }).setView([25, 0], 2);
+              zoomControl: true // コントロールを表示
+          }).setView([36, 138], 5); // 日本全体が見える位置
           
           L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
           
@@ -140,9 +142,6 @@ const AdminPage: React.FC = () => {
           L.marker(SERVER_POS, { icon: serverIcon, zIndexOffset: 1000 }).addTo(map).bindPopup('<div class="font-bold text-center">OMNITOOLS SERVER<br><span class="text-xs text-gray-400">Tokyo, JP</span></div>');
 
           mapInstanceRef.current = map;
-          
-          // 初期化直後にデータを描画
-          updateMapMarkers();
       } catch (e) {
           console.error("Map init failed", e);
       }
@@ -150,7 +149,6 @@ const AdminPage: React.FC = () => {
 
     initMap();
 
-    // Cleanup: タブが切り替わる時、マップインスタンスを破棄する
     return () => {
       isMounted = false;
       if (mapInstanceRef.current) {
@@ -162,66 +160,87 @@ const AdminPage: React.FC = () => {
     };
   }, [activeTab]);
 
-  // データ更新時にマーカーのみ更新
+  // 2. Fetch Geo Data Logic (Separate from rendering)
   useEffect(() => {
-      if (activeTab === 'dashboard' && mapInstanceRef.current) {
-          updateMapMarkers();
-      }
-  }, [stats.recent_logs, geoData]); 
+    if (!stats.recent_logs.length) return;
 
-  // Update Map Markers Logic
-  const updateMapMarkers = async () => {
-    const L = await loadLeaflet();
-    if (!mapInstanceRef.current || !L) return;
-
-    // Clear existing dynamic markers/lines
-    mapMarkersRef.current.forEach(m => m.remove());
-    mapLinesRef.current.forEach(l => l.remove());
-    mapMarkersRef.current = [];
-    mapLinesRef.current = [];
-
+    // 最新30件のIPを抽出
     const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 30);
 
-    for (const ip of uniqueIps) {
-        if (ip.startsWith('192.168.') || ip.startsWith('127.') || ip.startsWith('10.')) continue;
+    uniqueIps.forEach(ip => {
+      // ローカルIPなどは除外
+      if (ip.startsWith('192.168.') || ip.startsWith('127.') || ip.startsWith('10.') || ip === '::1') return;
+
+      // まだデータがなく、かつフェッチ中でもない場合のみ取得
+      if (!geoData[ip] && !fetchedIps.current.has(ip)) {
+        fetchedIps.current.add(ip); // フェッチ開始マーク
         
-        let data = geoData[ip];
-        if (!data) {
-            // Fetch if missing
-            fetch(`https://ipwho.is/${ip}`)
-                .then(res => res.json())
-                .then(json => {
-                    if (json.success) {
-                        setGeoData(prev => ({...prev, [ip]: { lat: json.latitude, lon: json.longitude, city: json.city, country: json.country_code }}));
-                    }
-                })
-                .catch(() => {});
-            continue;
-        }
-
-        if (data) {
-            // Marker
-            const icon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div style="background-color: #3b82f6; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; box-shadow: 0 0 8px #3b82f6;"></div>`,
-                iconSize: [8, 8], iconAnchor: [4, 4]
+        // 少し遅延させてAPI制限を回避
+        setTimeout(() => {
+          fetch(`https://ipwho.is/${ip}`)
+            .then(res => res.json())
+            .then(json => {
+                if (json.success) {
+                    setGeoData(prev => ({
+                        ...prev, 
+                        [ip]: { lat: json.latitude, lon: json.longitude, city: json.city, country: json.country_code }
+                    }));
+                }
+            })
+            .catch(() => {
+               // エラー時は何もしない（fetchedIpsには入っているので再試行しない）
             });
-            const marker = L.marker([data.lat, data.lon], { icon }).addTo(mapInstanceRef.current);
-            marker.bindPopup(`<b>${ip}</b><br>${data.city}, ${data.country}`);
-            mapMarkersRef.current.push(marker);
+        }, Math.random() * 2000);
+      }
+    });
+  }, [stats.recent_logs]); // ログが更新されるたびにチェック
 
-            // Access Line (Animated)
-            const latlngs = [[data.lat, data.lon], SERVER_POS];
-            const polyline = L.polyline(latlngs, { 
-                color: '#3b82f6', 
-                weight: 1, 
-                opacity: 0.4,
-                className: 'access-line' // CSS class defines animation
-            }).addTo(mapInstanceRef.current);
-            mapLinesRef.current.push(polyline);
+  // 3. Render Markers Logic (Reactive to geoData changes)
+  useEffect(() => {
+    const updateMarkers = async () => {
+        const L = await loadLeaflet();
+        if (!mapInstanceRef.current || !L) return;
+
+        // Clear existing dynamic markers/lines
+        mapMarkersRef.current.forEach(m => m.remove());
+        mapLinesRef.current.forEach(l => l.remove());
+        mapMarkersRef.current = [];
+        mapLinesRef.current = [];
+
+        const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 30);
+
+        for (const ip of uniqueIps) {
+            const data = geoData[ip];
+            if (data) {
+                // Marker
+                const icon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color: #3b82f6; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; box-shadow: 0 0 8px #3b82f6;"></div>`,
+                    iconSize: [8, 8], iconAnchor: [4, 4]
+                });
+                const marker = L.marker([data.lat, data.lon], { icon }).addTo(mapInstanceRef.current);
+                marker.bindPopup(`<b>${ip}</b><br>${data.city}, ${data.country}`);
+                mapMarkersRef.current.push(marker);
+
+                // Access Line (Animated)
+                const latlngs = [[data.lat, data.lon], SERVER_POS];
+                const polyline = L.polyline(latlngs, { 
+                    color: '#3b82f6', 
+                    weight: 1, 
+                    opacity: 0.4,
+                    className: 'access-line'
+                }).addTo(mapInstanceRef.current);
+                mapLinesRef.current.push(polyline);
+            }
         }
+    };
+
+    if (activeTab === 'dashboard') {
+        updateMarkers();
     }
-  };
+  }, [geoData, stats.recent_logs, activeTab]); // geoDataが更新されたら再描画される
+
+  // --- Map Logic End ---
 
   const chartData = useMemo(() => {
     const hours: Record<string, number> = {};
@@ -281,7 +300,6 @@ const AdminPage: React.FC = () => {
             setIsDirty(false);
         }
       } else if (res.status === 403) {
-          // Token expired or invalid
           logout();
       }
     } catch (e) { 
@@ -444,6 +462,11 @@ const AdminPage: React.FC = () => {
                     .leaflet-container { background: #0a1128 !important; } 
                     .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); color: white; border-radius: 8px; font-size: 10px; } 
                     .leaflet-popup-tip { background: rgba(15, 23, 42, 0.9); }
+                    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+                      background-color: rgba(15, 23, 42, 0.8) !important;
+                      color: white !important;
+                      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                    }
                     @keyframes dash {
                       to { stroke-dashoffset: -20; }
                     }
