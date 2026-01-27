@@ -87,18 +87,6 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         )}
       </div>
 
-
-      <script>
-  atOptions = {
-    'key' : '93250590c6cc4fa213dc408950ac67ef',
-    'format' : 'iframe',
-    'height' : 300,
-    'width' : 160,
-    'params' : {}
-  };
-</script>
-<script src="https://www.highperformanceformat.com/93250590c6cc4fa213dc408950ac67ef/invoke.js"></script>
-
       <div className="pt-4 mt-auto space-y-1 border-t border-gray-100 dark:border-gray-800">
         <p className="px-4 py-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
           いんふぉ
