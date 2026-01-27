@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
 import { LayoutGrid, Plus, Settings, Info, Shield, FileText } from 'lucide-react';
+import AdBanner2 from './AdBanner2';
 
 interface SidebarContentProps {
   addedToolIds: string[];
@@ -86,7 +87,8 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
           ))
         )}
       </div>
-
+      
+      <AdBanner2 />
       <div className="pt-4 mt-auto space-y-1 border-t border-gray-100 dark:border-gray-800">
         <p className="px-4 py-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
           いんふぉ
@@ -106,6 +108,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
           <span>設定</span>
         </NavLink>
       </div>
+      <AdBanner2 />
     </nav>
   );
 };

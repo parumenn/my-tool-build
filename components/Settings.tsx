@@ -129,7 +129,7 @@ const Settings: React.FC = () => {
            <div>
              <p className="font-bold text-gray-800 dark:text-gray-200">広告を表示する</p>
              <p className="text-xs text-gray-500">
-               サービスの維持にご協力ください。
+               サーバー代の維持にご協力ください。（無料でオフにできるようにしています...）
              </p>
            </div>
            <button 
