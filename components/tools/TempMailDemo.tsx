@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, RefreshCw, AlertTriangle, Copy, Trash2, Inbox, Info, ShieldCheck, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const TempMailDemo: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -138,6 +139,7 @@ const TempMailDemo: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

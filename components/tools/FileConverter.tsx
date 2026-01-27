@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Upload, FileText, Copy, Check, Download, ArrowRight, AlertTriangle, Info, ShieldCheck, Code } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const FileConverter: React.FC = () => {
   const [mode, setMode] = useState<'encode' | 'decode'>('encode');
@@ -129,6 +130,7 @@ const FileConverter: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

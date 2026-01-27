@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Activity, Play, RotateCcw, ArrowDown, ArrowUp, Wifi, Info, ShieldCheck, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const SpeedTest: React.FC = () => {
   const [phase, setPhase] = useState<'idle' | 'download' | 'upload' | 'done'>('idle');
@@ -110,6 +111,7 @@ const SpeedTest: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

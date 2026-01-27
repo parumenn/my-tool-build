@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, Download, Upload, Trash2, AlertTriangle, Info, ShieldCheck, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const ImageResizer: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -150,6 +151,7 @@ const ImageResizer: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

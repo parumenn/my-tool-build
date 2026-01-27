@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Download, Link as LinkIcon, RefreshCw, Info, ShieldCheck, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const QRCodeGenerator: React.FC = () => {
   const [url, setUrl] = useState<string>('');
@@ -127,6 +128,7 @@ const QRCodeGenerator: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

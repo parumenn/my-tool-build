@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
 import { ArrowRight, Plus, Check, ShieldCheck, Search, Info, Zap, Smartphone, Globe } from 'lucide-react';
+import AdBanner from './AdBanner';
 
 interface DashboardProps {
   addedToolIds: string[];
@@ -155,6 +156,8 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
             </div>
           </div>
         </section>
+        
+        <AdBanner />
       </div>
     </div>
   );

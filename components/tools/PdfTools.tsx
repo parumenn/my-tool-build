@@ -3,6 +3,7 @@ import React, { useState, useRef, useContext } from 'react';
 import { FileText, Combine, Lock, RotateCw, Trash2, Download, Upload, Info, ShieldCheck, Zap, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { PDFDocument, degrees } from 'pdf-lib';
 import { WorkspaceContext } from '../WorkspaceContext';
+import AdBanner from '../AdBanner';
 
 const PdfTools: React.FC = () => {
   const isWorkspace = useContext(WorkspaceContext);
@@ -286,6 +287,7 @@ const PdfTools: React.FC = () => {
             </div>
          </article>
        )}
+       {!isWorkspace && <AdBanner />}
     </div>
   );
 };

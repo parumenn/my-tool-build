@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { KeyRound, RefreshCw, Copy, Check, History, Trash2, ToggleRight, ToggleLeft, Info, ShieldCheck, Lock } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const XOR_KEY = "maitool_secure_key";
 const encrypt = (text: string) => {
@@ -123,6 +124,7 @@ const PasswordGenerator: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Wallet, PieChart, Plus, Trash2, TrendingUp, Calendar as CalendarIcon, Target, CreditCard, ChevronLeft, ChevronRight, RefreshCwOff, Info, ShieldCheck, Database } from 'lucide-react';
 import { PieChart as RePie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { WorkspaceContext } from '../WorkspaceContext';
+import AdBanner from '../AdBanner';
 
 type TransactionType = 'income' | 'expense';
 interface Transaction {
@@ -262,6 +263,7 @@ const Kakeibo: React.FC = () => {
           </div>
         </div>
       )}
+      {!isWorkspace && <AdBanner />}
     </div>
   );
 };

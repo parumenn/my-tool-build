@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Binary, ArrowRightLeft, Info, ShieldCheck, Cpu } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const BinaryConverter: React.FC = () => {
   const [decimal, setDecimal] = useState<string>('');
@@ -74,6 +75,7 @@ const BinaryConverter: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

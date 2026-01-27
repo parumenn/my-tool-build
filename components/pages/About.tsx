@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Info } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const About: React.FC = () => {
   return (
@@ -51,6 +52,7 @@ const About: React.FC = () => {
           </p>
         </div>
       </div>
+      <AdBanner />
     </div>
   );
 };

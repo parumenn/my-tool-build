@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Shield, Cookie, Eye } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const Privacy: React.FC = () => {
   return (
@@ -55,6 +56,7 @@ const Privacy: React.FC = () => {
           </p>
         </div>
       </div>
+      <AdBanner />
     </div>
   );
 };

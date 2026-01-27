@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Network, Globe, Smartphone, RefreshCw, Server, Wifi, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Info, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const IpChecker: React.FC = () => {
   const [ipv4, setIpv4] = useState<string | null>(null);
@@ -148,6 +149,7 @@ const IpChecker: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

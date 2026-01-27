@@ -1,21 +1,30 @@
 
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../App';
 
 const AdBanner: React.FC = () => {
-  // Use showAds instead of adBlockDetected as it's defined in AppContext
   const { showAds } = useContext(AppContext);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
-  // Hide the banner if showAds is false
+  useEffect(() => {
+    if (!bannerRef.current) return;
+    
+    // 既存の内容をクリア（再レンダリング時の重複防止）
+    bannerRef.current.innerHTML = '';
+
+    if (showAds) {
+        const script = document.createElement('script');
+        script.src = "https://pl28582910.effectivegatecpm.com/89/fc/5c/89fc5cacadf6c388bb77821ea21332fa.js";
+        script.async = true;
+        bannerRef.current.appendChild(script);
+    }
+  }, [showAds]);
+
   if (!showAds) return null;
 
   return (
-    <div className="w-full flex justify-center my-8 bg-gray-50 dark:bg-dark-lighter/50 rounded-lg overflow-hidden border border-dashed border-gray-200 dark:border-gray-700 min-h-[100px] items-center text-xs text-gray-400">
-      <div className="text-center w-full">
-         <span className="block mb-2 text-[10px] uppercase tracking-wider">Advertisement</span>
-         {/* The Moneytizerなどの新しい広告タグをここに配置 */}
-         <div id="moneytizer-ad-placeholder"></div>
-      </div>
+    <div className="w-full flex justify-center my-8 min-h-[100px] items-center overflow-hidden">
+      <div ref={bannerRef} className="text-center w-full"></div>
     </div>
   );
 };

@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { AlignLeft, X, Upload, FileText, Trash2, Download, ToggleLeft, ToggleRight, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import AdBanner from '../AdBanner';
 
 interface FileStat {
   id: string;
@@ -296,6 +297,7 @@ const CharacterCounter: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

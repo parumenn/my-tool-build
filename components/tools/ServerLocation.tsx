@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Globe, Search, MapPin, Server, Building, Wifi, AlertTriangle, Route, Activity, Info, ShieldCheck, Database, Loader2, RefreshCw, Cpu, Move, ArrowRight, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 // LeafletをCDNから動的に読み込むためのヘルパー
 const loadLeaflet = (): Promise<any> => {
@@ -386,6 +387,7 @@ const ServerLocation: React.FC = () => {
           backdrop-filter: blur(4px);
         }
       `}</style>
+      <AdBanner />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Scale, AlertTriangle, FileText } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const Terms: React.FC = () => {
   return (
@@ -50,6 +51,7 @@ const Terms: React.FC = () => {
           </p>
         </div>
       </div>
+      <AdBanner />
     </div>
   );
 };

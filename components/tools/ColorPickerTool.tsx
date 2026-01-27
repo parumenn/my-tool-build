@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Pipette, Copy, Check, Upload, Image as ImageIcon, Sliders, Palette, ChevronRight, Info, ShieldCheck, Zap } from 'lucide-react';
+import AdBanner from '../AdBanner';
 
 const ColorPickerTool: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'manual' | 'image'>('manual');
@@ -140,7 +141,7 @@ const ColorPickerTool: React.FC = () => {
                 >
                    <input type="color" value={hex} onChange={(e) => handleHexChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/5 text-white font-black text-xs md:text-sm uppercase tracking-widest">
-                      Tap to select
+                      パレットから選択
                    </div>
                 </div>
 
@@ -192,7 +193,7 @@ const ColorPickerTool: React.FC = () => {
                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                  <div className="flex flex-col items-center justify-center gap-4">
                     <div className="p-6 bg-pink-100 dark:bg-pink-900/30 text-pink-500 rounded-full group-hover:scale-110 transition-transform"><ImageIcon size={40} /></div>
-                    <div><p className="text-lg font-black text-gray-700 dark:text-gray-200">画像をアップロード</p><p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Click or Drag & Drop</p></div>
+                    <div><p className="text-lg font-black text-gray-700 dark:text-gray-200">画像をアップロード</p><p className="text-xs text-gray-400 uppercase tracking-widest mt-1">クリックまたはドラッグ＆ドロップ</p></div>
                  </div>
                </label>
              ) : (
@@ -243,6 +244,7 @@ const ColorPickerTool: React.FC = () => {
             </div>
          </div>
       </article>
+      <AdBanner />
     </div>
   );
 };

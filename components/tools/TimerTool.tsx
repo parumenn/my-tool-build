@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Timer, Play, Pause, RotateCcw, Flag, Coffee, Briefcase, Watch, BellOff, Info, ShieldCheck, Zap } from 'lucide-react';
 import { WorkspaceContext } from '../WorkspaceContext';
+import AdBanner from '../AdBanner';
 
 type Mode = 'timer' | 'stopwatch' | 'pomodoro';
 
@@ -84,6 +85,7 @@ const TimerTool: React.FC = () => {
            </div>
         </article>
       )}
+      {!isWorkspace && <AdBanner />}
     </div>
   );
 };

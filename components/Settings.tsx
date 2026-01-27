@@ -2,6 +2,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { AppContext } from '../App';
 import { Monitor, Shield, Database, Download, Upload, AlertCircle, Mail, Send, Loader2, CheckCircle2 } from 'lucide-react';
+import AdBanner from './AdBanner';
 
 const Settings: React.FC = () => {
   const { showAds, setShowAds } = useContext(AppContext);
@@ -264,6 +265,7 @@ const Settings: React.FC = () => {
       <div className="text-center text-xs text-gray-400">
          Version 2.5.2
       </div>
+      <AdBanner />
     </div>
   );
 };
