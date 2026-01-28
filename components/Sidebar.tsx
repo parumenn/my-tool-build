@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
 import { LayoutGrid, Plus, Settings, Info, Shield, FileText } from 'lucide-react';
-import AdBanner2 from './AdBanner2';
+import { AdBanner2, AdBanner3 } from './AdBanner2';
 
 interface SidebarContentProps {
   addedToolIds: string[];
@@ -50,6 +50,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         <span>ダッシュボード</span>
       </NavLink>
 
+      <AdBanner2 />
       <div className="border-b border-gray-100 dark:border-gray-800 my-3"></div>
 
       <div className="pt-2 pb-2 px-4 flex items-center justify-between">
