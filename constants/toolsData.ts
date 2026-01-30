@@ -6,12 +6,13 @@ import {
   FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
   Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
   BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
-  Pipette, Bath
+  Pipette, Bath, Share2
 } from 'lucide-react';
 import { Tool } from '../types';
 
 export const TOOLS: Tool[] = [
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50' },
+  { id: 'share', name: 'テキスト共有', path: '/share', description: '期限付きURLでテキストを共有', icon: Share2, color: 'text-emerald-500', lightBg: 'bg-emerald-50' },
   { id: 'count', name: '文字数カウンター', path: '/count', description: 'リアルタイムで文字数・行数をカウント', icon: AlignLeft, color: 'text-green-500', lightBg: 'bg-green-50' },
   { id: 'bath', name: '風呂キャン防止ツール', path: '/bath', description: '5秒で強制的に風呂へ向かわせる', icon: Bath, color: 'text-cyan-500', lightBg: 'bg-cyan-50' },
   { id: 'picker', name: 'カラーピッカー', path: '/picker', description: 'RGB/HSL/CMYK変換・画像から抽出', icon: Pipette, color: 'text-pink-600', lightBg: 'bg-pink-50' },

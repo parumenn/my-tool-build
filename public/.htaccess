@@ -6,6 +6,10 @@
   # index.php を優先的に処理
   DirectoryIndex index.php
 
+  # /blog ディレクトリ以下はSPAのリライト対象から完全に除外する
+  RewriteCond %{REQUEST_URI} ^/blog [NC]
+  RewriteRule ^ - [L]
+
   # index.html への直接アクセスを index.php に内部リライト
   RewriteRule ^index\.html$ index.php [L]
 
@@ -14,7 +18,7 @@
   RewriteCond %{REQUEST_FILENAME} !index\.html
   RewriteRule ^ - [L]
 
-  # 存在するディレクトリは直接配信
+  # 存在するディレクトリは直接配信（ここで /blog も通常はカバーされます）
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   
@@ -66,6 +70,4 @@
 # --- セキュリティとパフォーマンス向上のヒント ---
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
-  # HSTS (HTTPS強制 - 環境に応じて有効化)
-  # Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 </IfModule>

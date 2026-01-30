@@ -56,6 +56,7 @@ const ExifRemover = lazy(() => import('./components/tools/ExifRemover'));
 const TextDiff = lazy(() => import('./components/tools/TextDiff'));
 const TimestampConverter = lazy(() => import('./components/tools/TimestampConverter'));
 const BathProcrastinationPreventer = lazy(() => import('./components/tools/BathProcrastinationPreventer'));
+const TextShare = lazy(() => import('./components/tools/TextShare'));
 
 export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
 
@@ -352,6 +353,7 @@ const Layout: React.FC = () => {
                   <Route path="/diff" element={<TextDiff />} />
                   <Route path="/timestamp" element={<TimestampConverter />} />
                   <Route path="/bath" element={<BathProcrastinationPreventer />} />
+                  <Route path="/share" element={<TextShare />} />
                 </Routes>
               </Suspense>
             </div>

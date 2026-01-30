@@ -18,6 +18,7 @@ import { TOOLS } from '../../constants/toolsData';
 interface Message { id: string; timestamp: string; ip: string; name: string; contact: string; message: string; }
 interface AccessLog { timestamp: number; date: string; ip: string; path: string; ua: string; status?: number; duration?: number; }
 interface DosPattern { count: number; seconds: number; block_minutes: number; }
+interface BlockedIpInfo { reason?: string; expiry: number; }
 interface ServerResources {
   cpu: number;
   mem: { total: number; used: number; percent: number; };
@@ -58,7 +59,7 @@ const AdminPage: React.FC = () => {
   const [stats, setStats] = useState<{total_pv: number, today_pv: number, recent_logs: AccessLog[]}>({ total_pv: 0, today_pv: 0, recent_logs: [] });
   const [serverResources, setServerResources] = useState<ServerResources | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [blockedIps, setBlockedIps] = useState<Record<string, any>>({});
+  const [blockedIps, setBlockedIps] = useState<Record<string, BlockedIpInfo>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -168,7 +169,7 @@ const AdminPage: React.FC = () => {
     if (!stats.recent_logs.length) return;
 
     // 最新30件のIPを抽出
-    const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 30);
+    const uniqueIps = Array.from(new Set(stats.recent_logs.map(l => l.ip))).slice(0, 30) as string[];
 
     uniqueIps.forEach(ip => {
       // ローカルIPなどは除外
@@ -396,8 +397,10 @@ const AdminPage: React.FC = () => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    const i = Math.log(bytes) / Math.log(k);
+    if (isNaN(i) || !isFinite(i)) return '0 B';
+    const idx = Math.floor(i);
+    return parseFloat((bytes / Math.pow(k, idx)).toFixed(1)) + ' ' + sizes[idx];
   };
 
   useEffect(() => {
@@ -634,7 +637,6 @@ const AdminPage: React.FC = () => {
            </div>
         )}
 
-        {/* ... (Other tabs 'logs', 'messages', 'security', 'settings' remain mostly the same, ensuring SMTP settings are correctly wired) ... */}
         {activeTab === 'logs' && (
            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-6">
               <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -714,11 +716,13 @@ const AdminPage: React.FC = () => {
                          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {Object.entries(blockedIps).length === 0 ? (
                               <tr><td colSpan={4} className="text-center py-20 text-gray-400 font-bold">遮断中のIPはありません</td></tr>
-                            ) : Object.entries(blockedIps).map(([ip, item]: [string, any]) => (
+                            ) : Object.entries(blockedIps).map(([ip, item]) => (
                                <tr key={ip} className="hover:bg-slate-50 dark:hover:bg-gray-800/50">
                                   <td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td>
                                   <td className="px-8 py-6"><span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded font-black">{item.reason || '手動'}</span></td>
-                                  <td className="px-8 py-6 text-xs font-bold text-gray-500">{item.expiry >= 2147483640 ? '永久' : new Date(item.expiry * 1000).toLocaleString()}</td>
+                                  <td className="px-8 py-6 text-xs font-bold text-gray-500">
+                                    {item.expiry >= 2147483640 ? '永久' : new Date(item.expiry * 1000).toLocaleString()}
+                                  </td>
                                   <td className="px-8 py-6 text-right"><button onClick={() => handleUnblock(ip)} className="px-6 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all">解除</button></td>
                                </tr>
                             ))}
