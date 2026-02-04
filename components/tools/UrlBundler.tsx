@@ -60,14 +60,7 @@ const UrlBundler: React.FC = () => {
   const handleOpenAll = (isAuto = false) => {
     if (!bundleData) return;
     
-    // 手動実行の場合は確認ダイアログを出す
-    if (!isAuto) {
-      const confirmed = window.confirm(
-        `警告：${bundleData.urls.length}個のタブを一度に開こうとしています。\nブラウザのポップアップブロックにより一部が開かない場合があります。\n\n続行しますか？`
-      );
-      if (!confirmed) return;
-    }
-
+    // 警告ダイアログを削除し、即座に展開する
     bundleData.urls.forEach(url => {
       window.open(url, '_blank');
     });
