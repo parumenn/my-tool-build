@@ -104,6 +104,11 @@ const Layout: React.FC = () => {
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
   }, [location.pathname]);
 
+  // マイアプリの変更をローカルストレージに保存
+  useEffect(() => {
+    localStorage.setItem('addedTools', JSON.stringify(addedTools));
+  }, [addedTools]);
+
   useEffect(() => {
     const consented = localStorage.getItem('maitool_consented');
     if (!consented) setShowConsent(true);
