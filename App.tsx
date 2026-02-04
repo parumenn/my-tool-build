@@ -57,6 +57,7 @@ const TextDiff = lazy(() => import('./components/tools/TextDiff'));
 const TimestampConverter = lazy(() => import('./components/tools/TimestampConverter'));
 const BathProcrastinationPreventer = lazy(() => import('./components/tools/BathProcrastinationPreventer'));
 const TextShare = lazy(() => import('./components/tools/TextShare'));
+const UrlBundler = lazy(() => import('./components/tools/UrlBundler'));
 
 export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
 
@@ -354,6 +355,7 @@ const Layout: React.FC = () => {
                   <Route path="/timestamp" element={<TimestampConverter />} />
                   <Route path="/bath" element={<BathProcrastinationPreventer />} />
                   <Route path="/share" element={<TextShare />} />
+                  <Route path="/bundle" element={<UrlBundler />} />
                 </Routes>
               </Suspense>
             </div>

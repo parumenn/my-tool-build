@@ -36,13 +36,14 @@ const TOOL_COMPONENTS: Record<string, React.LazyExoticComponent<React.FC<any>>> 
   pdf: lazy(() => import('./PdfTools')),
   html: lazy(() => import('./HtmlEditor')),
   picker: lazy(() => import('./ColorPickerTool')),
+  bundle: lazy(() => import('./UrlBundler')),
 };
 
 const COMPATIBLE_TOOLS = [
     'qrcode', 'count', 'binary', 'ip', 'timer', 'notepad', 
     'kakeibo', 'calculator', 'scoreboard', 'unit', 'random', 
     'ratio', 'uuid', 'case', 'roulette', 'text-conv', 'hash',
-    'flashcards', 'tasks', 'pdf', 'html', 'picker'
+    'flashcards', 'tasks', 'pdf', 'html', 'picker', 'bundle'
 ];
 
 interface MultiToolViewerProps {

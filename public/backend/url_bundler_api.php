@@ -1,0 +1,103 @@
+<?php
+/**
+ * URL Bundler API
+ * 複数のURLをJSONとして保存し、IDを発行する
+ */
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Content-Type: application/json; charset=UTF-8");
+
+// データ保存ディレクトリ
+$DATA_DIR = __DIR__ . '/data/url_bundles';
+
+// ディレクトリ作成と保護
+if (!file_exists($DATA_DIR)) {
+    if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Storage directory creation failed']);
+        exit;
+    }
+    // ディレクトリリスティング防止
+    @file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
+}
+
+$action = $_GET['action'] ?? '';
+
+// --- Action: Save Bundle ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($input['urls']) || !is_array($input['urls'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid URLs data']);
+        exit;
+    }
+
+    // URLのバリデーションとフィルタリング
+    $validUrls = [];
+    foreach ($input['urls'] as $url) {
+        $url = trim($url);
+        if (filter_var($url, FILTER_VALIDATE_URL)) {
+            $validUrls[] = $url;
+        }
+    }
+
+    if (empty($validUrls)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No valid URLs provided']);
+        exit;
+    }
+
+    // ID生成 (ランダム8文字)
+    $id = bin2hex(random_bytes(4));
+    $filename = $DATA_DIR . '/' . $id . '.json';
+    
+    // データ構築
+    $data = [
+        'id' => $id,
+        'title' => $input['title'] ?? 'URLまとめ',
+        'urls' => $validUrls,
+        'created_at' => time()
+    ];
+
+    if (file_put_contents($filename, json_encode($data, JSON_UNESCAPED_UNICODE))) {
+        echo json_encode([
+            'status' => 'success',
+            'id' => $id,
+            'count' => count($validUrls)
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to save file']);
+    }
+    exit;
+}
+
+// --- Action: Get Bundle ---
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
+    $id = $_GET['id'] ?? '';
+    
+    // IDのバリデーション (英数字のみ)
+    if (!preg_match('/^[a-f0-9]{8}$/', $id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid ID format']);
+        exit;
+    }
+
+    $filename = $DATA_DIR . '/' . $id . '.json';
+
+    if (file_exists($filename)) {
+        $content = json_decode(file_get_contents($filename), true);
+        echo json_encode($content);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'Not Found']);
+    }
+    exit;
+}
+
+// Default
+http_response_code(400);
+echo json_encode(['error' => 'Invalid action']);
+?>
