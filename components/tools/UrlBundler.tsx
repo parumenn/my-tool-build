@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, Info, ShieldCheck, Zap, ToggleLeft, ToggleRight, HelpCircle, X, AlertTriangle, Settings } from 'lucide-react';
@@ -35,6 +36,7 @@ const UrlBundler: React.FC = () => {
   useEffect(() => {
     if (bundleId) {
       setLoading(true);
+      setAutoOpenTried(false); // ID変更時にリセット
       fetch(`./backend/url_bundler_api.php?action=get&id=${bundleId}`)
         .then(async (res) => {
           if (!res.ok) throw new Error('データが見つかりません');
@@ -55,14 +57,30 @@ const UrlBundler: React.FC = () => {
     }
   }, [bundleId]);
 
+  const handleOpenAll = (isAuto = false) => {
+    if (!bundleData) return;
+    
+    // 手動実行の場合は確認ダイアログを出す
+    if (!isAuto) {
+      const confirmed = window.confirm(
+        `警告：${bundleData.urls.length}個のタブを一度に開こうとしています。\nブラウザのポップアップブロックにより一部が開かない場合があります。\n\n続行しますか？`
+      );
+      if (!confirmed) return;
+    }
+
+    bundleData.urls.forEach(url => {
+      window.open(url, '_blank');
+    });
+  };
+
   // 自動リダイレクト処理
   useEffect(() => {
     if (bundleData && bundleData.auto_redirect && !autoOpenTried) {
       setAutoOpenTried(true);
-      // 少し遅延させて実行（ページ描画後）
+      // 描画完了を待ってから実行 (500ms)
       const timer = setTimeout(() => {
         handleOpenAll(true);
-      }, 800);
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [bundleData, autoOpenTried]);
@@ -102,22 +120,6 @@ const UrlBundler: React.FC = () => {
     navigator.clipboard.writeText(generatedUrl);
     setCopyStatus(true);
     setTimeout(() => setCopyStatus(false), 2000);
-  };
-
-  const handleOpenAll = (isAuto = false) => {
-    if (!bundleData) return;
-    
-    // 手動実行の場合は確認ダイアログを出す
-    if (!isAuto) {
-      const confirmed = window.confirm(
-        `警告：${bundleData.urls.length}個のタブを一度に開こうとしています。\nブラウザのポップアップブロックにより一部が開かない場合があります。\n\n続行しますか？`
-      );
-      if (!confirmed) return;
-    }
-
-    bundleData.urls.forEach(url => {
-      window.open(url, '_blank');
-    });
   };
 
   const reset = () => {

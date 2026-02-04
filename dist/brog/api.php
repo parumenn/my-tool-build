@@ -1,5 +1,11 @@
 <?php
 // Simple Blog API with Persistent Config & Image Upload
+// リソース制限の緩和
+ini_set('memory_limit', '512M');
+ini_set('post_max_size', '512M');
+ini_set('upload_max_filesize', '512M');
+ini_set('max_execution_time', 300);
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
