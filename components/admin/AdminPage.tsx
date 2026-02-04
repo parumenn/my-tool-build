@@ -675,7 +675,7 @@ const AdminPage: React.FC = () => {
                           {filteredLogs.length === 0 ? (
                              <tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold">該当するログはありません</td></tr>
                           ) : (
-                             filteredLogs.map((log, i) => (
+                             filteredLogs.map((log: AccessLog, i) => (
                                 <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
                                    <td className="px-8 py-4">
@@ -686,7 +686,7 @@ const AdminPage: React.FC = () => {
                                    </td>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
                                    <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
-                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && log.status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
+                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && (log.status as number) >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
                                 </tr>
                              ))
                           )}
@@ -716,7 +716,9 @@ const AdminPage: React.FC = () => {
                          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {Object.entries(blockedIps).length === 0 ? (
                               <tr><td colSpan={4} className="text-center py-20 text-gray-400 font-bold">遮断中のIPはありません</td></tr>
-                            ) : Object.entries(blockedIps).map(([ip, item]) => (
+                            ) : Object.entries(blockedIps).map(([ip, val]) => {
+                               const item = val as BlockedIpInfo;
+                               return (
                                <tr key={ip} className="hover:bg-slate-50 dark:hover:bg-gray-800/50">
                                   <td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td>
                                   <td className="px-8 py-6"><span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded font-black">{item.reason || '手動'}</span></td>
@@ -725,7 +727,7 @@ const AdminPage: React.FC = () => {
                                   </td>
                                   <td className="px-8 py-6 text-right"><button onClick={() => handleUnblock(ip)} className="px-6 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all">解除</button></td>
                                </tr>
-                            ))}
+                            )})}
                          </tbody>
                       </table>
                    </div>

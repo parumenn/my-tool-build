@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, Info, ShieldCheck, Zap } from 'lucide-react';
+import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, Info, ShieldCheck, Zap, ToggleLeft, ToggleRight, HelpCircle, X, AlertTriangle, Settings } from 'lucide-react';
 import AdBanner from '../AdBanner';
+
+interface BundleData {
+  title: string;
+  urls: string[];
+  created_at: number;
+  auto_redirect?: boolean;
+}
 
 const UrlBundler: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,11 +20,16 @@ const UrlBundler: React.FC = () => {
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
+  const [autoRedirect, setAutoRedirect] = useState(false);
 
   // View Mode State
-  const [bundleData, setBundleData] = useState<{title: string, urls: string[], created_at: number} | null>(null);
+  const [bundleData, setBundleData] = useState<BundleData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [autoOpenTried, setAutoOpenTried] = useState(false);
+
+  // Help Modal State
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch logic for view mode
   useEffect(() => {
@@ -39,8 +51,21 @@ const UrlBundler: React.FC = () => {
     } else {
       setBundleData(null);
       setError('');
+      setAutoOpenTried(false);
     }
   }, [bundleId]);
+
+  // 自動リダイレクト処理
+  useEffect(() => {
+    if (bundleData && bundleData.auto_redirect && !autoOpenTried) {
+      setAutoOpenTried(true);
+      // 少し遅延させて実行（ページ描画後）
+      const timer = setTimeout(() => {
+        handleOpenAll(true);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [bundleData, autoOpenTried]);
 
   const handleCreate = async () => {
     const urls = inputUrls.split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -54,7 +79,11 @@ const UrlBundler: React.FC = () => {
       const res = await fetch('./backend/url_bundler_api.php?action=save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls, title: title || 'URLまとめ' })
+        body: JSON.stringify({ 
+          urls, 
+          title: title || 'URLまとめ',
+          auto_redirect: autoRedirect 
+        })
       });
       
       if (!res.ok) throw new Error('保存に失敗しました');
@@ -75,19 +104,20 @@ const UrlBundler: React.FC = () => {
     setTimeout(() => setCopyStatus(false), 2000);
   };
 
-  const handleOpenAll = () => {
+  const handleOpenAll = (isAuto = false) => {
     if (!bundleData) return;
     
-    // ポップアップブロックの警告
-    const confirmed = window.confirm(
-      `警告：${bundleData.urls.length}個のタブを一度に開こうとしています。\nブラウザのポップアップブロックにより一部が開かない場合があります。\n\n続行しますか？`
-    );
-
-    if (confirmed) {
-      bundleData.urls.forEach(url => {
-        window.open(url, '_blank');
-      });
+    // 手動実行の場合は確認ダイアログを出す
+    if (!isAuto) {
+      const confirmed = window.confirm(
+        `警告：${bundleData.urls.length}個のタブを一度に開こうとしています。\nブラウザのポップアップブロックにより一部が開かない場合があります。\n\n続行しますか？`
+      );
+      if (!confirmed) return;
     }
+
+    bundleData.urls.forEach(url => {
+      window.open(url, '_blank');
+    });
   };
 
   const reset = () => {
@@ -96,12 +126,70 @@ const UrlBundler: React.FC = () => {
     setTitle('');
     setGeneratedUrl('');
     setBundleData(null);
+    setAutoRedirect(false);
+    setAutoOpenTried(false);
   };
+
+  const PopupHelpModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowHelp(false)}>
+      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="bg-gray-100 dark:bg-gray-900 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+            <AlertTriangle className="text-orange-500" size={20} />
+            ポップアップ設定について
+          </h3>
+          <button onClick={() => setShowHelp(false)} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800"><X size={20} /></button>
+        </div>
+        <div className="p-6 space-y-6">
+          <p className="text-sm text-gray-600 dark:text-gray-300 font-bold leading-relaxed">
+            自動リダイレクト機能や一括オープン機能を使うには、ブラウザのポップアップブロック設定でこのサイトを許可する必要があります。
+          </p>
+          
+          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 mb-3 font-bold">Google Chromeの場合:</p>
+            <div className="flex items-center gap-3 mb-4">
+               {/* Address Bar Simulation */}
+               <div className="flex-1 bg-white dark:bg-gray-800 rounded-full border border-gray-300 dark:border-gray-600 h-10 flex items-center px-3 gap-2 relative">
+                  <Settings size={14} className="text-gray-400" />
+                  <span className="text-xs text-gray-400 truncate">https://parumenn.server-on.net/...</span>
+                  
+                  {/* Blocked Icon */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                     <div className="relative">
+                        <div className="w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 cursor-pointer flex items-center justify-center border border-gray-300 dark:border-gray-600">
+                           <ExternalLink size={14} className="text-red-500" />
+                           <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></div>
+                        </div>
+                        {/* Tooltip Simulation */}
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 p-3 z-10 text-[10px] text-left leading-tight">
+                           <p className="font-bold text-gray-800 dark:text-white mb-1">ポップアップがブロックされました</p>
+                           <p className="text-blue-500 underline cursor-pointer">常に許可する</p>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+               アドレスバーの右側（または左側の設定アイコン）に表示される <span className="inline-block align-middle"><ExternalLink size={12} className="text-red-500 inline"/></span> アイコンをクリックし、<span className="font-bold text-gray-800 dark:text-white">「{window.location.hostname} のポップアップとリダイレクトを常に許可する」</span>を選択してください。
+            </p>
+          </div>
+
+          <div className="text-center">
+             <button onClick={() => setShowHelp(false)} className="bg-cyan-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-cyan-700 transition-colors">
+                閉じる
+             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   // --- VIEW MODE ---
   if (bundleId) {
     return (
-      <div className="max-w-4xl mx-auto space-y-10 pb-20">
+      <div className="max-w-4xl mx-auto space-y-10 pb-20 relative">
+        {showHelp && <PopupHelpModal />}
+        
         <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex justify-between items-center mb-6">
              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
@@ -125,20 +213,34 @@ const UrlBundler: React.FC = () => {
              <div className="space-y-6 animate-fade-in">
                 <div className="text-center mb-8">
                    <h1 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{bundleData.title}</h1>
-                   <p className="text-xs text-gray-400 font-mono">作成日: {new Date(bundleData.created_at * 1000).toLocaleDateString()}</p>
+                   <div className="flex items-center justify-center gap-4 text-xs text-gray-400 font-mono">
+                      <span>作成日: {new Date(bundleData.created_at * 1000).toLocaleDateString()}</span>
+                      {bundleData.auto_redirect && <span className="flex items-center gap-1 text-cyan-600 font-bold"><Zap size={12}/> 自動リダイレクト有効</span>}
+                   </div>
                 </div>
 
-                <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl border border-cyan-100 dark:border-cyan-800 text-center">
+                <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl border border-cyan-100 dark:border-cyan-800 text-center relative overflow-hidden">
+                   {bundleData.auto_redirect && (
+                      <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500 animate-pulse"></div>
+                   )}
                    <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-4">
                       {bundleData.urls.length}件のリンクが保存されています
                    </p>
                    <button 
-                      onClick={handleOpenAll}
+                      onClick={() => handleOpenAll(false)}
                       className="w-full sm:w-auto px-8 py-3 bg-cyan-600 text-white font-black rounded-xl shadow-lg hover:bg-cyan-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
                    >
                       <ExternalLink size={20} /> すべて新しいタブで開く
                    </button>
-                   <p className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 mt-2">※ブラウザの設定でポップアップを許可してください</p>
+                   
+                   <div className="mt-4 flex items-center justify-center gap-2">
+                      <p className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70">
+                         開かない場合はポップアップ設定を確認してください
+                      </p>
+                      <button onClick={() => setShowHelp(true)} className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-200">
+                         <HelpCircle size={14} />
+                      </button>
+                   </div>
                 </div>
 
                 <div className="space-y-2">
@@ -170,7 +272,9 @@ const UrlBundler: React.FC = () => {
 
   // --- CREATE MODE ---
   return (
-    <div className="max-w-4xl mx-auto space-y-10 pb-20">
+    <div className="max-w-4xl mx-auto space-y-10 pb-20 relative">
+      {showHelp && <PopupHelpModal />}
+
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
           <Layers className="text-cyan-500" /> URLまとめ作成
@@ -182,7 +286,8 @@ const UrlBundler: React.FC = () => {
                  <Check size={40} className="text-cyan-500 dark:text-cyan-200" />
               </div>
               <h3 className="text-2xl font-black text-cyan-800 dark:text-cyan-200 mb-2">まとめURLを発行しました</h3>
-              <p className="text-cyan-600 dark:text-cyan-400 text-sm mb-8 font-bold">このURLを共有すると、保存したリンク一覧を表示できます</p>
+              <p className="text-cyan-600 dark:text-cyan-400 text-sm mb-4 font-bold">このURLの有効期限は作成から1年間です</p>
+              {autoRedirect && <p className="text-xs text-orange-500 font-bold mb-6 flex items-center justify-center gap-1"><Zap size={12}/> 自動リダイレクトモード有効</p>}
               
               <div className="flex gap-2 max-w-lg mx-auto mb-8">
                  <input 
@@ -232,12 +337,32 @@ const UrlBundler: React.FC = () => {
                  />
               </div>
 
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                 <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                       <button onClick={() => setAutoRedirect(!autoRedirect)} className={`text-cyan-600 transition-colors ${autoRedirect ? 'text-cyan-600' : 'text-gray-400'}`}>
+                          {autoRedirect ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                       </button>
+                       <div>
+                          <p className={`font-bold text-sm ${autoRedirect ? 'text-gray-800 dark:text-white' : 'text-gray-500'}`}>自動リダイレクトモード</p>
+                          <p className="text-[10px] text-gray-400">URLを開いた瞬間にすべてのリンクを展開します</p>
+                       </div>
+                    </div>
+                    {autoRedirect && (
+                       <button onClick={() => setShowHelp(true)} className="text-xs text-orange-500 font-bold flex items-center gap-1 hover:underline">
+                          <AlertTriangle size={14} /> 設定が必要です
+                       </button>
+                    )}
+                 </div>
+              </div>
+
               <button 
                  onClick={handleCreate} 
                  disabled={isCreating || !inputUrls.trim()} 
                  className="w-full py-4 bg-cyan-600 text-white font-black rounded-xl shadow-xl hover:bg-cyan-700 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
+                 title="有効期限: 1年"
               >
-                 {isCreating ? '作成中...' : 'まとめURLを発行する'} <Layers size={20} />
+                 {isCreating ? '作成中...' : 'まとめURLを発行する (1年間有効)'} <Layers size={20} />
               </button>
            </div>
         )}
