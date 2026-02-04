@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -38,14 +39,36 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Icons helper ---
+        // --- Icons helper (Fixed for React DOM conflicts) ---
         const Icon = ({ name, size = 24, className = "" }) => {
+            const [svgHtml, setSvgHtml] = useState('');
+
             useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            });
-            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+                if (window.lucide && window.lucide.icons) {
+                    // Normalize name (kebab-case) to match PascalCase keys in lucide.icons
+                    // e.g. "arrow-right" -> "ArrowRight", "edit-2" -> "Edit2"
+                    const normalized = name.replace(/-/g, '').toLowerCase();
+                    const iconKey = Object.keys(window.lucide.icons).find(k => 
+                        k.toLowerCase() === normalized
+                    );
+
+                    if (iconKey && window.lucide.icons[iconKey]) {
+                        const svg = window.lucide.icons[iconKey].toSvg({
+                            class: className,
+                            width: size,
+                            height: size,
+                            "stroke-width": 2
+                        });
+                        setSvgHtml(svg);
+                    }
+                }
+            }, [name, size, className]);
+
+            if (!svgHtml) return <span style={{ width: size, height: size, display: 'inline-block' }} />;
+
+            return <span dangerouslySetInnerHTML={{ __html: svgHtml }} style={{ display: 'inline-flex' }} />;
         };
 
         // --- Components ---
@@ -115,12 +138,18 @@
             const [error, setError] = useState('');
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                const res = await fetch('./api.php?action=login', {
-                    method: 'POST', body: JSON.stringify({ password: pass })
-                });
-                const data = await res.json();
-                if (data.token) onLogin(data.token);
-                else setError('パスワードが違います');
+                try {
+                    const res = await fetch('./api.php?action=login', {
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: pass })
+                    });
+                    const data = await res.json();
+                    if (data.token) onLogin(data.token);
+                    else setError('パスワードが違います');
+                } catch (e) {
+                    setError('通信エラーが発生しました');
+                }
             };
             return (
                 <div className="max-w-xs mx-auto mt-20 bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center">
