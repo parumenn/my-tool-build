@@ -99,7 +99,8 @@
         const PostList = ({ posts, onPostClick }) => {
             const extractImage = (content) => {
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
-                return match ? match[1] : null;
+                // URL内の &amp; を & に戻す
+                return match ? match[1].replace(/&amp;/g, '&') : null;
             };
 
             return (

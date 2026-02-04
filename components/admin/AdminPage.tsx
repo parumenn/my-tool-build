@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, LogOut, Loader2, 
@@ -686,7 +685,7 @@ const AdminPage: React.FC = () => {
                                    </td>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
                                    <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
-                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && (log.status as number) >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
+                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && Number(log.status) >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
                                 </tr>
                              ))
                           )}
@@ -718,12 +717,13 @@ const AdminPage: React.FC = () => {
                               <tr><td colSpan={4} className="text-center py-20 text-gray-400 font-bold">遮断中のIPはありません</td></tr>
                             ) : Object.entries(blockedIps).map(([ip, val]) => {
                                const item = val as BlockedIpInfo;
+                               const expiry = Number(item.expiry);
                                return (
                                <tr key={ip} className="hover:bg-slate-50 dark:hover:bg-gray-800/50">
                                   <td className="px-8 py-6 font-mono font-black text-red-600">{ip}</td>
                                   <td className="px-8 py-6"><span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded font-black">{item.reason || '手動'}</span></td>
                                   <td className="px-8 py-6 text-xs font-bold text-gray-500">
-                                    {item.expiry >= 2147483640 ? '永久' : new Date(item.expiry * 1000).toLocaleString()}
+                                    {expiry >= 2147483640 ? '永久' : new Date(expiry * 1000).toLocaleString()}
                                   </td>
                                   <td className="px-8 py-6 text-right"><button onClick={() => handleUnblock(ip)} className="px-6 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all">解除</button></td>
                                </tr>

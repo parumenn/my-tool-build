@@ -349,8 +349,8 @@ const UrlBundler: React.FC = () => {
                        </div>
                     </div>
                     {autoRedirect && (
-                       <button onClick={() => setShowHelp(true)} className="text-xs text-orange-500 font-bold flex items-center gap-1 hover:underline">
-                          <AlertTriangle size={14} /> 設定が必要です
+                       <button onClick={() => setShowHelp(true)} className="text-xs text-orange-500 font-bold flex items-center gap-1 underline">
+                          <AlertTriangle size={14} /> 設定が必要です（詳細）
                        </button>
                     )}
                  </div>
