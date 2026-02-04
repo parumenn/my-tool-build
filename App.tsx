@@ -66,7 +66,7 @@ const Layout: React.FC = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [addedTools, setAddedTools] = useState<string[]>(() => {
     const saved = localStorage.getItem('addedTools');
-    return saved ? JSON.parse(saved) : ['qrcode', 'speed', 'kakeibo', 'count'];
+    return saved ? JSON.parse(saved) : ['freebord', 'bundle', 'qrcode', 'count'];
   });
   const [showAds, setShowAds] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
