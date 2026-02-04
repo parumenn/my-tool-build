@@ -49,7 +49,8 @@
             'edit-3': '<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>',
             plus: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
             'edit-2': '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>',
-            trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>'
+            trash: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>',
+            key: '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>'
         };
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -167,6 +168,60 @@
             );
         };
 
+        const PasswordChange = ({ onBack }) => {
+            const [currentPass, setCurrentPass] = useState('');
+            const [newPass, setNewPass] = useState('');
+            const [confirmPass, setConfirmPass] = useState('');
+            const [msg, setMsg] = useState({ text: '', isError: false });
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (newPass !== confirmPass) {
+                    setMsg({ text: '新しいパスワードが一致しません', isError: true });
+                    return;
+                }
+                try {
+                    const res = await fetch('./api.php?action=change_password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ current_password: currentPass, new_password: newPass })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        setMsg({ text: 'パスワードを変更しました', isError: false });
+                        setCurrentPass(''); setNewPass(''); setConfirmPass('');
+                    } else {
+                        setMsg({ text: data.error || 'エラーが発生しました', isError: true });
+                    }
+                } catch (e) {
+                    setMsg({ text: '通信エラー', isError: true });
+                }
+            };
+
+            return (
+                <div className="max-w-md mx-auto bg-white rounded-2xl p-8 shadow-xl border border-slate-100">
+                    <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1"><Icon name="arrow-left" size={16} /> 戻る</button>
+                    <h2 className="text-xl font-black mb-6 text-slate-800 flex items-center gap-2"><Icon name="key" className="text-indigo-500"/> パスワード変更</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">現在のパスワード</label>
+                            <input type="password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード</label>
+                            <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード (確認)</label>
+                            <input type="password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        {msg.text && <p className={`text-xs font-bold ${msg.isError ? 'text-red-500' : 'text-green-500'}`}>{msg.text}</p>}
+                        <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">変更を保存</button>
+                    </form>
+                </div>
+            );
+        };
+
         const AdminEditor = ({ post, onSave, onCancel }) => {
             const [form, setForm] = useState(post || { title: '', content: '', tags: '' });
             const handleSubmit = (e) => {
@@ -253,7 +308,10 @@
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-2xl font-bold">記事管理</h2>
-                                    <button onClick={() => { setSelectedPost(null); setView('editor'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><Icon name="plus" size={16}/> 新規作成</button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setView('password')} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-2"><Icon name="key" size={16}/> パスワード変更</button>
+                                        <button onClick={() => { setSelectedPost(null); setView('editor'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><Icon name="plus" size={16}/> 新規作成</button>
+                                    </div>
                                 </div>
                                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                                     {posts.map(p => (
@@ -271,6 +329,10 @@
 
                         {view === 'editor' && token && (
                             <AdminEditor post={selectedPost} onSave={handleSavePost} onCancel={() => setView('admin_list')} />
+                        )}
+
+                        {view === 'password' && token && (
+                            <PasswordChange onBack={() => setView('admin_list')} />
                         )}
                     </main>
                     
