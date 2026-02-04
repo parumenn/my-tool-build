@@ -33,7 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
 
   const renderToolCard = (tool: Tool, isAddedGroup: boolean) => {
      // 外部/静的ページの場合は <a> タグ、SPA内は <Link> タグを使用
-     const LinkComponent: any = tool.isExternal ? 'a' : Link;
+     const LinkComponent = tool.isExternal ? 'a' : Link;
      const linkProps = tool.isExternal ? { href: tool.path } : { to: tool.path };
 
      return (
