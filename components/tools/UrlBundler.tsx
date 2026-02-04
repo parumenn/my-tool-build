@@ -31,6 +31,21 @@ const UrlBundler: React.FC = () => {
   // Help Modal State
   const [showHelp, setShowHelp] = useState(false);
 
+  // 初回アクセス時のヘルプ表示（作成画面）
+  useEffect(() => {
+    if (!bundleId) {
+      const key = 'urlbundler_help_seen';
+      if (!localStorage.getItem(key)) {
+        // 少し遅延させて表示（画面描画後）
+        const timer = setTimeout(() => {
+            setShowHelp(true);
+            localStorage.setItem(key, 'true');
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [bundleId]);
+
   // Fetch logic for view mode
   useEffect(() => {
     if (bundleId) {
@@ -60,8 +75,6 @@ const UrlBundler: React.FC = () => {
       window.open(url, '_blank');
     });
   };
-
-  // auto redirect useEffect removed
 
   const handleCreate = async () => {
     const urls = inputUrls.split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -207,12 +220,12 @@ const UrlBundler: React.FC = () => {
                       <ExternalLink size={20} /> すべて新しいタブで開く
                    </button>
                    
-                   <div className="mt-4 flex items-center justify-center gap-2">
-                      <p className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70">
-                         開かない場合はポップアップ設定を確認してください
-                      </p>
-                      <button onClick={() => setShowHelp(true)} className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-200">
-                         <HelpCircle size={14} />
+                   <div className="mt-4 flex items-center justify-center">
+                      <button 
+                        onClick={() => setShowHelp(true)}
+                        className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 underline hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors flex items-center gap-1"
+                      >
+                         開かない場合はポップアップ設定を確認してください <HelpCircle size={12} />
                       </button>
                    </div>
                 </div>
