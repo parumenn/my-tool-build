@@ -8,7 +8,7 @@ interface BundleData {
   title: string;
   urls: string[];
   created_at: number;
-  auto_redirect?: boolean;
+  auto_redirect?: boolean; // API互換性のため型定義は残すが使用しない
 }
 
 const UrlBundler: React.FC = () => {
@@ -21,14 +21,13 @@ const UrlBundler: React.FC = () => {
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
-  const [autoRedirect, setAutoRedirect] = useState(false);
+  // autoRedirect state removed
 
   // View Mode State
   const [bundleData, setBundleData] = useState<BundleData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [autoOpenTried, setAutoOpenTried] = useState(false);
-
+  
   // Help Modal State
   const [showHelp, setShowHelp] = useState(false);
 
@@ -36,7 +35,6 @@ const UrlBundler: React.FC = () => {
   useEffect(() => {
     if (bundleId) {
       setLoading(true);
-      setAutoOpenTried(false); // ID変更時にリセット
       fetch(`./backend/url_bundler_api.php?action=get&id=${bundleId}`)
         .then(async (res) => {
           if (!res.ok) throw new Error('データが見つかりません');
@@ -53,30 +51,17 @@ const UrlBundler: React.FC = () => {
     } else {
       setBundleData(null);
       setError('');
-      setAutoOpenTried(false);
     }
   }, [bundleId]);
 
-  const handleOpenAll = (isAuto = false) => {
+  const handleOpenAll = () => {
     if (!bundleData) return;
-    
-    // 警告ダイアログを削除し、即座に展開する
     bundleData.urls.forEach(url => {
       window.open(url, '_blank');
     });
   };
 
-  // 自動リダイレクト処理
-  useEffect(() => {
-    if (bundleData && bundleData.auto_redirect && !autoOpenTried) {
-      setAutoOpenTried(true);
-      // 描画完了を待ってから実行 (500ms)
-      const timer = setTimeout(() => {
-        handleOpenAll(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [bundleData, autoOpenTried]);
+  // auto redirect useEffect removed
 
   const handleCreate = async () => {
     const urls = inputUrls.split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -93,7 +78,7 @@ const UrlBundler: React.FC = () => {
         body: JSON.stringify({ 
           urls, 
           title: title || 'URLまとめ',
-          auto_redirect: autoRedirect 
+          auto_redirect: false // Always false
         })
       });
       
@@ -121,8 +106,6 @@ const UrlBundler: React.FC = () => {
     setTitle('');
     setGeneratedUrl('');
     setBundleData(null);
-    setAutoRedirect(false);
-    setAutoOpenTried(false);
   };
 
   const PopupHelpModal = () => (
@@ -137,7 +120,7 @@ const UrlBundler: React.FC = () => {
         </div>
         <div className="p-6 space-y-6">
           <p className="text-sm text-gray-600 dark:text-gray-300 font-bold leading-relaxed">
-            自動リダイレクト機能や一括オープン機能を使うには、ブラウザのポップアップブロック設定でこのサイトを許可する必要があります。
+            一括オープン機能を使うには、ブラウザのポップアップブロック設定でこのサイトを許可する必要があります。
           </p>
           
           <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -210,19 +193,15 @@ const UrlBundler: React.FC = () => {
                    <h1 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{bundleData.title}</h1>
                    <div className="flex items-center justify-center gap-4 text-xs text-gray-400 font-mono">
                       <span>作成日: {new Date(bundleData.created_at * 1000).toLocaleDateString()}</span>
-                      {bundleData.auto_redirect && <span className="flex items-center gap-1 text-cyan-600 font-bold"><Zap size={12}/> 自動リダイレクト有効</span>}
                    </div>
                 </div>
 
                 <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl border border-cyan-100 dark:border-cyan-800 text-center relative overflow-hidden">
-                   {bundleData.auto_redirect && (
-                      <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500 animate-pulse"></div>
-                   )}
                    <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-4">
                       {bundleData.urls.length}件のリンクが保存されています
                    </p>
                    <button 
-                      onClick={() => handleOpenAll(false)}
+                      onClick={() => handleOpenAll()}
                       className="w-full sm:w-auto px-8 py-3 bg-cyan-600 text-white font-black rounded-xl shadow-lg hover:bg-cyan-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
                    >
                       <ExternalLink size={20} /> すべて新しいタブで開く
@@ -282,7 +261,6 @@ const UrlBundler: React.FC = () => {
               </div>
               <h3 className="text-2xl font-black text-cyan-800 dark:text-cyan-200 mb-2">まとめURLを発行しました</h3>
               <p className="text-cyan-600 dark:text-cyan-400 text-sm mb-4 font-bold">このURLの有効期限は作成から1年間です</p>
-              {autoRedirect && <p className="text-xs text-orange-500 font-bold mb-6 flex items-center justify-center gap-1"><Zap size={12}/> 自動リダイレクトモード有効</p>}
               
               <div className="flex gap-2 max-w-lg mx-auto mb-8">
                  <input 
@@ -330,25 +308,6 @@ const UrlBundler: React.FC = () => {
                     placeholder="https://google.com&#13;&#10;https://example.com" 
                     className="w-full h-64 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:border-cyan-500 transition-colors resize-none font-mono text-sm leading-relaxed"
                  />
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                       <button onClick={() => setAutoRedirect(!autoRedirect)} className={`text-cyan-600 transition-colors ${autoRedirect ? 'text-cyan-600' : 'text-gray-400'}`}>
-                          {autoRedirect ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
-                       </button>
-                       <div>
-                          <p className={`font-bold text-sm ${autoRedirect ? 'text-gray-800 dark:text-white' : 'text-gray-500'}`}>自動リダイレクトモード</p>
-                          <p className="text-[10px] text-gray-400">URLを開いた瞬間にすべてのリンクを展開します</p>
-                       </div>
-                    </div>
-                    {autoRedirect && (
-                       <button onClick={() => setShowHelp(true)} className="text-xs text-orange-500 font-bold flex items-center gap-1 underline">
-                          <AlertTriangle size={14} /> 設定が必要です（詳細）
-                       </button>
-                    )}
-                 </div>
               </div>
 
               <button 
