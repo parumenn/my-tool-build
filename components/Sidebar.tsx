@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Tool } from '../types';
 import { TOOLS } from '../constants/toolsData';
-import { LayoutGrid, Plus, Settings, Info, Shield, FileText } from 'lucide-react';
+import { LayoutGrid, Plus, Settings, Info, Shield, FileText, ExternalLink } from 'lucide-react';
 import { AdBanner2, AdBanner3 } from './AdBanner2';
 
 interface SidebarContentProps {
@@ -94,6 +94,14 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         <p className="px-4 py-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
           いんふぉ
         </p>
+        <a 
+          href="/brog/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl transition-all text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+        >
+          <ExternalLink size={16} /> <span>回春者ブログ</span>
+        </a>
         <NavLink to="/about" onClick={onClose} className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
           <Info size={16} className="text-blue-600" /> <span>当サイトについて</span>
         </NavLink>

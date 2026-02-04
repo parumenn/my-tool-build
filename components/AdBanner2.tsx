@@ -15,9 +15,8 @@ export const AdBanner2: React.FC = () => {
       if (containerRef.current) {
         const width = containerRef.current.clientWidth;
         // 468pxのバナーを現在の幅に収めるためのスケールを計算
-        let newScale = width / 468;
-        // 拡大はしない（最大1倍）
-        if (newScale > 1) newScale = 1;
+        // 余裕を持たせるために少し小さめに判定
+        let newScale = width < 468 ? width / 468 : 1;
         setScale(newScale);
       }
     };
@@ -56,7 +55,7 @@ export const AdBanner2: React.FC = () => {
   return (
     <div 
         ref={containerRef} 
-        className="w-full flex justify-center overflow-hidden my-2" 
+        className="w-full flex justify-center overflow-hidden my-4" 
         style={{ height: `${60 * scale}px`, minHeight: '10px' }}
     >
       <div 

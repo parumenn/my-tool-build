@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回春者ブログ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; color: #334155; }
+        .markdown h1 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }
+        .markdown h2 { font-size: 1.25em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+        .markdown p { margin-bottom: 1em; line-height: 1.7; }
+        .markdown ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown a { color: #3b82f6; text-decoration: underline; }
+    </style>
+    <!-- Logger Script -->
+    <script>
+    (function(){
+      try {
+        fetch('/backend/admin_api.php?action=log_access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: '/brog' + (window.location.hash || '/') })
+        });
+      } catch(e){}
+    })();
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- Icons helper ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        // --- Components ---
+        
+        const Header = ({ setView, isAdmin, logout }) => (
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+                <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <h1 onClick={() => setView('list')} className="text-xl font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
+                        <Icon name="feather" className="text-indigo-500" /> 回春者ブログ
+                    </h1>
+                    <div className="flex items-center gap-4">
+                        {isAdmin ? (
+                            <>
+                                <button onClick={() => setView('admin_list')} className="text-sm font-bold text-slate-500 hover:text-indigo-600">管理画面</button>
+                                <button onClick={logout} className="text-sm font-bold text-red-500 hover:text-red-700">ログアウト</button>
+                            </>
+                        ) : (
+                            <button onClick={() => setView('login')} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                                <Icon name="lock" size={14} /> Admin
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </header>
+        );
+
+        const PostList = ({ posts, onPostClick }) => (
+            <div className="space-y-6 animate-fade-in">
+                {posts.map(post => (
+                    <article key={post.id} onClick={() => onPostClick(post)} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group">
+                        <div className="flex justify-between items-start mb-2">
+                            <h2 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{post.title}</h2>
+                            <span className="text-xs text-slate-400 font-mono shrink-0">{post.date.split(' ')[0]}</span>
+                        </div>
+                        <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-4">{post.content.replace(/<[^>]+>/g, '')}</p>
+                        <div className="flex items-center gap-2">
+                            {post.tags && post.tags.map(tag => (
+                                <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">#{tag}</span>
+                            ))}
+                            <span className="ml-auto text-xs font-bold text-indigo-500 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Read More <Icon name="arrow-right" size={12} /></span>
+                        </div>
+                    </article>
+                ))}
+            </div>
+        );
+
+        const PostDetail = ({ post, onBack }) => (
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 animate-fade-in">
+                <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors"><Icon name="arrow-left" size={16} /> Back</button>
+                <h1 className="text-3xl font-black text-slate-900 mb-4">{post.title}</h1>
+                <div className="flex items-center gap-4 mb-8 pb-4 border-b border-slate-100">
+                    <span className="text-xs font-mono text-slate-400 flex items-center gap-1"><Icon name="calendar" size={12} /> {post.date}</span>
+                    {post.tags && (
+                        <div className="flex gap-2">
+                            {post.tags.map(tag => <span key={tag} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full font-bold">#{tag}</span>)}
+                        </div>
+                    )}
+                </div>
+                <div className="markdown text-slate-700 whitespace-pre-wrap">
+                    {post.content}
+                </div>
+            </div>
+        );
+
+        const Login = ({ onLogin }) => {
+            const [pass, setPass] = useState('');
+            const [error, setError] = useState('');
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const res = await fetch('./api.php?action=login', {
+                    method: 'POST', body: JSON.stringify({ password: pass })
+                });
+                const data = await res.json();
+                if (data.token) onLogin(data.token);
+                else setError('パスワードが違います');
+            };
+            return (
+                <div className="max-w-xs mx-auto mt-20 bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center">
+                    <div className="mb-6 flex justify-center text-indigo-500"><Icon name="lock" size={40} /></div>
+                    <h2 className="text-xl font-black mb-6 text-slate-800">管理者ログイン</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full p-3 border rounded-xl bg-slate-50 text-center font-bold" placeholder="Password" />
+                        {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
+                        <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">認証</button>
+                    </form>
+                </div>
+            );
+        };
+
+        const AdminEditor = ({ post, onSave, onCancel }) => {
+            const [form, setForm] = useState(post || { title: '', content: '', tags: '' });
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({ 
+                    ...form, 
+                    tags: typeof form.tags === 'string' ? form.tags.split(',').map(t=>t.trim()).filter(Boolean) : form.tags 
+                });
+            };
+            return (
+                <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-100">
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Icon name="edit-3" size={20} /> {post ? '記事編集' : '新規投稿'}</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label>
+                            <input type="text" value={form.title} onChange={e=>setForm({...form, title: e.target.value})} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">本文 (Markdown風)</label>
+                            <textarea value={form.content} onChange={e=>setForm({...form, content: e.target.value})} className="w-full p-3 border rounded-xl h-64 font-mono text-sm" required></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
+                            <input type="text" value={Array.isArray(form.tags) ? form.tags.join(', ') : form.tags} onChange={e=>setForm({...form, tags: e.target.value})} className="w-full p-3 border rounded-xl" />
+                        </div>
+                        <div className="flex gap-4 pt-4">
+                            <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">キャンセル</button>
+                            <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700">保存する</button>
+                        </div>
+                    </form>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('list');
+            const [posts, setPosts] = useState([]);
+            const [selectedPost, setSelectedPost] = useState(null);
+            const [token, setToken] = useState(localStorage.getItem('brog_token'));
+
+            const fetchPosts = async () => {
+                const res = await fetch('./api.php?action=list');
+                const data = await res.json();
+                setPosts(data);
+            };
+
+            useEffect(() => { fetchPosts(); }, []);
+
+            const handleLogin = (t) => {
+                localStorage.setItem('brog_token', t);
+                setToken(t);
+                setView('admin_list');
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('brog_token');
+                setToken(null);
+                setView('list');
+            };
+
+            const handleSavePost = async (postData) => {
+                await fetch('./api.php?action=save', {
+                    method: 'POST', body: JSON.stringify(postData)
+                });
+                await fetchPosts();
+                setView('admin_list');
+            };
+
+            const handleDeletePost = async (id) => {
+                if(!confirm('本当に削除しますか？')) return;
+                await fetch(`./api.php?action=delete&id=${id}`, { method: 'DELETE' });
+                await fetchPosts();
+            };
+
+            return (
+                <div className="min-h-screen pb-20">
+                    <Header setView={setView} isAdmin={!!token} logout={handleLogout} />
+                    <main className="max-w-4xl mx-auto px-4 mt-8">
+                        {view === 'list' && <PostList posts={posts} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
+                        {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={() => setView('list')} />}
+                        {view === 'login' && <Login onLogin={handleLogin} />}
+                        
+                        {view === 'admin_list' && token && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-2xl font-bold">記事管理</h2>
+                                    <button onClick={() => { setSelectedPost(null); setView('editor'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><Icon name="plus" size={16}/> 新規作成</button>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                                    {posts.map(p => (
+                                        <div key={p.id} className="p-4 border-b border-slate-100 last:border-0 flex justify-between items-center hover:bg-slate-50">
+                                            <div className="truncate flex-1 font-bold text-slate-700 mr-4">{p.title}</div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <button onClick={() => { setSelectedPost(p); setView('editor'); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg"><Icon name="edit-2" size={16}/></button>
+                                                <button onClick={() => handleDeletePost(p.id)} className="p-2 text-slate-400 hover:text-red-500 bg-white border border-slate-200 rounded-lg"><Icon name="trash" size={16}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'editor' && token && (
+                            <AdminEditor post={selectedPost} onSave={handleSavePost} onCancel={() => setView('admin_list')} />
+                        )}
+                    </main>
+                    
+                    <footer className="mt-20 py-8 text-center text-slate-400 text-xs font-bold border-t border-slate-200">
+                        &copy; 2024 回春者ブログ. Powered by OmniTools.
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
