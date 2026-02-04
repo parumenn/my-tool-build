@@ -96,25 +96,42 @@
             </header>
         );
 
-        const PostList = ({ posts, onPostClick }) => (
-            <div className="space-y-6 animate-fade-in">
-                {posts.map(post => (
-                    <article key={post.id} onClick={() => onPostClick(post)} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group">
-                        <div className="flex justify-between items-start mb-2">
-                            <h2 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{post.title}</h2>
-                            <span className="text-xs text-slate-400 font-mono shrink-0">{post.date.split(' ')[0]}</span>
-                        </div>
-                        <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-4">{post.content.replace(/<[^>]+>/g, '')}</p>
-                        <div className="flex items-center gap-2">
-                            {post.tags && post.tags.map(tag => (
-                                <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">#{tag}</span>
-                            ))}
-                            <span className="ml-auto text-xs font-bold text-indigo-500 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Read More <Icon name="arrow-right" size={12} /></span>
-                        </div>
-                    </article>
-                ))}
-            </div>
-        );
+        const PostList = ({ posts, onPostClick }) => {
+            const extractImage = (content) => {
+                const match = content.match(/<img[^>]+src="([^">]+)"/);
+                return match ? match[1] : null;
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    {posts.map(post => {
+                        const thumbnail = extractImage(post.content);
+                        return (
+                            <article key={post.id} onClick={() => onPostClick(post)} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group flex flex-col md:flex-row">
+                                {thumbnail && (
+                                    <div className="w-full md:w-48 h-48 md:h-auto shrink-0 bg-slate-100 relative">
+                                        <img src={thumbnail} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                    </div>
+                                )}
+                                <div className="p-6 flex-1 flex flex-col">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h2 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition-colors line-clamp-2">{post.title}</h2>
+                                        <span className="text-xs text-slate-400 font-mono shrink-0 ml-2">{post.date.split(' ')[0]}</span>
+                                    </div>
+                                    <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed mb-4 flex-1">{post.content.replace(/<[^>]+>/g, '')}</p>
+                                    <div className="flex items-center gap-2 mt-auto">
+                                        {post.tags && post.tags.map(tag => (
+                                            <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">#{tag}</span>
+                                        ))}
+                                        <span className="ml-auto text-xs font-bold text-indigo-500 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Read More <Icon name="arrow-right" size={12} /></span>
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            );
+        };
 
         const PostDetail = ({ post, onBack }) => (
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 animate-fade-in">
@@ -388,7 +405,7 @@
                     </main>
                     
                     <footer className="mt-20 py-8 text-center text-slate-400 text-xs font-bold border-t border-slate-200">
-                        &copy; 2024 開発者ブログ. Powered by OmniTools.
+                        &copy; 2026 開発者ブログ. Powered by まいつーる.
                     </footer>
                 </div>
             );

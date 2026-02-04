@@ -263,7 +263,7 @@ const Settings: React.FC = () => {
       </div>
       
       <div className="text-center text-xs text-gray-400">
-         Version 2.5.2
+         Version 2.5.3
       </div>
       <AdBanner />
     </div>
