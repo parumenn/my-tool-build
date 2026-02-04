@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>まいつーる - テストページ</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f4f8;
+        }
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:active { transform: scale(0.95); }
+        .message { margin-top: 1.5rem; color: #555; line-height: 1.6; }
+        .status { font-size: 0.8rem; margin-top: 1rem; color: #999; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>My Tool Sequence</h2>
+    <div id="display" class="message">ボタンを押して開始してください</div>
+    <br>
+    <button id="mainBtn">次へすすむ</button>
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+    const btn = document.getElementById('mainBtn');
+    const display = document.getElementById('display');
+    const status = document.getElementById('status');
+    
+    let step = 0;
+
+    // ポップアップチェック関数
+    function checkPopup() {
+        const testWin = window.open("about:blank", "_blank", "width=1,height=1");
+        if (testWin === null || typeof testWin === "undefined") {
+            return false;
+        } else {
+            testWin.close();
+            return true;
+        }
+    }
+
+    btn.addEventListener('click', () => {
+        step++;
+
+        if (step === 1) {
+            display.innerText = "まずはブラウザの状態をチェックします...";
+            btn.innerText = "チェック実行";
+        } 
+        else if (step === 2) {
+            const isAllowed = checkPopup();
+            if (isAllowed) {
+                display.innerHTML = "✅ ポップアップは<strong>許可</strong>されています！<br>スムーズに動作します。";
+                status.innerText = "Status: OK";
+            } else {
+                display.innerHTML = "❌ ポップアップが<strong>ブロック</strong>されました。<br>設定を確認してください。";
+                status.innerText = "Status: Blocked";
+            }
+            btn.innerText = "次は何？";
+        } 
+        else if (step === 3) {
+            display.innerText = "ゆきのさんのようにせっかちな方でも、このスピードなら満足いただけるはず！";
+            btn.innerText = "もう一度";
+        } 
+        else {
+            step = 0;
+            display.innerText = "リセットしました。";
+            btn.innerText = "開始";
+            status.innerText = "";
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -32,6 +32,10 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
     : myApps;
 
   const renderToolCard = (tool: Tool, isAddedGroup: boolean) => {
+     // 外部/静的ページの場合は <a> タグ、SPA内は <Link> タグを使用
+     const LinkComponent = tool.isExternal ? 'a' : Link;
+     const linkProps = tool.isExternal ? { href: tool.path } : { to: tool.path };
+
      return (
         <div key={tool.id} className="group relative bg-white dark:bg-dark-lighter rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col min-h-[140px] md:min-h-[180px]">
           <div className="flex justify-between items-start mb-3 md:mb-4">
@@ -46,18 +50,18 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
             </button>
           </div>
           
-          <Link to={tool.path} className="flex-1 block">
+          <LinkComponent {...linkProps} className="flex-1 block">
             <h3 className="text-sm md:text-lg font-black text-gray-800 dark:text-gray-100 mb-1 leading-snug group-hover:text-blue-600 transition-colors line-clamp-1">
               {tool.name}
             </h3>
             <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3">
               {tool.description}
             </p>
-          </Link>
+          </LinkComponent>
           
-          <Link to={tool.path} className="mt-3 md:mt-4 inline-flex items-center text-[10px] md:text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+          <LinkComponent {...linkProps} className="mt-3 md:mt-4 inline-flex items-center text-[10px] md:text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
             Open <ArrowRight size={14} className="ml-1" />
-          </Link>
+          </LinkComponent>
         </div>
      );
   };
@@ -71,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
         </h2>
         <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
           「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。<br/>
-          QRコード作成、家計簿、PDF編集、画像変換など、40種類以上のツールを安全なローカル処理で提供します。
+          QRコード作成、家計簿、PDF編集、画像変換など、40種類以上の便利ツールを安全なローカル処理で提供します。
         </p>
         
         <div className="flex flex-wrap justify-center gap-4 mb-8">

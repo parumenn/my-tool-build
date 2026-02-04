@@ -66,25 +66,42 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
             </div>
         ) : (
           tools.map((tool, index) => (
-            <NavLink
-              key={tool.id}
-              to={tool.path}
-              onClick={onClose}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragEnter={(e) => handleDragEnter(e, index)}
-              onDragEnd={() => { dragItem.current = null; }}
-              onDragOver={(e) => e.preventDefault()}
-              className={({ isActive }) => `
-                flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all duration-200 cursor-move group
-                ${isActive 
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' 
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'}
-              `}
-            >
-              <tool.icon size={20} className={tool.color} />
-              <span className="truncate">{tool.name}</span>
-            </NavLink>
+            tool.isExternal ? (
+                <a
+                  key={tool.id}
+                  href={tool.path}
+                  onClick={onClose}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnter={(e) => handleDragEnter(e, index)}
+                  onDragEnd={() => { dragItem.current = null; }}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all duration-200 cursor-move group text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+                >
+                  <tool.icon size={20} className={tool.color} />
+                  <span className="truncate">{tool.name}</span>
+                </a>
+            ) : (
+                <NavLink
+                  key={tool.id}
+                  to={tool.path}
+                  onClick={onClose}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragEnter={(e) => handleDragEnter(e, index)}
+                  onDragEnd={() => { dragItem.current = null; }}
+                  onDragOver={(e) => e.preventDefault()}
+                  className={({ isActive }) => `
+                    flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all duration-200 cursor-move group
+                    ${isActive 
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-200 dark:ring-blue-800' 
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'}
+                  `}
+                >
+                  <tool.icon size={20} className={tool.color} />
+                  <span className="truncate">{tool.name}</span>
+                </NavLink>
+            )
           ))
         )}
       </div>

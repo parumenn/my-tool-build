@@ -12,6 +12,7 @@ export interface Tool {
   color: string;
   lightBg: string; // Add explicit light background color for icons
   darkColor?: string; // Color for dark mode
+  isExternal?: boolean; // Flag for external/static pages
 }
 
 export enum FileStatus {
