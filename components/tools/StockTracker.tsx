@@ -47,7 +47,7 @@ const EMOTIONS = [
 ];
 
 // --- TradingView Widget Component ---
-const TradingViewWidget = ({ symbol }: { symbol: string }) => {
+const TradingViewWidget: React.FC<{ symbol: string }> = ({ symbol }) => {
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +55,12 @@ const TradingViewWidget = ({ symbol }: { symbol: string }) => {
     
     // Clear previous widget
     container.current.innerHTML = '';
+
+    const div = document.createElement("div");
+    div.className = "tradingview-widget-container__widget";
+    div.style.height = "100%";
+    div.style.width = "100%";
+    container.current.appendChild(div);
 
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
@@ -70,14 +76,14 @@ const TradingViewWidget = ({ symbol }: { symbol: string }) => {
       "locale": "ja",
       "enable_publishing": false,
       "allow_symbol_change": true,
+      "calendar": false,
       "support_host": "https://www.tradingview.com"
     });
     container.current.appendChild(script);
   }, [symbol]);
 
   return (
-    <div className="tradingview-widget-container h-full w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700" ref={container}>
-      <div className="tradingview-widget-container__widget h-full w-full"></div>
+    <div className="tradingview-widget-container h-full w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900" ref={container} style={{ height: "100%" }}>
     </div>
   );
 };
@@ -93,7 +99,6 @@ const StockTracker: React.FC = () => {
 
   // Market Tab State
   const [chartSymbol, setChartSymbol] = useState('TSE:7203'); // Default Toyota
-  const [tickerInput, setTickerInput] = useState('');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -344,24 +349,6 @@ const StockTracker: React.FC = () => {
     }
   };
 
-  const searchChart = (e: React.FormEvent) => {
-    e.preventDefault();
-    if(!tickerInput) return;
-    
-    let sym = tickerInput.trim().toUpperCase();
-    
-    // 簡易的な判別ロジック
-    if (/^[0-9]{4}$/.test(sym)) {
-        // 4桁数字のみなら東証とみなす
-        sym = `TSE:${sym}`;
-    } else if (/^[A-Z]+$/.test(sym)) {
-        // アルファベットのみならそのまま(TradingViewが判断、もしくはNASDAQ優先など)
-        // 必要なら 'NASDAQ:' + sym などにするが、TradingViewはスマートに検索してくれる
-    }
-    
-    setChartSymbol(sym);
-  };
-
   const StatCard = ({ title, value, sub, colorClass }: any) => (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
       <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">{title}</span>
@@ -563,28 +550,8 @@ const StockTracker: React.FC = () => {
         {/* Market / Chart Tab */}
         {activeTab === 'market' && (
            <div className="flex flex-col h-full animate-fade-in space-y-4">
-               <div className="flex gap-2">
-                   <form onSubmit={searchChart} className="flex-1 flex gap-2">
-                       <input 
-                         type="text" 
-                         value={tickerInput} 
-                         onChange={(e) => setTickerInput(e.target.value)} 
-                         placeholder="銘柄コード (例: 7203 or AAPL)" 
-                         className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white text-sm font-bold shadow-sm"
-                       />
-                       <button type="submit" className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-none flex items-center gap-2">
-                         <Search size={18} /> <span className="hidden sm:inline">チャート表示</span>
-                       </button>
-                   </form>
-               </div>
-               
-               <div className="flex-1 bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 min-h-[400px]">
-                   <TradingViewWidget symbol={chartSymbol} />
-               </div>
-               
-               <div className="text-[10px] text-gray-400 text-center">
-                  ※ リアルタイムチャートはTradingView提供のウィジェットを使用しています。一部の銘柄（特に日本株）は遅延する場合があります。<br/>
-                  ※ 4桁の数字を入力すると自動的に東証(TSE)として検索します。
+               <div className="flex-1 bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 relative">
+                   <TradingViewWidget key={chartSymbol} symbol={chartSymbol} />
                </div>
            </div>
         )}
