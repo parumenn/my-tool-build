@@ -1,3 +1,4 @@
+
 <?php
 // Simple Blog API with Persistent Config & Image Upload
 // リソース制限の緩和
@@ -15,6 +16,7 @@ $DATA_DIR = __DIR__ . '/../backend/data/blog';
 $UPLOADS_DIR = $DATA_DIR . '/uploads';
 $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
+$FAILURES_FILE = $DATA_DIR . '/login_failures.json'; // ログイン失敗記録用
 
 // Initialize Directories
 if (!file_exists($DATA_DIR)) {
@@ -49,6 +51,11 @@ function getData($file) {
 }
 function saveData($file, $data) {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+function getClientIp() {
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
+    return $_SERVER['REMOTE_ADDR'];
 }
 
 $action = $_GET['action'] ?? '';
@@ -89,11 +96,52 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     if ($action === 'login') {
+        $ip = getClientIp();
+        $failures = getData($FAILURES_FILE);
+        $now = time();
+        $blockDuration = 30 * 60; // 30分間ブロック
+        $maxAttempts = 3; // 最大試行回数
+
+        // ブロックチェック
+        if (isset($failures[$ip])) {
+            $record = $failures[$ip];
+            // 試行回数を超過し、かつブロック期間内の場合
+            if ($record['count'] >= $maxAttempts && ($now - $record['last_attempt']) < $blockDuration) {
+                http_response_code(403);
+                $remaining = ceil(($blockDuration - ($now - $record['last_attempt'])) / 60);
+                echo json_encode(['error' => "ログイン試行回数が上限を超えました。あと{$remaining}分間ブロックされます。"]);
+                exit;
+            }
+            // ブロック期間を過ぎていればリセット
+            if (($now - $record['last_attempt']) >= $blockDuration) {
+                unset($failures[$ip]);
+            }
+        }
+
         $pass = $input['password'] ?? '';
         if (password_verify($pass, $config['password_hash'])) {
+            // 成功したら失敗記録を削除
+            if (isset($failures[$ip])) {
+                unset($failures[$ip]);
+                saveData($FAILURES_FILE, $failures);
+            }
             echo json_encode(['status' => 'ok', 'token' => 'admin-token-' . time()]);
         } else {
-            http_response_code(401); echo json_encode(['error' => 'Invalid password']);
+            // 失敗したらカウント
+            if (!isset($failures[$ip])) {
+                $failures[$ip] = ['count' => 0, 'last_attempt' => 0];
+            }
+            $failures[$ip]['count']++;
+            $failures[$ip]['last_attempt'] = $now;
+            saveData($FAILURES_FILE, $failures);
+
+            $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
+            $msg = $attemptsLeft > 0 
+                ? "パスワードが違います（あと{$attemptsLeft}回でブロック）" 
+                : "パスワードが違います。IPアドレスを一時的にブロックしました。";
+            
+            http_response_code(401); 
+            echo json_encode(['error' => $msg]);
         }
     } 
     elseif ($action === 'save') {

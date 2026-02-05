@@ -267,6 +267,7 @@
             const [error, setError] = useState('');
             const handleSubmit = async (e) => {
                 e.preventDefault();
+                setError('');
                 try {
                     const res = await fetch('./api.php?action=login', {
                         method: 'POST', 
@@ -274,8 +275,13 @@
                         body: JSON.stringify({ password: pass })
                     });
                     const data = await res.json();
-                    if (data.token) onLogin(data.token);
-                    else setError('パスワードが違います');
+                    if (data.token) {
+                        onLogin(data.token);
+                    } else if (data.error) {
+                        setError(data.error);
+                    } else {
+                        setError('ログインに失敗しました');
+                    }
                 } catch (e) {
                     setError('通信エラーが発生しました');
                 }
