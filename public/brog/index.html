@@ -86,46 +86,96 @@
                     node.removeChild(node.firstChild);
                 }
 
-                const conf = type === 'banner' 
-                    ? { key: '6440c8d3cc819aafb0e098549141eae2', width: 468, height: 60, styleW: '468px', styleH: '60px' }
-                    : { key: '93250590c6cc4fa213dc408950ac67ef', width: 160, height: 300, styleW: '320px', styleH: '320px' };
-
                 const iframe = document.createElement('iframe');
-                iframe.style.width = conf.styleW;
-                iframe.style.height = conf.styleH;
                 iframe.style.border = 'none';
                 iframe.style.overflow = 'hidden';
                 iframe.title = "Advertisement";
-                
-                node.appendChild(iframe);
 
-                const doc = iframe.contentWindow?.document;
-                if (doc) {
-                    doc.open();
-                    doc.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
-                        <body>
-                            <script type="text/javascript">
-                                atOptions = {
-                                    'key' : '${conf.key}',
-                                    'format' : 'iframe',
-                                    'height' : ${conf.height},
-                                    'width' : ${conf.width},
-                                    'params' : {}
-                                };
-                            </` + `script>
-                            <script type="text/javascript" src="https://www.highperformanceformat.com/${conf.key}/invoke.js"></` + `script>
-                        </body>
-                        </html>
-                    `);
-                    doc.close();
+                if (type === 'banner') {
+                    // Banner (468x60)
+                    iframe.style.width = '468px';
+                    iframe.style.height = '60px';
+                    node.appendChild(iframe);
+                    const doc = iframe.contentWindow?.document;
+                    if (doc) {
+                        doc.open();
+                        doc.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
+                            <body>
+                                <script type="text/javascript">
+                                    atOptions = {
+                                        'key' : '6440c8d3cc819aafb0e098549141eae2',
+                                        'format' : 'iframe',
+                                        'height' : 60,
+                                        'width' : 468,
+                                        'params' : {}
+                                    };
+                                </` + `script>
+                                <script type="text/javascript" src="https://www.highperformanceformat.com/6440c8d3cc819aafb0e098549141eae2/invoke.js"></` + `script>
+                            </body>
+                            </html>
+                        `);
+                        doc.close();
+                    }
+                } else if (type === 'skyscraper') {
+                    // Skyscraper (160x600)
+                    iframe.style.width = '160px';
+                    iframe.style.height = '600px';
+                    node.appendChild(iframe);
+                    const doc = iframe.contentWindow?.document;
+                    if (doc) {
+                        doc.open();
+                        doc.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
+                            <body>
+                                <script type="text/javascript">
+                                    atOptions = {
+                                        'key' : 'c778c4a7f09b97ba471cd0fbd2d48a59',
+                                        'format' : 'iframe',
+                                        'height' : 600,
+                                        'width' : 160,
+                                        'params' : {}
+                                    };
+                                </` + `script>
+                                <script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></` + `script>
+                            </body>
+                            </html>
+                        `);
+                        doc.close();
+                    }
+                } else {
+                    // Rect (300x250 or responsive) - EffectiveGateCPM
+                    iframe.style.width = '300px';
+                    iframe.style.height = '250px';
+                    node.appendChild(iframe);
+                    const doc = iframe.contentWindow?.document;
+                    if (doc) {
+                        doc.open();
+                        doc.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
+                            <body>
+                                <script async="async" data-cfasync="false" src="https://pl28654616.effectivegatecpm.com/7fc3cc745c4b31d1928e463b50abab50/invoke.js"></` + `script>
+                                <div id="container-7fc3cc745c4b31d1928e463b50abab50"></div>
+                            </body>
+                            </html>
+                        `);
+                        doc.close();
+                    }
                 }
             }, [type]);
 
+            const containerClass = type === 'skyscraper' 
+                ? "w-full h-full flex justify-center items-start" 
+                : "w-full flex justify-center my-8 items-center overflow-hidden bg-slate-50 border border-slate-100 rounded-xl py-4";
+
             return (
-                <div className="w-full flex justify-center my-8 items-center overflow-hidden bg-slate-50 border border-slate-100 rounded-xl py-4">
+                <div className={containerClass}>
                     <div ref={bannerRef}></div>
                 </div>
             );
@@ -428,7 +478,17 @@
             };
 
             return (
-                <div className="min-h-screen pb-20">
+                <div className="min-h-screen pb-20 relative">
+                    {/* 左側の広告 (PCのみ表示) */}
+                    <div className="fixed left-4 top-24 hidden xl:block w-[160px] h-[600px] z-10">
+                        <AdBanner type="skyscraper" />
+                    </div>
+
+                    {/* 右側の広告 (PCのみ表示) */}
+                    <div className="fixed right-4 top-24 hidden xl:block w-[160px] h-[600px] z-10">
+                        <AdBanner type="skyscraper" />
+                    </div>
+
                     <Header setView={setView} isAdmin={!!token} logout={handleLogout} />
                     <main className="max-w-4xl mx-auto px-4 mt-8">
                         {view === 'list' && <PostList posts={posts} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
