@@ -69,15 +69,29 @@ const StockTracker: React.FC = () => {
     pnl: 0
   });
 
-  // Load Data
+  // Load Data with Safety Check
   useEffect(() => {
     const savedTrades = localStorage.getItem('stock_trades');
     const savedAsset = localStorage.getItem('stock_initial_asset');
     
     if (savedTrades) {
       try {
-        setTrades(JSON.parse(savedTrades));
+        const parsed = JSON.parse(savedTrades);
+        if (Array.isArray(parsed)) {
+            // データのサニタイズ（必須フィールドの欠落を防ぐ）
+            const sanitized = parsed.map((t: any) => ({
+                ...t,
+                price: Number(t.price) || 0,
+                quantity: Number(t.quantity) || 0,
+                pnl: Number(t.pnl) || 0,
+                date: t.date || new Date().toISOString().split('T')[0]
+            }));
+            setTrades(sanitized);
+        } else {
+            setTrades([]);
+        }
       } catch (e) {
+        console.error("Failed to parse trades", e);
         setTrades([]);
       }
     } else {
@@ -88,7 +102,7 @@ const StockTracker: React.FC = () => {
       ]);
     }
 
-    if (savedAsset) {
+    if (savedAsset && !isNaN(Number(savedAsset))) {
       setInitialAsset(Number(savedAsset));
     }
     setIsDataLoaded(true);
@@ -114,15 +128,15 @@ const StockTracker: React.FC = () => {
   const totalPnl = trades.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   const currentAsset = initialAsset + totalPnl;
   
-  // 今月の損益 (Crash Fix: use 0 if undefined)
+  // 今月の損益
   const currentMonthPnl = useMemo(() => {
     return trades
-      .filter(t => t.date.startsWith(currentMonthStr))
+      .filter(t => t.date && t.date.startsWith(currentMonthStr))
       .reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   }, [trades, currentMonthStr]);
 
   // 勝率など
-  const tradeEvents = trades.filter(t => t.type === 'sell' && t.pnl !== 0); // 損益が発生した決済取引のみ
+  const tradeEvents = trades.filter(t => t.type === 'sell' && t.pnl !== 0); 
   const winTrades = tradeEvents.filter(t => t.pnl > 0);
   const lossTrades = tradeEvents.filter(t => t.pnl < 0); 
   const winRate = tradeEvents.length > 0 ? (winTrades.length / tradeEvents.length) * 100 : 0;
@@ -131,11 +145,9 @@ const StockTracker: React.FC = () => {
   const totalLoss = Math.abs(lossTrades.reduce((s, t) => s + t.pnl, 0));
   const profitFactor = totalLoss === 0 ? (totalProfit > 0 ? 99.99 : 0) : (totalProfit / totalLoss);
 
-  // 平均利益・平均損失
   const avgProfit = winTrades.length > 0 ? totalProfit / winTrades.length : 0;
-  // const avgLoss = lossTrades.length > 0 ? totalLoss / lossTrades.length : 0; 
 
-  // 保有銘柄の計算 (簡易版: 平均取得単価法)
+  // 保有銘柄の計算
   const holdings = useMemo(() => {
     const map = new Map<string, {name: string, quantity: number, totalCost: number}>();
     
@@ -150,13 +162,12 @@ const StockTracker: React.FC = () => {
         current.quantity += t.quantity;
         current.totalCost += (t.price * t.quantity);
       } else if (t.type === 'sell') {
-        // 売却時は平均単価に基づいてコストを減らす（実現損益はpnlで管理されているため在庫のみ計算）
         const avgPrice = current.quantity > 0 ? current.totalCost / current.quantity : 0;
         current.quantity -= t.quantity;
         current.totalCost -= (avgPrice * t.quantity);
       }
       
-      // 数量がほぼ0なら削除
+      // 数量がほぼ0なら削除 (浮動小数点誤差考慮)
       if (current.quantity < 0.0001) map.delete(t.ticker);
       else map.set(t.ticker, current);
     }
@@ -168,21 +179,16 @@ const StockTracker: React.FC = () => {
     }));
   }, [trades]);
 
-  // チャートデータ生成
+  // チャートデータ生成 (Rechartsクラッシュ防止のため厳格にチェック)
   const chartData = useMemo(() => {
     const sorted = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    // 日付ごとの最終資産をマップに記録
     const dailyAssetMap = new Map<string, number>();
-    
-    // データがない場合の初期点
     const today = new Date().toISOString().split('T')[0];
     let cumulative = initialAsset;
 
     if (sorted.length === 0) {
         dailyAssetMap.set(today, initialAsset);
     } else {
-        // 最初の取引の前日を初期資産とする
         const firstDateStr = sorted[0].date;
         if(firstDateStr) {
             const firstDate = new Date(firstDateStr);
@@ -194,14 +200,18 @@ const StockTracker: React.FC = () => {
     }
 
     for (const trade of sorted) {
+      if (!trade.date) continue;
       cumulative += (Number(trade.pnl) || 0);
       dailyAssetMap.set(trade.date, cumulative);
     }
 
-    // Mapを配列に変換してソート
-    return Array.from(dailyAssetMap.entries())
+    // 配列変換時にNaNを除外
+    const result = Array.from(dailyAssetMap.entries())
         .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-        .map(([date, asset]) => ({ date, asset }));
+        .map(([date, asset]) => ({ date, asset }))
+        .filter(d => !isNaN(d.asset));
+        
+    return result.length > 0 ? result : [{ date: today, asset: initialAsset }];
   }, [trades, initialAsset]);
 
   // 月次データ
@@ -209,26 +219,25 @@ const StockTracker: React.FC = () => {
       const data: {[key:string]: number} = {};
       trades.forEach(t => {
           if(!t.date) return;
-          const m = t.date.slice(0, 7); // YYYY-MM
+          const m = t.date.slice(0, 7); 
           data[m] = (data[m] || 0) + (Number(t.pnl) || 0);
       });
-      return Object.entries(data).sort().map(([date, pnl]) => ({ date, pnl }));
+      const result = Object.entries(data).sort().map(([date, pnl]) => ({ date, pnl }));
+      return result.length > 0 ? result : [{ date: currentMonthStr, pnl: 0 }];
   }, [trades]);
 
   // 戦略別損益データ
   const strategyData = useMemo(() => {
     const data: {[key:string]: number} = {};
     trades.forEach(t => {
-        if (t.strategy) {
-            data[t.strategy] = (data[t.strategy] || 0) + (Number(t.pnl) || 0);
-        }
+        const strat = t.strategy || 'その他';
+        data[strat] = (data[strat] || 0) + (Number(t.pnl) || 0);
     });
     return Object.entries(data)
-        .sort((a, b) => b[1] - a[1]) // 利益順
+        .sort((a, b) => b[1] - a[1])
         .map(([name, value]) => ({ name, value }));
   }, [trades]);
 
-  // CSVダウンロード
   const handleDownloadCsv = () => {
     const header = "ID,日付,銘柄コード,銘柄名,売買区分,価格,株数,損益,戦略,感情,コメント\n";
     const rows = trades.map(t => 
@@ -252,7 +261,6 @@ const StockTracker: React.FC = () => {
     }
   };
 
-  // ハンドラ
   const handleAddTrade = () => {
     if (!formData.date) {
         alert('日付は必須です');
@@ -296,8 +304,6 @@ const StockTracker: React.FC = () => {
     }
   };
 
-  // --- Sub Components ---
-
   const StatCard = ({ title, value, sub, colorClass }: any) => (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
       <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">{title}</span>
@@ -308,7 +314,6 @@ const StockTracker: React.FC = () => {
 
   const Heatmap = () => {
     const today = new Date();
-    // 過去90日分
     const days = [];
     for(let i=89; i>=0; i--) {
         const d = new Date();
@@ -351,7 +356,7 @@ const StockTracker: React.FC = () => {
 
     const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
     const monthPnl = trades
-        .filter(t => t.date.startsWith(monthKey))
+        .filter(t => t.date && t.date.startsWith(monthKey))
         .reduce((s,t) => s + Number(t.pnl), 0);
 
     return (
@@ -419,7 +424,6 @@ const StockTracker: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto no-scrollbar shrink-0">
         {[
            {id: 'dashboard', icon: LayoutDashboard, label: 'ホーム'},
@@ -458,11 +462,16 @@ const StockTracker: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                <XAxis dataKey="date" tick={{fontSize: 10}} tickFormatter={(val) => val.slice(5)} stroke="#9ca3af" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tick={{fontSize: 10}} 
+                                    tickFormatter={(val) => (typeof val === 'string' && val.length >= 5) ? val.slice(5) : ''} 
+                                    stroke="#9ca3af" 
+                                />
                                 <YAxis tick={{fontSize: 10}} tickFormatter={(val) => `${val/10000}万`} width={40} domain={['auto', 'auto']} stroke="#9ca3af" />
                                 <Tooltip 
                                     formatter={(val: number) => `¥${val.toLocaleString()}`} 
-                                    contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'rgba(255,255,255,0.9)'}} 
+                                    contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'rgba(255,255,255,0.9)', color: '#333'}} 
                                 />
                                 <Line type="monotone" dataKey="asset" stroke="#4f46e5" strokeWidth={3} dot={false} activeDot={{r: 6}} />
                             </LineChart>
@@ -568,7 +577,12 @@ const StockTracker: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={monthlyData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tick={{fontSize: 10}} 
+                                    tickFormatter={(val) => (typeof val === 'string' && val.length >= 5) ? val.slice(5) : ''}
+                                    stroke="#9ca3af" 
+                                />
                                 <YAxis tickFormatter={(val) => `${val/10000}万`} width={40} stroke="#9ca3af" />
                                 <Tooltip formatter={(val: number) => `¥${val.toLocaleString()}`} cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: '8px', color:'#333'}} />
                                 <Bar dataKey="pnl">
@@ -629,9 +643,9 @@ const StockTracker: React.FC = () => {
                                         <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
                                             {h.name} <span className="text-xs text-gray-400 ml-1">{h.ticker}</span>
                                         </td>
-                                        <td className="p-3 text-right font-mono">{h.quantity.toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono">¥{Math.round(h.avgPrice).toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono font-bold">¥{Math.round(h.avgPrice * h.quantity).toLocaleString()}</td>
+                                        <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{h.quantity.toLocaleString()}</td>
+                                        <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">¥{Math.round(h.avgPrice).toLocaleString()}</td>
+                                        <td className="p-3 text-right font-mono font-bold text-gray-800 dark:text-white">¥{Math.round(h.avgPrice * h.quantity).toLocaleString()}</td>
                                     </tr>
                                 )) : (
                                     <tr><td colSpan={4} className="p-6 text-center text-gray-400">保有なし</td></tr>
@@ -666,7 +680,7 @@ const StockTracker: React.FC = () => {
                             type="number" 
                             value={initialAsset} 
                             onChange={(e) => setInitialAsset(Number(e.target.value))} 
-                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500"
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500"
                           />
                           <p className="text-[10px] text-gray-400 mt-2">※ここに入力した金額をスタート地点として損益を加算します。</p>
                       </div>
@@ -714,7 +728,7 @@ const StockTracker: React.FC = () => {
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">日付</label>
                         <input 
                             type="date" 
-                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                             value={formData.date} 
                             onChange={e => setFormData({...formData, date: e.target.value})} 
                         />
@@ -723,7 +737,7 @@ const StockTracker: React.FC = () => {
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">銘柄コード</label>
                         <input 
                             type="text" 
-                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                             placeholder="7203" 
                             value={formData.ticker} 
                             onChange={e => setFormData({...formData, ticker: e.target.value})} 
@@ -735,7 +749,7 @@ const StockTracker: React.FC = () => {
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">銘柄名 / 項目名</label>
                     <input 
                         type="text" 
-                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                         placeholder="トヨタ自動車" 
                         value={formData.name} 
                         onChange={e => setFormData({...formData, name: e.target.value})} 
@@ -747,7 +761,7 @@ const StockTracker: React.FC = () => {
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">約定価格</label>
                         <input 
                             type="number" 
-                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
                             value={formData.price} 
                             onChange={e => setFormData({...formData, price: Number(e.target.value)})} 
                         />
@@ -756,7 +770,7 @@ const StockTracker: React.FC = () => {
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">株数</label>
                         <input 
                             type="number" 
-                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none" 
                             value={formData.quantity} 
                             onChange={e => setFormData({...formData, quantity: Number(e.target.value)})} 
                         />
@@ -812,7 +826,7 @@ const StockTracker: React.FC = () => {
                 <div>
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">メモ</label>
                     <textarea 
-                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 outline-none" 
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 outline-none" 
                         placeholder="エントリー根拠や反省点..." 
                         value={formData.comment} 
                         onChange={e => setFormData({...formData, comment: e.target.value})} 
