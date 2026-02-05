@@ -58,6 +58,7 @@ const TimestampConverter = lazy(() => import('./components/tools/TimestampConver
 const BathProcrastinationPreventer = lazy(() => import('./components/tools/BathProcrastinationPreventer'));
 const TextShare = lazy(() => import('./components/tools/TextShare'));
 const UrlBundler = lazy(() => import('./components/tools/UrlBundler'));
+const StockTracker = lazy(() => import('./components/tools/StockTracker'));
 
 export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
 
@@ -361,6 +362,7 @@ const Layout: React.FC = () => {
                   <Route path="/bath" element={<BathProcrastinationPreventer />} />
                   <Route path="/share" element={<TextShare />} />
                   <Route path="/bundle" element={<UrlBundler />} />
+                  <Route path="/stock" element={<StockTracker />} />
                 </Routes>
               </Suspense>
             </div>

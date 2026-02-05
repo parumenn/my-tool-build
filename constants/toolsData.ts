@@ -6,11 +6,12 @@ import {
   FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
   Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
   BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
-  Pipette, Bath, Share2, Layers, Monitor
+  Pipette, Bath, Share2, Layers, Monitor, TrendingUp
 } from 'lucide-react';
 import { Tool } from '../types';
 
 export const TOOLS: Tool[] = [
+  { id: 'stock', name: '株トレード記録', path: '/stock', description: '売買記録・資産推移・分析', icon: TrendingUp, color: 'text-indigo-600', lightBg: 'bg-indigo-50' },
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50' },
   { id: 'bundle', name: 'URLまとめURL', path: '/bundle', description: '複数URLを1つのリンクに集約', icon: Layers, color: 'text-cyan-500', lightBg: 'bg-cyan-50' },
   { id: 'share', name: 'テキスト共有', path: '/share', description: '期限付きURLでテキストを共有', icon: Share2, color: 'text-emerald-500', lightBg: 'bg-emerald-50' },
