@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useContext, useRef } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Cell, PieChart, Pie, Legend
@@ -7,7 +7,7 @@ import {
 import { 
   LayoutDashboard, Plus, Calendar as CalendarIcon, PieChart as ChartIcon, 
   TrendingUp, TrendingDown, History, Trash2, X, ChevronLeft, ChevronRight, 
-  Wallet, Info, ShieldCheck, Zap, JapaneseYen, Target, Download, RefreshCw, Briefcase
+  Wallet, Info, ShieldCheck, Zap, JapaneseYen, Target, Download, RefreshCw, Briefcase, Globe, Search
 } from 'lucide-react';
 import { WorkspaceContext } from '../WorkspaceContext';
 import AdBanner from '../AdBanner';
@@ -46,14 +46,54 @@ const EMOTIONS = [
   { id: 'fear', label: '恐怖', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
 ];
 
+// --- TradingView Widget Component ---
+const TradingViewWidget = ({ symbol }: { symbol: string }) => {
+  const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!container.current) return;
+    
+    // Clear previous widget
+    container.current.innerHTML = '';
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      "autosize": true,
+      "symbol": symbol,
+      "interval": "D",
+      "timezone": "Asia/Tokyo",
+      "theme": document.documentElement.classList.contains('dark') ? "dark" : "light",
+      "style": "1",
+      "locale": "ja",
+      "enable_publishing": false,
+      "allow_symbol_change": true,
+      "support_host": "https://www.tradingview.com"
+    });
+    container.current.appendChild(script);
+  }, [symbol]);
+
+  return (
+    <div className="tradingview-widget-container h-full w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700" ref={container}>
+      <div className="tradingview-widget-container__widget h-full w-full"></div>
+    </div>
+  );
+};
+
 const StockTracker: React.FC = () => {
   const isWorkspace = useContext(WorkspaceContext);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'calendar' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'market' | 'history' | 'calendar' | 'analytics'>('dashboard');
   
   // Data State
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [initialAsset, setInitialAsset] = useState<number>(1000000);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Market Tab State
+  const [chartSymbol, setChartSymbol] = useState('TSE:7203'); // Default Toyota
+  const [tickerInput, setTickerInput] = useState('');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -304,6 +344,24 @@ const StockTracker: React.FC = () => {
     }
   };
 
+  const searchChart = (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!tickerInput) return;
+    
+    let sym = tickerInput.trim().toUpperCase();
+    
+    // 簡易的な判別ロジック
+    if (/^[0-9]{4}$/.test(sym)) {
+        // 4桁数字のみなら東証とみなす
+        sym = `TSE:${sym}`;
+    } else if (/^[A-Z]+$/.test(sym)) {
+        // アルファベットのみならそのまま(TradingViewが判断、もしくはNASDAQ優先など)
+        // 必要なら 'NASDAQ:' + sym などにするが、TradingViewはスマートに検索してくれる
+    }
+    
+    setChartSymbol(sym);
+  };
+
   const StatCard = ({ title, value, sub, colorClass }: any) => (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
       <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">{title}</span>
@@ -427,6 +485,7 @@ const StockTracker: React.FC = () => {
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto no-scrollbar shrink-0">
         {[
            {id: 'dashboard', icon: LayoutDashboard, label: 'ホーム'},
+           {id: 'market', icon: Globe, label: 'マーケット'},
            {id: 'history', icon: History, label: '履歴'},
            {id: 'calendar', icon: CalendarIcon, label: 'カレンダー'},
            {id: 'analytics', icon: ChartIcon, label: '分析'}
@@ -499,6 +558,35 @@ const StockTracker: React.FC = () => {
                     </div>
                 </div>
             </div>
+        )}
+        
+        {/* Market / Chart Tab */}
+        {activeTab === 'market' && (
+           <div className="flex flex-col h-full animate-fade-in space-y-4">
+               <div className="flex gap-2">
+                   <form onSubmit={searchChart} className="flex-1 flex gap-2">
+                       <input 
+                         type="text" 
+                         value={tickerInput} 
+                         onChange={(e) => setTickerInput(e.target.value)} 
+                         placeholder="銘柄コード (例: 7203 or AAPL)" 
+                         className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white text-sm font-bold shadow-sm"
+                       />
+                       <button type="submit" className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-none flex items-center gap-2">
+                         <Search size={18} /> <span className="hidden sm:inline">チャート表示</span>
+                       </button>
+                   </form>
+               </div>
+               
+               <div className="flex-1 bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 min-h-[400px]">
+                   <TradingViewWidget symbol={chartSymbol} />
+               </div>
+               
+               <div className="text-[10px] text-gray-400 text-center">
+                  ※ リアルタイムチャートはTradingView提供のウィジェットを使用しています。一部の銘柄（特に日本株）は遅延する場合があります。<br/>
+                  ※ 4桁の数字を入力すると自動的に東証(TSE)として検索します。
+               </div>
+           </div>
         )}
 
         {activeTab === 'history' && (
