@@ -3,26 +3,23 @@
   RewriteEngine On
   RewriteBase /
   
-  # index.php を優先的に処理
-  DirectoryIndex index.php
+  # index.php と index.html をディレクトリのデフォルトファイルとして設定
+  # これにより /brog/ にアクセスした際、index.php が無くても index.html が表示されるようになります
+  DirectoryIndex index.php index.html
 
   # /brog および /freebord ディレクトリ以下はSPAのリライト対象から完全に除外する
   RewriteCond %{REQUEST_URI} ^/(brog|freebord) [NC]
   RewriteRule ^ - [L]
 
-  # index.html への直接アクセスを index.php に内部リライト
+  # ルートの index.html への直接アクセスのみ index.php にリライト（SPAのエントリポイント用）
   RewriteRule ^index\.html$ index.php [L]
 
-  # 存在するファイルへのリクエストのうち、index.html 以外は直接配信
-  RewriteCond %{REQUEST_FILENAME} -f
-  RewriteCond %{REQUEST_FILENAME} !index\.html
-  RewriteRule ^ - [L]
-
-  # 存在するディレクトリは直接配信
+  # 存在するファイルやディレクトリへのアクセスはリライトせずそのまま通す
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   
-  # それ以外（SPAのルートなど）は index.php にルーティング
+  # それ以外はすべて index.php (SPA) にルーティング
   RewriteRule . index.php [L]
 </IfModule>
 
