@@ -73,6 +73,55 @@
             );
         };
 
+        // --- Ad Component ---
+        const AdBanner = ({ type = 'rect' }) => {
+            const bannerRef = useRef(null);
+
+            useEffect(() => {
+                if (!bannerRef.current) return;
+                bannerRef.current.innerHTML = '';
+
+                const conf = type === 'banner' 
+                    ? { key: '6440c8d3cc819aafb0e098549141eae2', width: 468, height: 60, styleW: '468px', styleH: '60px' }
+                    : { key: '93250590c6cc4fa213dc408950ac67ef', width: 160, height: 300, styleW: '320px', styleH: '320px' };
+
+                const iframe = document.createElement('iframe');
+                iframe.style.width = conf.styleW;
+                iframe.style.height = conf.styleH;
+                iframe.style.border = 'none';
+                iframe.style.overflow = 'hidden';
+                iframe.title = "Advertisement";
+                
+                bannerRef.current.appendChild(iframe);
+
+                const doc = iframe.contentWindow?.document;
+                if (doc) {
+                    doc.open();
+                    doc.write(`
+                        <html><body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;">
+                            <script>
+                                atOptions = {
+                                    'key' : '${conf.key}',
+                                    'format' : 'iframe',
+                                    'height' : ${conf.height},
+                                    'width' : ${conf.width},
+                                    'params' : {}
+                                };
+                            <\/script>
+                            <script type="text/javascript" src="https://www.highperformanceformat.com/${conf.key}/invoke.js"><\/script>
+                        </body></html>
+                    `);
+                    doc.close();
+                }
+            }, [type]);
+
+            return (
+                <div className="w-full flex justify-center my-8 items-center overflow-hidden">
+                    <div ref={bannerRef}></div>
+                </div>
+            );
+        };
+
         // --- Components ---
         
         const Header = ({ setView, isAdmin, logout }) => (
@@ -136,18 +185,21 @@
         };
 
         const PostDetail = ({ post, onBack }) => (
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 animate-fade-in">
-                <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors"><Icon name="arrow-left" size={16} /> Back</button>
-                <h1 className="text-3xl font-black text-slate-900 mb-4">{post.title}</h1>
-                <div className="flex items-center gap-4 mb-8 pb-4 border-b border-slate-100">
-                    <span className="text-xs font-mono text-slate-400 flex items-center gap-1"><Icon name="calendar" size={12} /> {post.date}</span>
-                    {post.tags && (
-                        <div className="flex gap-2">
-                            {post.tags.map(tag => <span key={tag} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full font-bold">#{tag}</span>)}
-                        </div>
-                    )}
+            <div className="animate-fade-in">
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                    <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition-colors"><Icon name="arrow-left" size={16} /> Back</button>
+                    <h1 className="text-3xl font-black text-slate-900 mb-4">{post.title}</h1>
+                    <div className="flex items-center gap-4 mb-8 pb-4 border-b border-slate-100">
+                        <span className="text-xs font-mono text-slate-400 flex items-center gap-1"><Icon name="calendar" size={12} /> {post.date}</span>
+                        {post.tags && (
+                            <div className="flex gap-2">
+                                {post.tags.map(tag => <span key={tag} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full font-bold">#{tag}</span>)}
+                            </div>
+                        )}
+                    </div>
+                    <div className="markdown text-slate-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: post.content }}></div>
                 </div>
-                <div className="markdown text-slate-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: post.content }}></div>
+                <AdBanner type="rect" />
             </div>
         );
 
@@ -406,7 +458,9 @@
                         )}
                     </main>
                     
-                    <footer className="mt-20 py-8 text-center text-slate-400 text-xs font-bold border-t border-slate-200">
+                    <AdBanner type="banner" />
+
+                    <footer className="mt-4 py-8 text-center text-slate-400 text-xs font-bold border-t border-slate-200">
                         &copy; 2026 開発者ブログ. Powered by まいつーる.
                     </footer>
                 </div>
