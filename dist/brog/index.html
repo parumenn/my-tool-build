@@ -62,7 +62,8 @@
             bold: '<path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>',
             link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
             image: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>',
-            code: '<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>'
+            code: '<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>',
+            'alert-triangle': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>'
         };
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -80,91 +81,36 @@
             useEffect(() => {
                 const node = bannerRef.current;
                 if (!node) return;
-                
-                // Clear previous content
-                while (node.firstChild) {
-                    node.removeChild(node.firstChild);
-                }
+                while (node.firstChild) { node.removeChild(node.firstChild); }
 
                 const iframe = document.createElement('iframe');
-                iframe.style.border = 'none';
-                iframe.style.overflow = 'hidden';
-                iframe.title = "Advertisement";
+                iframe.style.border = 'none'; iframe.style.overflow = 'hidden'; iframe.title = "Advertisement";
 
                 if (type === 'banner') {
-                    // Banner (468x60)
-                    iframe.style.width = '468px';
-                    iframe.style.height = '60px';
+                    iframe.style.width = '468px'; iframe.style.height = '60px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`
-                            <!DOCTYPE html>
-                            <html>
-                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
-                            <body>
-                                <script type="text/javascript">
-                                    atOptions = {
-                                        'key' : '6440c8d3cc819aafb0e098549141eae2',
-                                        'format' : 'iframe',
-                                        'height' : 60,
-                                        'width' : 468,
-                                        'params' : {}
-                                    };
-                                </` + `script>
-                                <script type="text/javascript" src="https://www.highperformanceformat.com/6440c8d3cc819aafb0e098549141eae2/invoke.js"></` + `script>
-                            </body>
-                            </html>
-                        `);
+                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script type="text/javascript">atOptions={'key':'6440c8d3cc819aafb0e098549141eae2','format':'iframe','height':60,'width':468,'params':{}};</script><script type="text/javascript" src="https://www.highperformanceformat.com/6440c8d3cc819aafb0e098549141eae2/invoke.js"></script></body></html>`);
                         doc.close();
                     }
                 } else if (type === 'skyscraper') {
-                    // Skyscraper (160x600)
-                    iframe.style.width = '160px';
-                    iframe.style.height = '600px';
+                    iframe.style.width = '160px'; iframe.style.height = '600px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`
-                            <!DOCTYPE html>
-                            <html>
-                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
-                            <body>
-                                <script type="text/javascript">
-                                    atOptions = {
-                                        'key' : 'c778c4a7f09b97ba471cd0fbd2d48a59',
-                                        'format' : 'iframe',
-                                        'height' : 600,
-                                        'width' : 160,
-                                        'params' : {}
-                                    };
-                                </` + `script>
-                                <script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></` + `script>
-                            </body>
-                            </html>
-                        `);
+                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script type="text/javascript">atOptions={'key':'c778c4a7f09b97ba471cd0fbd2d48a59','format':'iframe','height':600,'width':160,'params':{}};</script><script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></script></body></html>`);
                         doc.close();
                     }
                 } else {
-                    // Rect (300x250 or responsive) - EffectiveGateCPM
-                    iframe.style.width = '300px';
-                    iframe.style.height = '250px';
+                    iframe.style.width = '300px'; iframe.style.height = '250px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`
-                            <!DOCTYPE html>
-                            <html>
-                            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head>
-                            <body>
-                                <script async="async" data-cfasync="false" src="https://pl28654616.effectivegatecpm.com/7fc3cc745c4b31d1928e463b50abab50/invoke.js"></` + `script>
-                                <div id="container-7fc3cc745c4b31d1928e463b50abab50"></div>
-                            </body>
-                            </html>
-                        `);
+                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script async="async" data-cfasync="false" src="https://pl28654616.effectivegatecpm.com/7fc3cc745c4b31d1928e463b50abab50/invoke.js"></script><div id="container-7fc3cc745c4b31d1928e463b50abab50"></div></body></html>`);
                         doc.close();
                     }
                 }
@@ -175,9 +121,7 @@
                 : "w-full flex justify-center my-8 items-center overflow-hidden bg-slate-50 border border-slate-100 rounded-xl py-4";
 
             return (
-                <div className={containerClass}>
-                    <div ref={bannerRef}></div>
-                </div>
+                <div className={containerClass}><div ref={bannerRef}></div></div>
             );
         };
 
@@ -208,7 +152,6 @@
         const PostList = ({ posts, onPostClick }) => {
             const extractImage = (content) => {
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
-                // URL内の &amp; を & に戻す
                 return match ? match[1].replace(/&amp;/g, '&') : null;
             };
 
@@ -262,7 +205,7 @@
             </div>
         );
 
-        const Login = ({ onLogin }) => {
+        const Login = ({ onLogin, setBlocked }) => {
             const [pass, setPass] = useState('');
             const [error, setError] = useState('');
             const handleSubmit = async (e) => {
@@ -274,6 +217,13 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ password: pass })
                     });
+                    
+                    if (res.status === 403) {
+                        const data = await res.json();
+                        setBlocked(true); // ブロック状態へ移行
+                        return;
+                    }
+
                     const data = await res.json();
                     if (data.token) {
                         onLogin(data.token);
@@ -369,7 +319,6 @@
                 formData.append('file', file);
 
                 try {
-                    // Show simple loading
                     execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
                     
                     const res = await fetch('./api.php?action=upload', {
@@ -378,7 +327,6 @@
                     });
                     const data = await res.json();
                     
-                    // Remove loading text
                     const loadingSpan = document.getElementById('loading-img');
                     if(loadingSpan) loadingSpan.remove();
 
@@ -443,16 +391,39 @@
             );
         };
 
+        const BlockedScreen = () => (
+            <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border-2 border-red-100">
+                    <div className="text-red-500 mb-4 flex justify-center"><Icon name="alert-triangle" size={64} /></div>
+                    <h1 className="text-2xl font-black text-slate-800 mb-4">アクセスがブロックされました</h1>
+                    <p className="text-slate-600 mb-6 font-bold">
+                        セキュリティ上の理由により、あなたのIPアドレスからのアクセスは一時的に制限されています。<br/>
+                        (ログイン試行回数の超過など)
+                    </p>
+                    <p className="text-xs text-slate-400">解除されるまでしばらくお待ちください。</p>
+                </div>
+            </div>
+        );
+
         const App = () => {
             const [view, setView] = useState('list');
             const [posts, setPosts] = useState([]);
             const [selectedPost, setSelectedPost] = useState(null);
             const [token, setToken] = useState(localStorage.getItem('brog_token'));
+            const [blocked, setBlocked] = useState(false);
 
             const fetchPosts = async () => {
-                const res = await fetch('./api.php?action=list');
-                const data = await res.json();
-                setPosts(data);
+                try {
+                    const res = await fetch('./api.php?action=list');
+                    if (res.status === 403) {
+                        setBlocked(true);
+                        return;
+                    }
+                    const data = await res.json();
+                    setPosts(data);
+                } catch (e) {
+                    console.error("Fetch error", e);
+                }
             };
 
             useEffect(() => { fetchPosts(); }, []);
@@ -483,6 +454,10 @@
                 await fetchPosts();
             };
 
+            if (blocked) {
+                return <BlockedScreen />;
+            }
+
             return (
                 <div className="min-h-screen pb-20 relative">
                     {/* 左側の広告 (PCのみ表示) */}
@@ -499,7 +474,7 @@
                     <main className="max-w-4xl mx-auto px-4 mt-8">
                         {view === 'list' && <PostList posts={posts} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
                         {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={() => setView('list')} />}
-                        {view === 'login' && <Login onLogin={handleLogin} />}
+                        {view === 'login' && <Login onLogin={handleLogin} setBlocked={setBlocked} />}
                         
                         {view === 'admin_list' && token && (
                             <div className="space-y-6">
