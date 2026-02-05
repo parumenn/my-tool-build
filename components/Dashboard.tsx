@@ -37,7 +37,7 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
      const linkProps = tool.isExternal ? { href: tool.path } : { to: tool.path };
 
      return (
-        <div key={tool.id} className="group relative bg-white dark:bg-dark-lighter rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col min-h-[140px] md:min-h-[180px]">
+        <div key={tool.id} className={`group relative bg-white dark:bg-dark-lighter rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${tool.hideOnMobile ? 'hidden md:flex' : 'flex'} flex-col min-h-[140px] md:min-h-[180px]`}>
           <div className="flex justify-between items-start mb-3 md:mb-4">
             <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center ${tool.lightBg} dark:bg-gray-800 ${tool.color}`}>
               <tool.icon size={24} className="md:w-7 md:h-7" />

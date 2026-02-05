@@ -6,8 +6,8 @@
   # index.php を優先的に処理
   DirectoryIndex index.php
 
-  # /blog ディレクトリ以下はSPAのリライト対象から完全に除外する
-  RewriteCond %{REQUEST_URI} ^/blog [NC]
+  # /brog および /freebord ディレクトリ以下はSPAのリライト対象から完全に除外する
+  RewriteCond %{REQUEST_URI} ^/(brog|freebord) [NC]
   RewriteRule ^ - [L]
 
   # index.html への直接アクセスを index.php に内部リライト
@@ -18,7 +18,7 @@
   RewriteCond %{REQUEST_FILENAME} !index\.html
   RewriteRule ^ - [L]
 
-  # 存在するディレクトリは直接配信（ここで /blog も通常はカバーされます）
+  # 存在するディレクトリは直接配信
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   
