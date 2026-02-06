@@ -20,6 +20,9 @@ $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
 $FAILURES_FILE = $DATA_DIR . '/login_failures.json';
 
+// ★追加: メインサイトと共有するブロックリスト
+$GLOBAL_BLOCKED_FILE = __DIR__ . '/../backend/data/blocked_ips.json';
+
 // Initialize Directories
 if (!file_exists($DATA_DIR)) {
     if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
@@ -53,31 +56,25 @@ function getClientIp() {
 // IPブロックチェック (全アクション共通で最初に実行)
 // ---------------------------------------------------------
 $ip = getClientIp();
-$failures = getData($FAILURES_FILE);
 $now = time();
+
+// 1. グローバルブロックリスト(メインサイトと共有)のチェック
+$global_blocked = getData($GLOBAL_BLOCKED_FILE);
+// 期限切れを除外してチェック
+if (isset($global_blocked[$ip]) && $global_blocked[$ip]['expiry'] > $now) {
+    http_response_code(403);
+    echo json_encode([
+        'error' => "アクセスがブロックされています。",
+        'message' => "セキュリティ違反により、このIPからのアクセスは全サイトで制限されています。(Reason: " . ($global_blocked[$ip]['reason'] ?? 'Unknown') . ")",
+        'blocked' => true
+    ]);
+    exit;
+}
+
+// 2. ブログ独自のログイン試行回数チェック (こちらはまだブロックされていない段階のカウント)
+$failures = getData($FAILURES_FILE);
 $blockDuration = 30 * 60; // 30分
 $maxAttempts = 3;         // 3回失敗でアウト
-
-if (isset($failures[$ip])) {
-    $record = $failures[$ip];
-    // ブロック期間を過ぎているか確認
-    if (($now - $record['last_attempt']) >= $blockDuration) {
-        // 期間経過後、リセット
-        unset($failures[$ip]);
-        saveData($FAILURES_FILE, $failures);
-    } 
-    // まだ期間内かつ、試行回数が上限を超えている場合
-    elseif ($record['count'] >= $maxAttempts) {
-        http_response_code(403);
-        $remaining = ceil(($blockDuration - ($now - $record['last_attempt'])) / 60);
-        echo json_encode([
-            'error' => "アクセスがブロックされています。",
-            'message' => "ログイン失敗回数が上限を超えました。あと{$remaining}分間、このIPからのアクセスは拒否されます。",
-            'blocked' => true
-        ]);
-        exit; // 処理をここで完全停止
-    }
-}
 
 // Initialize Config & Posts if needed
 if (!file_exists($CONFIG_FILE)) {
@@ -108,12 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(['blog_name' => $config['blog_name'] ?? 'Blog']);
     }
     elseif ($action === 'image') {
-        // 画像表示処理の修正
+        // 画像表示処理
         $name = basename($_GET['name'] ?? '');
         $path = $UPLOADS_DIR . '/' . $name;
         
         if ($name && file_exists($path)) {
-            // MIMEタイプの判定 (拡張子ベースでフォールバック)
             $mime = false;
             if (function_exists('mime_content_type')) {
                 $mime = @mime_content_type($path);
@@ -127,17 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $mime = $mimes[$ext] ?? 'application/octet-stream';
             }
 
-            // バッファをクリアして画像データのみを出力する
             while (ob_get_level()) { ob_end_clean(); }
             
             header("Content-Type: $mime");
             header("Content-Length: " . filesize($path));
-            header("Cache-Control: public, max-age=86400"); // キャッシュ有効化
+            header("Cache-Control: public, max-age=86400");
             readfile($path);
             exit;
         } else {
             http_response_code(404);
-            // 画像としての404を返すためJSONは返さない
             exit;
         }
     }
@@ -146,12 +140,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     if ($action === 'login') {
-        // ここでのIPチェックは、既に冒頭で行っているため、
-        // 単純に「成功したらリセット」「失敗したらカウントアップ」だけを行う
-        
         $pass = $input['password'] ?? '';
         
-        // 既存の失敗レコードを取得（なければ初期化）
         if (!isset($failures[$ip])) {
             $failures[$ip] = ['count' => 0, 'last_attempt' => 0];
         }
@@ -170,10 +160,23 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
             
             if ($attemptsLeft <= 0) {
-                // 今回の失敗でブロック確定
+                // ★ 3回失敗 -> グローバルブロックリストに追加
+                // これによりメインサイトもブロックされ、管理画面の「IP制限」リストに表示される
+                $global_blocked = getData($GLOBAL_BLOCKED_FILE);
+                $global_blocked[$ip] = [
+                    'expiry' => $now + $blockDuration, // 30分ブロック
+                    'time' => date('Y-m-d H:i:s'),
+                    'reason' => 'Blog Login Failed (3 attempts)'
+                ];
+                saveData($GLOBAL_BLOCKED_FILE, $global_blocked);
+
+                // ブログ側の失敗記録はリセット
+                unset($failures[$ip]);
+                saveData($FAILURES_FILE, $failures);
+
                 http_response_code(403);
                 echo json_encode([
-                    'error' => "ログイン試行回数が上限を超えました。IPアドレスを一時的にブロックしました。",
+                    'error' => "ログイン試行回数が上限を超えました。IPアドレスを一時的に全サイトでブロックしました。",
                     'blocked' => true
                 ]);
             } else {
@@ -216,7 +219,6 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $filename = uniqid('img_') . '.' . $ext;
             if (move_uploaded_file($_FILES['file']['tmp_name'], $UPLOADS_DIR . '/' . $filename)) {
-                // 画像URLを返す
                 $url = 'api.php?action=image&name=' . $filename;
                 echo json_encode(['status' => 'ok', 'url' => $url]);
             } else {
