@@ -5,7 +5,7 @@
  */
 
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
 // データ保存ディレクトリ
@@ -38,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
     $validUrls = [];
     foreach ($input['urls'] as $url) {
         $url = trim($url);
+        // http/httpsがない場合、https://を付与して検証
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . $url;
+        }
+        
         if (filter_var($url, FILTER_VALIDATE_URL)) {
             $validUrls[] = $url;
         }
@@ -53,8 +58,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
     $id = bin2hex(random_bytes(4));
     $filename = $DATA_DIR . '/' . $id . '.json';
     
-    // 保存期間: 1年 (365日)
-    $expireSeconds = 365 * 24 * 60 * 60;
+    // 保存期間設定 (デフォルト365日, 最大365日)
+    $expireDays = isset($input['expire_days']) ? intval($input['expire_days']) : 365;
+    if ($expireDays < 1) $expireDays = 1;
+    if ($expireDays > 365) $expireDays = 365;
+    
+    $expireSeconds = $expireDays * 24 * 60 * 60;
 
     // データ構築
     $data = [
@@ -96,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
     if (file_exists($filename)) {
         $content = json_decode(file_get_contents($filename), true);
         
-        // 期限切れチェック (既存のファイルにexpires_atがない場合は無期限扱いまたは適当な処理)
+        // 期限切れチェック
         if (isset($content['expires_at']) && $content['expires_at'] < time()) {
             @unlink($filename);
             http_response_code(404);
@@ -108,6 +117,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
     } else {
         http_response_code(404);
         echo json_encode(['error' => 'Not Found']);
+    }
+    exit;
+}
+
+// --- Action: Delete Bundle ---
+if (($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'DELETE') && $action === 'delete') {
+    // POST body または GETパラメータからIDを取得
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? $_GET['id'] ?? '';
+
+    // IDのバリデーション
+    if (!preg_match('/^[a-f0-9]{8}$/', $id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid ID format']);
+        exit;
+    }
+
+    $filename = $DATA_DIR . '/' . $id . '.json';
+
+    if (file_exists($filename)) {
+        if (@unlink($filename)) {
+            echo json_encode(['status' => 'success', 'message' => 'Deleted']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Failed to delete']);
+        }
+    } else {
+        // 既に無い場合は成功とみなす（冪等性）
+        echo json_encode(['status' => 'success', 'message' => 'Already deleted or not found']);
     }
     exit;
 }

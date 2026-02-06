@@ -1,14 +1,21 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, Info, ShieldCheck, Zap, ToggleLeft, ToggleRight, HelpCircle, X, AlertTriangle, Settings } from 'lucide-react';
+import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, HelpCircle, X, AlertTriangle, Settings, History, Calendar, Clock, Info, Zap, ShieldCheck } from 'lucide-react';
 import AdBanner from '../AdBanner';
 
 interface BundleData {
   title: string;
   urls: string[];
   created_at: number;
-  auto_redirect?: boolean; // API互換性のため型定義は残すが使用しない
+  auto_redirect?: boolean;
+}
+
+interface HistoryItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  url: string;
 }
 
 const UrlBundler: React.FC = () => {
@@ -16,12 +23,19 @@ const UrlBundler: React.FC = () => {
   const bundleId = searchParams.get('id');
 
   // Create Mode State
-  const [urls, setUrls] = useState<string[]>(['', '', '', '', '']); // Changed from textarea string to array
+  const [urls, setUrls] = useState<string[]>(['', '', '', '', '']); 
   const [title, setTitle] = useState('');
+  const [expireDays, setExpireDays] = useState(365); // Default 1 year
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
   
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    const saved = localStorage.getItem('url_bundler_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // View Mode State
   const [bundleData, setBundleData] = useState<BundleData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,12 +44,16 @@ const UrlBundler: React.FC = () => {
   // Help Modal State
   const [showHelp, setShowHelp] = useState(false);
 
-  // 初回アクセス時のヘルプ表示（作成画面）
+  // Save history
+  useEffect(() => {
+    localStorage.setItem('url_bundler_history', JSON.stringify(history));
+  }, [history]);
+
+  // Initial Help
   useEffect(() => {
     if (!bundleId) {
       const key = 'urlbundler_help_seen';
       if (!localStorage.getItem(key)) {
-        // 少し遅延させて表示（画面描画後）
         const timer = setTimeout(() => {
             setShowHelp(true);
             localStorage.setItem(key, 'true');
@@ -68,7 +86,18 @@ const UrlBundler: React.FC = () => {
     }
   }, [bundleId]);
 
-  // Input Handlers for Create Mode
+  // Helpers
+  const normalizeUrl = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return "";
+    // http/httpsが無ければ付与
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return "https://" + trimmed;
+    }
+    return trimmed;
+  };
+
+  // Input Handlers
   const updateUrl = (index: number, value: string) => {
     const newUrls = [...urls];
     newUrls[index] = value;
@@ -90,8 +119,9 @@ const UrlBundler: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    // Filter empty URLs
-    const validUrls = urls.filter(line => line.trim().length > 0);
+    // Normalize and filter
+    const validUrls = urls.map(normalizeUrl).filter(u => u.length > 0);
+    
     if (validUrls.length === 0) {
       alert('URLを入力してください');
       return;
@@ -105,15 +135,26 @@ const UrlBundler: React.FC = () => {
         body: JSON.stringify({ 
           urls: validUrls, 
           title: title || 'URLまとめ',
-          auto_redirect: false // Always false
+          expire_days: expireDays,
+          auto_redirect: false
         })
       });
       
       if (!res.ok) throw new Error('保存に失敗しました');
       
       const data = await res.json();
-      const url = `${window.location.origin}${window.location.pathname}#/bundle?id=${data.id}`;
-      setGeneratedUrl(url);
+      const newUrl = `${window.location.origin}${window.location.pathname}#/bundle?id=${data.id}`;
+      setGeneratedUrl(newUrl);
+
+      // Add to history
+      const newHistoryItem: HistoryItem = {
+        id: data.id,
+        title: title || 'URLまとめ',
+        createdAt: new Date().toLocaleDateString(),
+        url: newUrl
+      };
+      setHistory(prev => [newHistoryItem, ...prev]);
+
     } catch (e) {
       alert('エラーが発生しました。通信環境を確認してください。');
     } finally {
@@ -121,8 +162,26 @@ const UrlBundler: React.FC = () => {
     }
   };
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(generatedUrl);
+  const handleDeleteHistory = async (id: string) => {
+    if (!confirm('このURLを削除（無効化）しますか？\nサーバーからもデータが削除され、アクセスできなくなります。')) return;
+
+    // UIから先に消す（楽観的更新）
+    setHistory(prev => prev.filter(item => item.id !== id));
+
+    try {
+      await fetch('./backend/url_bundler_api.php?action=delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    } catch (e) {
+      console.error('Delete failed', e);
+      alert('削除処理中にエラーが発生しましたが、履歴からは削除されました。');
+    }
+  };
+
+  const handleCopyUrl = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopyStatus(true);
     setTimeout(() => setCopyStatus(false), 2000);
   };
@@ -153,19 +212,15 @@ const UrlBundler: React.FC = () => {
           <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 mb-3 font-bold">Google Chromeの場合:</p>
             <div className="flex items-center gap-3 mb-24">
-               {/* Address Bar Simulation */}
                <div className="flex-1 bg-white dark:bg-gray-800 rounded-full border border-gray-300 dark:border-gray-600 h-10 flex items-center px-3 gap-2 relative pr-10">
                   <Settings size={14} className="text-gray-400 shrink-0" />
                   <span className="text-xs text-gray-400 truncate">https://{window.location.hostname}/...</span>
-                  
-                  {/* Blocked Icon */}
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
                      <div className="relative">
                         <div className="w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 cursor-pointer flex items-center justify-center border border-gray-300 dark:border-gray-600">
                            <ExternalLink size={14} className="text-red-500" />
                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></div>
                         </div>
-                        {/* Tooltip Simulation */}
                         <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 p-3 z-50 text-[10px] text-left leading-tight">
                            <p className="font-bold text-gray-800 dark:text-white mb-1">ポップアップがブロックされました</p>
                            <p className="text-blue-500 underline cursor-pointer">常に許可する</p>
@@ -287,7 +342,7 @@ const UrlBundler: React.FC = () => {
                  <Check size={40} className="text-cyan-500 dark:text-cyan-200" />
               </div>
               <h3 className="text-2xl font-black text-cyan-800 dark:text-cyan-200 mb-2">まとめURLを発行しました</h3>
-              <p className="text-cyan-600 dark:text-cyan-400 text-sm mb-4 font-bold">このURLの有効期限は作成から1年間です</p>
+              <p className="text-cyan-600 dark:text-cyan-400 text-sm mb-4 font-bold">履歴に保存されました</p>
               
               <div className="flex gap-2 max-w-lg mx-auto mb-8">
                  <input 
@@ -297,7 +352,7 @@ const UrlBundler: React.FC = () => {
                     className="flex-1 p-4 rounded-xl border-2 border-cyan-200 dark:border-cyan-700 bg-white dark:bg-gray-900 text-cyan-800 dark:text-cyan-200 font-bold text-sm truncate focus:outline-none" 
                  />
                  <button 
-                    onClick={handleCopyUrl} 
+                    onClick={() => handleCopyUrl(generatedUrl)} 
                     className="bg-cyan-600 text-white px-6 rounded-xl font-bold hover:bg-cyan-700 transition-colors shadow-lg shadow-cyan-200 dark:shadow-none shrink-0 flex items-center gap-2"
                  >
                     {copyStatus ? <Check size={20} /> : <Copy size={20} />}
@@ -323,7 +378,7 @@ const UrlBundler: React.FC = () => {
                     value={title} 
                     onChange={e => setTitle(e.target.value)} 
                     placeholder="例: 参考資料まとめ"
-                    className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
                  />
               </div>
               
@@ -338,7 +393,7 @@ const UrlBundler: React.FC = () => {
                                 value={url} 
                                 onChange={(e) => updateUrl(i, e.target.value)} 
                                 className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none" 
-                                placeholder="https://example.com"
+                                placeholder="google.com"
                             />
                             <button onClick={() => removeField(i)} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"><Trash2 size={18}/></button>
                         </div>
@@ -347,17 +402,54 @@ const UrlBundler: React.FC = () => {
                  </div>
               </div>
 
+              <div>
+                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><Clock size={16}/> 有効期限 (自動削除)</label>
+                 <select 
+                    value={expireDays} 
+                    onChange={(e) => setExpireDays(Number(e.target.value))}
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-cyan-500 outline-none cursor-pointer"
+                 >
+                    <option value={3}>3日間</option>
+                    <option value={7}>1週間</option>
+                    <option value={30}>1ヶ月</option>
+                    <option value={180}>半年 (180日)</option>
+                    <option value={365}>1年 (365日)</option>
+                 </select>
+              </div>
+
               <button 
                  onClick={handleCreate} 
                  disabled={isCreating || urls.filter(u => u.trim()).length === 0} 
                  className="w-full py-4 bg-cyan-600 text-white font-black rounded-xl shadow-xl hover:bg-cyan-700 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
-                 title="有効期限: 1年"
               >
-                 {isCreating ? '作成中...' : 'まとめURLを発行する (1年間有効)'} <Layers size={20} />
+                 {isCreating ? '作成中...' : 'まとめURLを発行する'} <Layers size={20} />
               </button>
            </div>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
+           <h3 className="font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2"><History size={20} /> 作成履歴</h3>
+           <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
+              {history.map((item) => (
+                 <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 group">
+                    <div className="min-w-0 flex-1">
+                       <p className="font-bold text-sm text-gray-800 dark:text-white truncate">{item.title}</p>
+                       <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="font-mono">{item.createdAt}</span>
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline flex items-center gap-1">確認 <ExternalLink size={10} /></a>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 pl-2">
+                       <button onClick={() => handleCopyUrl(item.url)} className="p-2 text-gray-400 hover:text-cyan-600 bg-white dark:bg-gray-700 rounded-lg shadow-sm" title="URLをコピー"><Copy size={14}/></button>
+                       <button onClick={() => handleDeleteHistory(item.id)} className="p-2 text-gray-400 hover:text-red-500 bg-white dark:bg-gray-700 rounded-lg shadow-sm" title="削除・解放"><Trash2 size={14}/></button>
+                    </div>
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 prose dark:prose-invert max-w-none shadow-sm">
          <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />URLまとめツールの活用法</h2>
