@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, HelpCircle, X, AlertTriangle, Settings, History, Calendar, Clock, Info, Zap, ShieldCheck } from 'lucide-react';
 import AdBanner from '../AdBanner';
@@ -17,6 +17,54 @@ interface HistoryItem {
   createdAt: string;
   url: string;
 }
+
+const SideAd = () => {
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!bannerRef.current) return;
+    
+    // Clear previous
+    while (bannerRef.current.firstChild) {
+        bannerRef.current.removeChild(bannerRef.current.firstChild);
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.style.width = '160px';
+    iframe.style.height = '600px';
+    iframe.style.border = 'none';
+    iframe.style.overflow = 'hidden';
+    iframe.title = "Side Ad";
+    
+    bannerRef.current.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html>
+            <head><style>body{margin:0;padding:0;display:flex;justify-content:center;background:transparent;}</style></head>
+            <body>
+                <script type="text/javascript">
+                    atOptions = {
+                        'key' : 'c778c4a7f09b97ba471cd0fbd2d48a59',
+                        'format' : 'iframe',
+                        'height' : 600,
+                        'width' : 160,
+                        'params' : {}
+                    };
+                </script>
+                <script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></script>
+            </body>
+            </html>
+        `);
+        doc.close();
+    }
+  }, []);
+
+  return <div ref={bannerRef}></div>;
+};
 
 const UrlBundler: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -247,81 +295,93 @@ const UrlBundler: React.FC = () => {
   // --- VIEW MODE ---
   if (bundleId) {
     return (
-      <div className="max-w-4xl mx-auto space-y-10 pb-20 relative">
+      <div className="flex justify-center items-start gap-6 pb-20">
         {showHelp && <PopupHelpModal />}
         
-        <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-6">
-             <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-               <Layers className="text-cyan-500" /> URLまとめ
-             </h2>
-             <button onClick={reset} className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg font-bold flex items-center gap-1 hover:bg-gray-200 transition-colors">
-                <Plus size={14} /> 新規作成
-             </button>
-          </div>
-
-          {loading && <div className="py-20 text-center text-gray-400 font-bold animate-pulse">読み込み中...</div>}
-          
-          {error && (
-             <div className="py-16 text-center">
-                <p className="text-red-500 font-bold mb-4">{error}</p>
-                <button onClick={reset} className="bg-cyan-600 text-white px-6 py-2 rounded-xl font-bold">トップに戻る</button>
-             </div>
-          )}
-
-          {bundleData && (
-             <div className="space-y-6 animate-fade-in">
-                <div className="text-center mb-8">
-                   <h1 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{bundleData.title}</h1>
-                   <div className="flex items-center justify-center gap-4 text-xs text-gray-400 font-mono">
-                      <span>作成日: {new Date(bundleData.created_at * 1000).toLocaleDateString()}</span>
-                   </div>
-                </div>
-
-                <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl border border-cyan-100 dark:border-cyan-800 text-center relative overflow-hidden">
-                   <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-4">
-                      {bundleData.urls.length}件のリンクが保存されています
-                   </p>
-                   <button 
-                      onClick={() => handleOpenAll()}
-                      className="w-full sm:w-auto px-8 py-3 bg-cyan-600 text-white font-black rounded-xl shadow-lg hover:bg-cyan-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
-                   >
-                      <ExternalLink size={20} /> すべて新しいタブで開く
-                   </button>
-                   
-                   <div className="mt-4 flex items-center justify-center">
-                      <button 
-                        onClick={() => setShowHelp(true)}
-                        className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 underline hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors flex items-center gap-1"
-                      >
-                         開かない場合はポップアップ設定を確認してください <HelpCircle size={12} />
-                      </button>
-                   </div>
-                </div>
-
-                <div className="space-y-2">
-                   {bundleData.urls.map((url, i) => (
-                      <a 
-                        key={i} 
-                        href={url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="block p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-cyan-300 dark:hover:border-cyan-600 transition-colors group"
-                      >
-                         <div className="flex items-center gap-3">
-                            <div className="bg-white dark:bg-gray-700 p-2 rounded-lg text-gray-400 group-hover:text-cyan-500 transition-colors">
-                               <Link2 size={16} />
-                            </div>
-                            <span className="font-mono text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{url}</span>
-                            <ArrowRight size={16} className="text-gray-300 group-hover:text-cyan-500" />
-                         </div>
-                      </a>
-                   ))}
-                </div>
-             </div>
-          )}
+        {/* Left Ad */}
+        <div className="hidden 2xl:block w-[160px] sticky top-6 shrink-0">
+           <SideAd />
         </div>
-        <AdBanner />
+
+        <div className="flex-1 max-w-4xl min-w-0 space-y-10 relative">
+          <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                 <Layers className="text-cyan-500" /> URLまとめ
+               </h2>
+               <button onClick={reset} className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg font-bold flex items-center gap-1 hover:bg-gray-200 transition-colors">
+                  <Plus size={14} /> 新規作成
+               </button>
+            </div>
+
+            {loading && <div className="py-20 text-center text-gray-400 font-bold animate-pulse">読み込み中...</div>}
+            
+            {error && (
+               <div className="py-16 text-center">
+                  <p className="text-red-500 font-bold mb-4">{error}</p>
+                  <button onClick={reset} className="bg-cyan-600 text-white px-6 py-2 rounded-xl font-bold">トップに戻る</button>
+               </div>
+            )}
+
+            {bundleData && (
+               <div className="space-y-6 animate-fade-in">
+                  <div className="text-center mb-8">
+                     <h1 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{bundleData.title}</h1>
+                     <div className="flex items-center justify-center gap-4 text-xs text-gray-400 font-mono">
+                        <span>作成日: {new Date(bundleData.created_at * 1000).toLocaleDateString()}</span>
+                     </div>
+                  </div>
+
+                  <div className="bg-cyan-50 dark:bg-cyan-900/20 p-6 rounded-2xl border border-cyan-100 dark:border-cyan-800 text-center relative overflow-hidden">
+                     <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-4">
+                        {bundleData.urls.length}件のリンクが保存されています
+                     </p>
+                     <button 
+                        onClick={() => handleOpenAll()}
+                        className="w-full sm:w-auto px-8 py-3 bg-cyan-600 text-white font-black rounded-xl shadow-lg hover:bg-cyan-700 hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
+                     >
+                        <ExternalLink size={20} /> すべて新しいタブで開く
+                     </button>
+                     
+                     <div className="mt-4 flex items-center justify-center">
+                        <button 
+                          onClick={() => setShowHelp(true)}
+                          className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 underline hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors flex items-center gap-1"
+                        >
+                           開かない場合はポップアップ設定を確認してください <HelpCircle size={14} />
+                        </button>
+                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                     {bundleData.urls.map((url, i) => (
+                        <a 
+                          key={i} 
+                          href={url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="block p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-cyan-300 dark:hover:border-cyan-600 transition-colors group"
+                        >
+                           <div className="flex items-center gap-3">
+                              <div className="bg-white dark:bg-gray-700 p-2 rounded-lg text-gray-400 group-hover:text-cyan-500 transition-colors">
+                                 <Link2 size={16} />
+                              </div>
+                              <span className="font-mono text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{url}</span>
+                              <ArrowRight size={16} className="text-gray-300 group-hover:text-cyan-500" />
+                           </div>
+                        </a>
+                     ))}
+                  </div>
+               </div>
+            )}
+          </div>
+          <AdBanner />
+        </div>
+
+        {/* Right Ad */}
+        <div className="hidden 2xl:block w-[160px] sticky top-6 shrink-0">
+           <SideAd />
+        </div>
       </div>
     );
   }
