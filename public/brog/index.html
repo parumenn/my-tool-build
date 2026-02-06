@@ -81,36 +81,59 @@
             useEffect(() => {
                 const node = bannerRef.current;
                 if (!node) return;
-                while (node.firstChild) { node.removeChild(node.firstChild); }
+                
+                // Clear previous content
+                while (node.firstChild) {
+                    node.removeChild(node.firstChild);
+                }
 
                 const iframe = document.createElement('iframe');
-                iframe.style.border = 'none'; iframe.style.overflow = 'hidden'; iframe.title = "Advertisement";
+                iframe.style.border = 'none';
+                iframe.style.overflow = 'hidden';
+                iframe.title = "Advertisement";
 
+                // 注意: doc.write内のスクリプトタグは文字列結合で分割しないと、
+                // インラインBabelトランスパイラが「スクリプトの終了」と誤認してSyntaxErrorになる
                 if (type === 'banner') {
-                    iframe.style.width = '468px'; iframe.style.height = '60px';
+                    // Banner (468x60)
+                    iframe.style.width = '468px';
+                    iframe.style.height = '60px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script type="text/javascript">atOptions={'key':'6440c8d3cc819aafb0e098549141eae2','format':'iframe','height':60,'width':468,'params':{}};</script><script type="text/javascript" src="https://www.highperformanceformat.com/6440c8d3cc819aafb0e098549141eae2/invoke.js"></script></body></html>`);
+                        doc.write('<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body>' +
+                            '<script type="text/javascript">atOptions = { "key" : "6440c8d3cc819aafb0e098549141eae2", "format" : "iframe", "height" : 60, "width" : 468, "params" : {} };</scr' + 'ipt>' +
+                            '<script type="text/javascript" src="https://www.highperformanceformat.com/6440c8d3cc819aafb0e098549141eae2/invoke.js"></scr' + 'ipt>' +
+                            '</body></html>');
                         doc.close();
                     }
                 } else if (type === 'skyscraper') {
-                    iframe.style.width = '160px'; iframe.style.height = '600px';
+                    // Skyscraper (160x600)
+                    iframe.style.width = '160px';
+                    iframe.style.height = '600px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script type="text/javascript">atOptions={'key':'c778c4a7f09b97ba471cd0fbd2d48a59','format':'iframe','height':600,'width':160,'params':{}};</script><script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></script></body></html>`);
+                        doc.write('<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body>' +
+                            '<script type="text/javascript">atOptions = { "key" : "c778c4a7f09b97ba471cd0fbd2d48a59", "format" : "iframe", "height" : 600, "width" : 160, "params" : {} };</scr' + 'ipt>' +
+                            '<script type="text/javascript" src="https://www.highperformanceformat.com/c778c4a7f09b97ba471cd0fbd2d48a59/invoke.js"></scr' + 'ipt>' +
+                            '</body></html>');
                         doc.close();
                     }
                 } else {
-                    iframe.style.width = '300px'; iframe.style.height = '250px';
+                    // Rect (300x250)
+                    iframe.style.width = '300px';
+                    iframe.style.height = '250px';
                     node.appendChild(iframe);
                     const doc = iframe.contentWindow?.document;
                     if (doc) {
                         doc.open();
-                        doc.write(`<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body><script async="async" data-cfasync="false" src="https://pl28654616.effectivegatecpm.com/7fc3cc745c4b31d1928e463b50abab50/invoke.js"></script><div id="container-7fc3cc745c4b31d1928e463b50abab50"></div></body></html>`);
+                        doc.write('<html><head><style>body{margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100%;background:transparent;}</style></head><body>' +
+                            '<script async="async" data-cfasync="false" src="https://pl28654616.effectivegatecpm.com/7fc3cc745c4b31d1928e463b50abab50/invoke.js"></scr' + 'ipt>' +
+                            '<div id="container-7fc3cc745c4b31d1928e463b50abab50"></div>' +
+                            '</body></html>');
                         doc.close();
                     }
                 }
@@ -121,7 +144,9 @@
                 : "w-full flex justify-center my-8 items-center overflow-hidden bg-slate-50 border border-slate-100 rounded-xl py-4";
 
             return (
-                <div className={containerClass}><div ref={bannerRef}></div></div>
+                <div className={containerClass}>
+                    <div ref={bannerRef}></div>
+                </div>
             );
         };
 
@@ -152,7 +177,14 @@
         const PostList = ({ posts, onPostClick }) => {
             const extractImage = (content) => {
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
-                return match ? match[1].replace(/&amp;/g, '&') : null;
+                if (match) {
+                    const url = match[1].replace(/&amp;/g, '&');
+                    // 簡易的なURLチェック（404対策）
+                    if (url.startsWith('http') || url.startsWith('data:')) {
+                        return url;
+                    }
+                }
+                return null;
             };
 
             return (
@@ -163,7 +195,7 @@
                             <article key={post.id} onClick={() => onPostClick(post)} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer group flex flex-col md:flex-row">
                                 {thumbnail && (
                                     <div className="w-full md:w-48 h-48 md:h-auto shrink-0 bg-slate-100 relative">
-                                        <img src={thumbnail} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                        <img src={thumbnail} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onError={(e) => e.target.style.display = 'none'} />
                                     </div>
                                 )}
                                 <div className="p-6 flex-1 flex flex-col">
@@ -241,7 +273,14 @@
                     <div className="mb-6 flex justify-center text-indigo-500"><Icon name="lock" size={40} /></div>
                     <h2 className="text-xl font-black mb-6 text-slate-800">管理者ログイン</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full p-3 border rounded-xl bg-slate-50 text-center font-bold" placeholder="Password" />
+                        <input 
+                            type="password" 
+                            autoComplete="current-password"
+                            value={pass} 
+                            onChange={e=>setPass(e.target.value)} 
+                            className="w-full p-3 border rounded-xl bg-slate-50 text-center font-bold" 
+                            placeholder="Password" 
+                        />
                         {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
                         <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">認証</button>
                     </form>
@@ -284,9 +323,18 @@
                     <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1"><Icon name="arrow-left" size={16} /> 戻る</button>
                     <h2 className="text-xl font-black mb-6 text-slate-800 flex items-center gap-2"><Icon name="key" className="text-indigo-500"/> パスワード変更</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">現在のパスワード</label><input type="password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード</label><input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード (確認)</label><input type="password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">現在のパスワード</label>
+                            <input type="password" autoComplete="current-password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード</label>
+                            <input type="password" autoComplete="new-password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード (確認)</label>
+                            <input type="password" autoComplete="new-password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                        </div>
                         {msg.text && <p className={`text-xs font-bold ${msg.isError ? 'text-red-500' : 'text-green-500'}`}>{msg.text}</p>}
                         <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">変更を保存</button>
                     </form>
