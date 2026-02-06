@@ -289,6 +289,40 @@ elseif ($is_admin) {
         if (isset($input['logs'])) save_json($GLOBALS['ACCESS_LOG_FILE'], $input['logs']);
         $response = ['status' => 'ok'];
     }
+    elseif ($action === 'fetch_url_bundles') {
+        $dir = __DIR__ . '/data/url_bundles';
+        $list = [];
+        if (is_dir($dir)) {
+            foreach (glob($dir . '/*.json') as $f) {
+                $content = json_decode(file_get_contents($f), true);
+                if ($content) {
+                    $list[] = [
+                        'id' => $content['id'] ?? basename($f, '.json'),
+                        'title' => $content['title'] ?? 'No Title',
+                        'count' => count($content['urls'] ?? []),
+                        'created_at' => isset($content['created_at']) ? date('Y-m-d H:i', $content['created_at']) : '-',
+                        'expires_at' => isset($content['expires_at']) ? date('Y-m-d H:i', $content['expires_at']) : '-'
+                    ];
+                }
+            }
+            usort($list, function($a, $b) { return $b['created_at'] <=> $a['created_at']; });
+        }
+        $response = ['status' => 'ok', 'data' => $list];
+    }
+    elseif ($action === 'delete_url_bundle') {
+        $id = $input['id'] ?? '';
+        if (preg_match('/^[a-f0-9]{8}$/', $id)) {
+            $f = __DIR__ . '/data/url_bundles/' . $id . '.json';
+            if (file_exists($f)) {
+                unlink($f);
+                $response = ['status' => 'ok'];
+            } else {
+                $response = ['status' => 'error', 'message' => 'Not found'];
+            }
+        } else {
+            $response = ['status' => 'error', 'message' => 'Invalid ID'];
+        }
+    }
 } else {
     if ($action !== 'log_access' && $action !== 'login' && $action !== 'send') {
         http_response_code(403); $response = ['error' => 'Unauthorized'];

@@ -8,7 +8,7 @@ import {
   TrendingUp, ListOrdered, FileJson, Send, Plus, Minus, Infinity,
   ShieldQuestion, ToggleLeft, ToggleRight, Filter, Search, AppWindow,
   PieChart as PieIcon, ArrowUpRight, X, ChevronRight, MousePointer2,
-  HardDrive, Cpu, Microchip, Map as MapIcon, Globe
+  HardDrive, Cpu, Microchip, Map as MapIcon, Globe, Package, Link2
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -50,7 +50,7 @@ const loadLeaflet = (): Promise<any> => {
 
 const AdminPage: React.FC = () => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('admin_token'));
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'messages' | 'security' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'messages' | 'security' | 'settings' | 'apps'>('dashboard');
   
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -81,6 +81,9 @@ const AdminPage: React.FC = () => {
     const saved = localStorage.getItem('admin_monitored_apps');
     return saved ? JSON.parse(saved) : ['qrcode', 'kakeibo', 'bath'];
   });
+
+  // App Management States
+  const [urlBundles, setUrlBundles] = useState<any[]>([]);
 
   useEffect(() => { localStorage.setItem('admin_monitored_apps', JSON.stringify(monitoredAppIds)); }, [monitoredAppIds]);
 
@@ -314,6 +317,35 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const fetchUrlBundles = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+        const res = await fetch('./backend/admin_api.php?action=fetch_url_bundles', {
+            headers: { 'X-Admin-Token': token }
+        });
+        const data = await res.json();
+        if (data.status === 'ok') setUrlBundles(data.data);
+    } catch(e) { console.error(e); }
+    finally { setIsLoading(false); }
+  };
+
+  useEffect(() => {
+      if (activeTab === 'apps') fetchUrlBundles();
+  }, [activeTab]);
+
+  const handleDeleteBundle = async (id: string) => {
+      if (!confirm('このまとめURLを削除しますか？')) return;
+      try {
+          await fetch('./backend/admin_api.php?action=delete_url_bundle', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token || '' },
+              body: JSON.stringify({ id })
+          });
+          fetchUrlBundles();
+      } catch(e) { alert('削除失敗'); }
+  };
+
   const handleUpdateSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!token) return;
@@ -449,7 +481,8 @@ const AdminPage: React.FC = () => {
              { id: 'logs', label: 'ログ' },
              { id: 'messages', label: '受信箱' },
              { id: 'security', label: 'IP・DOS制限' },
-             { id: 'settings', label: '設定・メンテ' }
+             { id: 'settings', label: '設定・メンテ' },
+             { id: 'apps', label: 'アプリ管理' }
            ].map(t => (
              <button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-white text-slate-900 shadow-lg' : 'text-gray-400 hover:text-white'}`}>{t.label}</button>
            ))}
@@ -886,6 +919,51 @@ const AdminPage: React.FC = () => {
                 </div>
               </div>
            </div>
+        )}
+
+        {activeTab === 'apps' && (
+            <div className="animate-fade-in max-w-7xl mx-auto w-full space-y-8 pb-20">
+                <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="p-8 border-b dark:border-gray-800 bg-slate-50 dark:bg-slate-800/30 flex justify-between items-center">
+                        <div>
+                            <h3 className="font-black text-xl flex items-center gap-2"><Package className="text-cyan-500" /> アプリ管理: URLまとめ</h3>
+                            <p className="text-xs text-gray-400 mt-1">発行済みのURLまとめリストの管理・削除</p>
+                        </div>
+                        <button onClick={fetchUrlBundles} className="p-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:text-cyan-500 transition-colors"><RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} /></button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-[10px] uppercase font-black text-gray-400 bg-gray-50 dark:bg-slate-800">
+                                <tr>
+                                    <th className="px-8 py-3">ID</th>
+                                    <th className="px-8 py-3">タイトル</th>
+                                    <th className="px-8 py-3">URL数</th>
+                                    <th className="px-8 py-3">作成日時</th>
+                                    <th className="px-8 py-3">有効期限</th>
+                                    <th className="px-8 py-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                {urlBundles.length === 0 ? (
+                                    <tr><td colSpan={6} className="text-center py-20 text-gray-400 font-bold">データがありません</td></tr>
+                                ) : urlBundles.map((b) => (
+                                    <tr key={b.id} className="hover:bg-slate-50 dark:hover:bg-gray-800/50">
+                                        <td className="px-8 py-4 font-mono font-bold text-gray-600 dark:text-gray-400">{b.id}</td>
+                                        <td className="px-8 py-4 font-bold text-gray-800 dark:text-white max-w-[200px] truncate" title={b.title}>{b.title}</td>
+                                        <td className="px-8 py-4 font-mono">{b.count}</td>
+                                        <td className="px-8 py-4 text-xs text-gray-500">{b.created_at}</td>
+                                        <td className="px-8 py-4 text-xs text-gray-500">{b.expires_at}</td>
+                                        <td className="px-8 py-4 text-right flex justify-end gap-2">
+                                            <a href={`#/bundle?id=${b.id}`} target="_blank" rel="noreferrer" className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-lg hover:text-cyan-500 transition-colors"><Link2 size={16} /></a>
+                                            <button onClick={() => handleDeleteBundle(b.id)} className="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         )}
       </main>
       
