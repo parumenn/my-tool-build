@@ -37,7 +37,7 @@ const UrlBundler: React.FC = () => {
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
           <Layers className="text-cyan-500" />
-          URLまとめ開き (UrlBundler)
+          URLまとめURL
         </h2>
         
         <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
