@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, HelpCircle, X, AlertTriangle, Settings, History, Calendar, Clock, Info, Zap, ShieldCheck } from 'lucide-react';
+import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Layers, ArrowRight, HelpCircle, X, AlertTriangle, Settings, History, Calendar, Clock, Info, Zap, ShieldCheck, RefreshCw } from 'lucide-react';
 import AdBanner from '../AdBanner';
 
 interface BundleData {
@@ -16,6 +16,8 @@ interface HistoryItem {
   title: string;
   createdAt: string;
   url: string;
+  urls?: string[]; // 保存されたURLリスト
+  expireDays?: number;
 }
 
 const SideAd = () => {
@@ -194,12 +196,14 @@ const UrlBundler: React.FC = () => {
       const newUrl = `${window.location.origin}${window.location.pathname}#/bundle?id=${data.id}`;
       setGeneratedUrl(newUrl);
 
-      // Add to history
+      // Add to history (save URLs locally as well)
       const newHistoryItem: HistoryItem = {
         id: data.id,
         title: title || 'URLまとめ',
         createdAt: new Date().toLocaleDateString(),
-        url: newUrl
+        url: newUrl,
+        urls: validUrls, // Save content for restoration
+        expireDays: expireDays
       };
       setHistory(prev => [newHistoryItem, ...prev]);
 
@@ -226,6 +230,30 @@ const UrlBundler: React.FC = () => {
       console.error('Delete failed', e);
       alert('削除処理中にエラーが発生しましたが、履歴からは削除されました。');
     }
+  };
+
+  const handleRestoreFromHistory = (item: HistoryItem) => {
+    if (!item.urls || item.urls.length === 0) {
+      alert('この履歴には保存されたURLデータがありません（古いデータの可能性があります）。');
+      return;
+    }
+
+    if (!confirm(`履歴「${item.title}」の内容を入力フォームに復元しますか？\n現在入力中の内容は上書きされます。`)) return;
+
+    // Restore data
+    setTitle(item.title);
+    if (item.expireDays) setExpireDays(item.expireDays);
+    
+    // Ensure at least 5 input slots
+    const restoredUrls = [...item.urls];
+    while (restoredUrls.length < 5) restoredUrls.push('');
+    setUrls(restoredUrls);
+
+    // Reset view
+    setSearchParams({});
+    setGeneratedUrl('');
+    setBundleData(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCopyUrl = (text: string) => {
@@ -499,10 +527,12 @@ const UrlBundler: React.FC = () => {
                        <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span className="font-mono">{item.createdAt}</span>
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline flex items-center gap-1">確認 <ExternalLink size={10} /></a>
+                          <span className="text-[10px] bg-gray-200 dark:bg-gray-700 px-1.5 rounded">{item.urls ? `${item.urls.length}件` : '不明'}</span>
                        </div>
                     </div>
                     <div className="flex items-center gap-2 pl-2">
                        <button onClick={() => handleCopyUrl(item.url)} className="p-2 text-gray-400 hover:text-cyan-600 bg-white dark:bg-gray-700 rounded-lg shadow-sm" title="URLをコピー"><Copy size={14}/></button>
+                       <button onClick={() => handleRestoreFromHistory(item)} className="p-2 text-gray-400 hover:text-green-600 bg-white dark:bg-gray-700 rounded-lg shadow-sm" title="再利用・復元"><RefreshCw size={14}/></button>
                        <button onClick={() => handleDeleteHistory(item.id)} className="p-2 text-gray-400 hover:text-red-500 bg-white dark:bg-gray-700 rounded-lg shadow-sm" title="削除・解放"><Trash2 size={14}/></button>
                     </div>
                  </div>
