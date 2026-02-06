@@ -82,7 +82,7 @@ const TextConverter: React.FC = () => {
                 <textarea 
                    value={input}
                    onChange={(e) => setInput(e.target.value)}
-                   className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 placeholder-gray-400"
+                   className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 placeholder-gray-400"
                    placeholder="ここにテキストを入力してください..."
                 />
                 <div className="absolute bottom-4 right-4 flex gap-2">

@@ -147,7 +147,7 @@ const CharacterCounter: React.FC = () => {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="ここにテキストを入力してください..."
-                  className="flex-1 w-full min-h-[400px] p-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:border-green-500 focus:bg-white dark:focus:bg-gray-900 focus:ring-green-500 resize-none transition-all text-gray-900 dark:text-white leading-relaxed text-base"
+                  className="flex-1 w-full min-h-[400px] p-4 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:border-green-500 focus:bg-white dark:focus:bg-gray-900 focus:ring-green-500 resize-none transition-all text-gray-900 dark:text-white leading-relaxed text-base"
                 />
               </div>
             </div>

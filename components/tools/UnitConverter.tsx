@@ -58,13 +58,13 @@ const UnitConverter: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
            <div className="space-y-4">
               <label className="block text-sm font-bold text-gray-500">変換元</label>
-              <input type="number" value={value} onChange={(e) => setValue(e.target.value)} className="w-full p-4 rounded-xl border dark:bg-gray-800 dark:text-white text-2xl font-bold" placeholder="0" />
-              <select value={fromUnit} onChange={(e) => setFromUnit(e.target.value)} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white">{Object.keys(CATEGORIES[category].units).map(u => <option key={u} value={u}>{u}</option>)}</select>
+              <input type="number" value={value} onChange={(e) => setValue(e.target.value)} className="w-full p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-2xl font-bold" placeholder="0" />
+              <select value={fromUnit} onChange={(e) => setFromUnit(e.target.value)} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{Object.keys(CATEGORIES[category].units).map(u => <option key={u} value={u}>{u}</option>)}</select>
            </div>
            <div className="space-y-4">
               <label className="block text-sm font-bold text-gray-500">変換先</label>
               <div className="w-full p-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50 dark:bg-fuchsia-900/20 text-2xl font-bold text-fuchsia-700 min-h-[66px] flex items-center">{result || '0'}</div>
-              <select value={toUnit} onChange={(e) => setToUnit(e.target.value)} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white">{Object.keys(CATEGORIES[category].units).map(u => <option key={u} value={u}>{u}</option>)}</select>
+              <select value={toUnit} onChange={(e) => setToUnit(e.target.value)} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{Object.keys(CATEGORIES[category].units).map(u => <option key={u} value={u}>{u}</option>)}</select>
            </div>
         </div>
         <div className="mt-8 flex justify-center text-gray-400"><ArrowRightLeft size={24} /></div>

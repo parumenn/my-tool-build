@@ -45,7 +45,7 @@ const AspectRatioCalculator: React.FC = () => {
                          type="number"
                          value={width}
                          onChange={(e) => handleDimensionChange('w', e.target.value)}
-                         className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-2xl font-bold font-mono"
+                         className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-2xl font-bold font-mono"
                       />
                   </div>
                   <div className="flex justify-center text-gray-400">
@@ -57,7 +57,7 @@ const AspectRatioCalculator: React.FC = () => {
                          type="number"
                          value={height}
                          onChange={(e) => handleDimensionChange('h', e.target.value)}
-                         className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white text-2xl font-bold font-mono"
+                         className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-2xl font-bold font-mono"
                       />
                   </div>
               </div>

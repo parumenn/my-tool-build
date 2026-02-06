@@ -44,7 +44,7 @@ const CaseConverter: React.FC = () => {
       <div className="bg-white dark:bg-dark-lighter rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2"><Type className="text-orange-500" />ケース変換</h2>
         <div className="space-y-6">
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="hello world" className="w-full h-32 p-4 rounded-xl border dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500" />
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="hello world" className="w-full h-32 p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <ResultRow label="UPPER CASE" type="upper" />
                <ResultRow label="lower case" type="lower" />
@@ -65,7 +65,7 @@ const CaseConverter: React.FC = () => {
             </div>
             <div>
                <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-orange-500" />安全な文字列処理</h3>
-               <p>当ツールは、高度な正規表現を用いたブラウザ上のJavaScriptエンジンで動作します。入力した文字列がサーバーに送信されたり、ログに残ることはありません。機密性の高いプロジェクト名や内部コードの変換にも、安心してご利用いただける設計となっています。</p>
+               <p>当ツールは、高度な正規表現を用いたブラウザ上のJavaScriptエンジンで動作します。入力した文字列がサーバーに送信されることはありません。機密性の高いプロジェクト名や内部コードの変換にも、安心してご利用いただける設計となっています。</p>
             </div>
          </div>
       </article>

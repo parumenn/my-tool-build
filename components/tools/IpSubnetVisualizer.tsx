@@ -171,7 +171,7 @@ const IpSubnetVisualizer: React.FC = () => {
                         type="text" 
                         value={ip}
                         onChange={(e) => setIp(e.target.value)}
-                        className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-lg"
+                        className="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-lg"
                      />
                   </div>
                   <div>
@@ -312,7 +312,7 @@ const IpSubnetVisualizer: React.FC = () => {
                           value={checkIp}
                           onChange={(e) => setCheckIp(e.target.value)}
                           placeholder="例: 192.168.1.50"
-                          className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-lg md:text-xl font-mono text-center"
+                          className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-lg md:text-xl font-mono text-center"
                        />
                     </div>
                     <div className="text-gray-400 rotate-90 md:rotate-0">
@@ -325,7 +325,7 @@ const IpSubnetVisualizer: React.FC = () => {
                           value={checkNetwork}
                           onChange={(e) => setCheckNetwork(e.target.value)}
                           placeholder="例: 192.168.1.0/24"
-                          className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-lg md:text-xl font-mono text-center"
+                          className="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-lg md:text-xl font-mono text-center"
                        />
                     </div>
                  </div>
@@ -380,7 +380,7 @@ const IpSubnetVisualizer: React.FC = () => {
                        min="1"
                        value={neededHosts}
                        onChange={(e) => setNeededHosts(Number(e.target.value))}
-                       className="w-full p-4 pl-8 rounded-2xl border-2 border-cyan-500 bg-white dark:bg-gray-800 text-3xl font-bold text-center shadow-lg focus:outline-none focus:ring-4 focus:ring-cyan-200 dark:focus:ring-cyan-900"
+                       className="w-full p-4 pl-8 rounded-2xl border-2 border-cyan-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-3xl font-bold text-center shadow-lg focus:outline-none focus:ring-4 focus:ring-cyan-200 dark:focus:ring-cyan-900"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-gray-400">台</span>
                  </div>

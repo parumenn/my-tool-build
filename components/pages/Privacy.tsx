@@ -13,7 +13,7 @@ const Privacy: React.FC = () => {
         </h2>
         
         <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed">
-          <p className="font-bold">制定日: 2024年1月1日</p>
+          <p className="font-bold">制定日: 2026年1月20日</p>
           <p>
             当サイト（まいつーる）における、ユーザーの個人情報の取扱いについて、以下のとおりプライバシーポリシー（以下、「本ポリシー」といいます。）を定めます。
           </p>

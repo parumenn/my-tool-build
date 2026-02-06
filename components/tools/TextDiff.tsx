@@ -76,7 +76,7 @@ const TextDiff: React.FC = () => {
             <textarea
               value={oldText}
               onChange={(e) => setOldText(e.target.value)}
-              className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 placeholder-gray-400"
+              className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 placeholder-gray-400"
               placeholder="元のテキストを入力..."
             />
           </div>
@@ -85,7 +85,7 @@ const TextDiff: React.FC = () => {
             <textarea
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
-              className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 placeholder-gray-400"
+              className="w-full h-48 p-4 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 placeholder-gray-400"
               placeholder="新しいテキストを入力..."
             />
           </div>

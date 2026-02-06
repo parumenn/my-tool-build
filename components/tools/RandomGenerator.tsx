@@ -40,8 +40,8 @@ const RandomGenerator: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-bold text-gray-500 mb-1">最小値</label><input type="number" value={min} onChange={e => setMin(Number(e.target.value))} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-mono" /></div>
-                    <div><label className="block text-sm font-bold text-gray-500 mb-1">最大値</label><input type="number" value={max} onChange={e => setMax(Number(e.target.value))} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-mono" /></div>
+                    <div><label className="block text-sm font-bold text-gray-500 mb-1">最小値</label><input type="number" value={min} onChange={e => setMin(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono" /></div>
+                    <div><label className="block text-sm font-bold text-gray-500 mb-1">最大値</label><input type="number" value={max} onChange={e => setMax(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono" /></div>
                 </div>
                 <div><label className="block text-sm font-bold text-gray-500 mb-1">生成数: {count}</label><input type="range" min="1" max="100" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-rose-500" /></div>
                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={allowDuplicates} onChange={e => setAllowDuplicates(e.target.checked)} className="w-5 h-5 text-rose-600 rounded" /> <span className="font-bold text-gray-700 dark:text-gray-300">重複を許可</span></label>

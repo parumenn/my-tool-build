@@ -16,6 +16,9 @@ $blocked = $ctx['blocked'];
 $is_admin = $ctx['is_admin'];
 $tokens = $ctx['tokens'];
 
+// ログイン失敗記録用のファイル (ブログとは別に管理)
+$FAILURES_FILE = $DATA_DIR . '/admin_login_failures.json';
+
 // 出力バッファリング開始（security.php以前の出力防止のため再度確認）
 if (ob_get_length()) ob_clean();
 
@@ -160,13 +163,62 @@ $input = json_decode(file_get_contents('php://input'), true);
 $response = ['status' => 'error'];
 
 if ($action === 'login') {
+    $failures = load_json($FAILURES_FILE);
+    $maxAttempts = 3;
+    $blockDuration = 30 * 60; // 30分
+
+    // 既にブロックされているかは security.php で弾かれるが、
+    // ここでも念の為、過去の失敗履歴を確認
+    if (isset($failures[$ip])) {
+        // 30分以上経過していればリセット
+        if (($now - $failures[$ip]['last_attempt']) >= $blockDuration) {
+            unset($failures[$ip]);
+            save_json($FAILURES_FILE, $failures);
+        }
+    }
+
     if (password_verify($input['password'] ?? '', $config['password_hash'])) {
+        // ログイン成功 -> 失敗記録をリセット
+        if (isset($failures[$ip])) {
+            unset($failures[$ip]);
+            save_json($FAILURES_FILE, $failures);
+        }
+
         $token = bin2hex(random_bytes(16));
         $tokens[$token] = $now + 86400;
         save_json($GLOBALS['TOKENS_FILE'], $tokens);
         $response = ['token' => $token];
     } else {
-        http_response_code(401); $response = ['error' => 'Invalid password'];
+        // ログイン失敗
+        if (!isset($failures[$ip])) {
+            $failures[$ip] = ['count' => 0, 'last_attempt' => 0];
+        }
+        $failures[$ip]['count']++;
+        $failures[$ip]['last_attempt'] = $now;
+        
+        $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
+
+        if ($attemptsLeft <= 0) {
+            // 3回失敗 -> ブロックリストに追加
+            $blocked = load_json($GLOBALS['BLOCKED_IPS_FILE']);
+            $blocked[$ip] = [
+                'expiry' => $now + $blockDuration,
+                'time' => date('Y-m-d H:i:s'),
+                'reason' => 'Main Admin Login Failed (3 attempts)'
+            ];
+            save_json($GLOBALS['BLOCKED_IPS_FILE'], $blocked);
+            
+            // 失敗記録はリセット（次回解除後用）
+            unset($failures[$ip]);
+            save_json($FAILURES_FILE, $failures);
+
+            http_response_code(403);
+            $response = ['error' => 'ログイン試行回数が上限を超えました。IPアドレスを一時的にブロックしました。'];
+        } else {
+            save_json($FAILURES_FILE, $failures);
+            http_response_code(401); 
+            $response = ['error' => "パスワードが違います（あと{$attemptsLeft}回でブロック）"];
+        }
     }
 } 
 elseif ($action === 'log_access') {

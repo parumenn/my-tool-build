@@ -67,9 +67,9 @@ const DateCalculator: React.FC = () => {
         {mode === 'diff' ? (
             <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-8 items-center mb-8">
                 <div className="space-y-6">
-                    <div><label className="block text-sm font-bold text-gray-500 mb-2">開始日</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-4 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
+                    <div><label className="block text-sm font-bold text-gray-500 mb-2">開始日</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
                     <div className="flex justify-center text-gray-400"><ArrowRight className="rotate-90 md:rotate-0" /></div>
-                    <div><label className="block text-sm font-bold text-gray-500 mb-2">終了日</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-4 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
+                    <div><label className="block text-sm font-bold text-gray-500 mb-2">終了日</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
                     <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"><input type="checkbox" checked={includeEndDate} onChange={(e) => setIncludeEndDate(e.target.checked)} className="w-5 h-5 rounded text-indigo-600" /><span className="text-gray-700 dark:text-gray-300 font-bold text-sm">初日を含める (+1日)</span></label>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-8 rounded-3xl border border-indigo-100 dark:border-indigo-800 flex flex-col items-center text-center">
@@ -81,15 +81,15 @@ const DateCalculator: React.FC = () => {
         ) : (
             <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div className="space-y-6">
-                    <div><label className="block text-sm font-bold text-gray-500 mb-2">基準日</label><input type="date" value={baseDate} onChange={(e) => setBaseDate(e.target.value)} className="w-full p-4 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
+                    <div><label className="block text-sm font-bold text-gray-500 mb-2">基準日</label><input type="date" value={baseDate} onChange={(e) => setBaseDate(e.target.value)} className="w-full p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
                     <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                         <button onClick={() => setOperator(1)} className={`flex-1 py-2 font-bold rounded-md ${operator === 1 ? 'bg-white dark:bg-gray-600 text-indigo-600' : 'text-gray-500'}`}>＋ 加算 (後)</button>
                         <button onClick={() => setOperator(-1)} className={`flex-1 py-2 font-bold rounded-md ${operator === -1 ? 'bg-white dark:bg-gray-600 text-indigo-600' : 'text-gray-500'}`}>－ 減算 (前)</button>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-xs font-bold text-gray-500 mb-1">年</label><input type="number" min="0" value={addYears} onChange={e => setAddYears(Number(e.target.value))} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 mb-1">ヶ月</label><input type="number" min="0" value={addMonths} onChange={e => setAddMonths(Number(e.target.value))} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 mb-1">日</label><input type="number" min="0" value={addDays} onChange={e => setAddDays(Number(e.target.value))} className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-bold" /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 mb-1">年</label><input type="number" min="0" value={addYears} onChange={e => setAddYears(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 mb-1">ヶ月</label><input type="number" min="0" value={addMonths} onChange={e => setAddMonths(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 mb-1">日</label><input type="number" min="0" value={addDays} onChange={e => setAddDays(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" /></div>
                     </div>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-8 rounded-3xl border border-indigo-100 dark:border-indigo-800 flex flex-col items-center text-center">

@@ -111,7 +111,7 @@ const IpChecker: React.FC = () => {
                  <div>
                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3">チェックするポート番号</label>
                     <div className="flex gap-2">
-                        <input type="number" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} className="flex-1 p-4 rounded-xl border-2 border-gray-100 dark:border-gray-700 dark:bg-gray-800 text-xl font-black" placeholder="80" />
+                        <input type="number" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} className="flex-1 p-4 rounded-xl border-2 border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800 text-xl font-black text-gray-900 dark:text-white" placeholder="80" />
                         <button onClick={checkPort} disabled={!targetPort || portCheckResult === 'checking'} className="px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg transition-all disabled:opacity-30">確認</button>
                     </div>
                  </div>

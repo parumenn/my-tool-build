@@ -50,7 +50,7 @@ const TaskManager: React.FC = () => {
            <div className="text-sm text-gray-500 font-bold">残り: <span className="text-teal-600 dark:text-teal-400 text-lg">{tasks.filter(t => !t.completed).length}</span></div>
         </div>
         <form onSubmit={addTask} className="flex gap-2 mb-6 shrink-0">
-           <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="タスクを入力..." className="flex-1 rounded-xl border dark:bg-gray-800 dark:text-white p-3" />
+           <input type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} placeholder="タスクを入力..." className="flex-1 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-3" />
            <button type="submit" className="bg-teal-600 text-white rounded-xl px-6 font-bold hover:bg-teal-700 transition-colors"><Plus /></button>
         </form>
         <div className="flex justify-between items-center mb-4 shrink-0 overflow-x-auto no-scrollbar">

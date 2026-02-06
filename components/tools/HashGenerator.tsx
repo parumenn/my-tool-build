@@ -49,7 +49,7 @@ const HashGenerator: React.FC = () => {
                 <textarea 
                    value={input}
                    onChange={(e) => calculateHashes(e.target.value)}
-                   className="w-full h-32 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-slate-500"
+                   className="w-full h-32 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-slate-500"
                    placeholder="ハッシュ化したいテキストを入力..."
                 />
              </div>

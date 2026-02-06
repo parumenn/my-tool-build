@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Lock, ShieldAlert, Mail, User, LogOut, Loader2, 
@@ -230,7 +231,7 @@ const AdminPage: React.FC = () => {
                 const polyline = L.polyline(latlngs, { 
                     color: '#3b82f6', 
                     weight: 1, 
-                    opacity: 0.4,
+                    opacity: 0.4, 
                     className: 'access-line'
                 }).addTo(mapInstanceRef.current);
                 mapLinesRef.current.push(polyline);
@@ -369,18 +370,27 @@ const AdminPage: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
+    setLoginError('');
     try {
       const res = await fetch('./backend/admin_api.php?action=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-      const data = await res.json();
+      
       if (res.ok) {
+        const data = await res.json();
         setToken(data.token);
         sessionStorage.setItem('admin_token', data.token);
-      } else setLoginError(data.error);
-    } catch (e) { setLoginError('通信エラー'); } finally { setIsLoggingIn(false); }
+      } else {
+        const data = await res.json();
+        setLoginError(data.error || 'ログイン失敗');
+      }
+    } catch (e) { 
+        setLoginError('通信エラー'); 
+    } finally { 
+        setIsLoggingIn(false); 
+    }
   };
 
   const logout = () => { setToken(null); sessionStorage.removeItem('admin_token'); };

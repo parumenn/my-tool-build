@@ -44,12 +44,12 @@ const TimestampConverter: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
            <div className="space-y-4">
               <h3 className="font-bold text-gray-700 dark:text-gray-200">Unix → 日付</h3>
-              <input type="number" value={unixInput} onChange={handleUnixChange} placeholder="1609459200" className="w-full p-3 rounded-lg border dark:bg-gray-800 dark:text-white" />
+              <input type="number" value={unixInput} onChange={handleUnixChange} placeholder="1609459200" className="w-full p-3 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
               <div className="p-3 bg-gray-50 dark:bg-gray-900 border rounded-lg min-h-[50px] font-bold text-gray-600 dark:text-gray-300">{unixToDateResult || '結果を表示...'}</div>
            </div>
            <div className="space-y-4">
               <h3 className="font-bold text-gray-700 dark:text-gray-200">日付 → Unix</h3>
-              <input type="datetime-local" value={dateInput} onChange={handleDateChange} className="w-full p-3 rounded-lg border dark:bg-gray-800 dark:text-white" />
+              <input type="datetime-local" value={dateInput} onChange={handleDateChange} className="w-full p-3 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
               <div className="p-3 bg-gray-50 dark:bg-gray-900 border rounded-lg min-h-[50px] font-bold text-gray-600 dark:text-gray-300">{dateToUnixResult || '結果を表示...'}</div>
            </div>
         </div>

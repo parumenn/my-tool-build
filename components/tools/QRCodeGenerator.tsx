@@ -48,7 +48,7 @@ const QRCodeGenerator: React.FC = () => {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com"
-                className="flex-1 block w-full rounded-2xl border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4 text-gray-900 dark:text-white focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all font-bold text-lg"
+                className="flex-1 block w-full rounded-2xl border-2 border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-gray-900 dark:text-white focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all font-bold text-lg"
               />
               <button
                 onClick={handleGenerate}

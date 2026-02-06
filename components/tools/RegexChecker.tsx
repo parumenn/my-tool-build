@@ -40,15 +40,15 @@ const RegexChecker: React.FC = () => {
            <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                  <div className="absolute left-3 top-3 text-gray-400 font-mono text-lg">/</div>
-                 <input type="text" value={pattern} onChange={(e) => setPattern(e.target.value)} className="w-full p-3 pl-8 rounded-xl border dark:bg-gray-800 dark:text-white font-mono text-lg focus:ring-2 focus:ring-teal-500" placeholder="Pattern..." />
+                 <input type="text" value={pattern} onChange={(e) => setPattern(e.target.value)} className="w-full p-3 pl-8 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-lg focus:ring-2 focus:ring-teal-500" placeholder="Pattern..." />
                  <div className="absolute right-3 top-3 text-gray-400 font-mono text-lg">/</div>
               </div>
-              <input type="text" value={flags} onChange={(e) => setFlags(e.target.value.replace(/[^gimsuy]/g, ''))} className="w-32 p-3 rounded-xl border dark:bg-gray-800 dark:text-white font-mono text-lg" placeholder="flags" />
+              <input type="text" value={flags} onChange={(e) => setFlags(e.target.value.replace(/[^gimsuy]/g, ''))} className="w-32 p-3 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-lg" placeholder="flags" />
            </div>
            {error && <div className="text-red-500 text-sm flex items-center gap-2 bg-red-50 p-2 rounded-lg"><AlertTriangle size={16} /> {error}</div>}
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[300px]">
-              <div className="flex flex-col gap-2"><label className="font-bold text-gray-700 dark:text-gray-300">テスト文字列</label><textarea value={text} onChange={(e) => setText(e.target.value)} className="flex-1 p-4 rounded-xl border dark:bg-gray-800 dark:text-white font-mono text-sm" /></div>
-              <div className="flex flex-col gap-2"><label className="font-bold text-gray-700 dark:text-gray-300">結果ハイライト</label><div className="flex-1 p-4 rounded-xl border bg-gray-50 dark:bg-gray-900 font-mono text-sm overflow-y-auto whitespace-pre-wrap">{highlightedText}</div></div>
+              <div className="flex flex-col gap-2"><label className="font-bold text-gray-700 dark:text-gray-300">テスト文字列</label><textarea value={text} onChange={(e) => setText(e.target.value)} className="flex-1 p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm" /></div>
+              <div className="flex flex-col gap-2"><label className="font-bold text-gray-700 dark:text-gray-300">結果ハイライト</label><div className="flex-1 p-4 rounded-xl border bg-white dark:bg-gray-900 font-mono text-sm overflow-y-auto whitespace-pre-wrap">{highlightedText}</div></div>
            </div>
            <div className="bg-teal-50 dark:bg-teal-900/20 p-4 rounded-xl border border-teal-100 font-bold text-teal-800 dark:text-teal-300">{matches ? `${matches.length} matches found` : 'No matches'}</div>
         </div>

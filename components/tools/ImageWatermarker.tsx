@@ -127,9 +127,9 @@ const ImageWatermarker: React.FC = () => {
 
                    {watermarkType === 'text' ? (
                       <>
-                        <input type="text" value={text} onChange={e => setText(e.target.value)} className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white" />
+                        <input type="text" value={text} onChange={e => setText(e.target.value)} className="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
                         <div className="flex gap-2">
-                           <input type="number" value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-20 p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white" />
+                           <input type="number" value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-20 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
                            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-10 w-full cursor-pointer rounded overflow-hidden" />
                         </div>
                       </>

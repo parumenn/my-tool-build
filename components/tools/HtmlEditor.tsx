@@ -38,7 +38,7 @@ const HtmlEditor: React.FC = () => {
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px]">
            <div className="flex flex-col h-full gap-2">
               <label className="font-bold text-gray-700 dark:text-gray-300 text-sm">HTML Code</label>
-              <textarea value={htmlCode} onChange={(e) => setHtmlCode(e.target.value)} className="flex-1 w-full p-4 rounded-xl border dark:bg-gray-800 dark:text-white font-mono text-sm" spellCheck={false} />
+              <textarea value={htmlCode} onChange={(e) => setHtmlCode(e.target.value)} className="flex-1 w-full p-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm" spellCheck={false} />
            </div>
            <div className="flex flex-col h-full gap-2">
               <label className="font-bold text-gray-700 dark:text-gray-300 text-sm flex items-center gap-2"><Eye size={16} /> Live Preview (Sanitized)</label>

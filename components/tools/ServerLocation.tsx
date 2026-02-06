@@ -248,7 +248,7 @@ const ServerLocation: React.FC = () => {
             {activeTab === 'lookup' ? (
                <div className="bg-white dark:bg-dark-lighter rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
                   <form onSubmit={handleLookup} className="space-y-4">
-                     <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="例: google.com" className="w-full p-4 rounded-2xl border-2 border-gray-50 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 dark:text-white font-bold focus:border-indigo-500 outline-none transition-all" />
+                     <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="例: google.com" className="w-full p-4 rounded-2xl border-2 border-gray-50 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold focus:border-indigo-500 outline-none transition-all" />
                      <button type="submit" disabled={loading || !input} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all active:scale-95">
                         {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />} 解析を実行
                      </button>
@@ -283,7 +283,7 @@ const ServerLocation: React.FC = () => {
                <div className="bg-white dark:bg-dark-lighter rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-full max-h-[600px] animate-scale-up">
                   <form onSubmit={handleTraceroute} className="space-y-4 mb-6 shrink-0">
                      <div className="flex gap-2">
-                        <input type="text" value={traceInput} onChange={(e) => setTraceInput(e.target.value)} placeholder="例: example.com" className="flex-1 p-3 rounded-xl border-2 border-gray-50 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 dark:text-white font-bold outline-none focus:border-indigo-500 transition-all" />
+                        <input type="text" value={traceInput} onChange={(e) => setTraceInput(e.target.value)} placeholder="例: example.com" className="flex-1 p-3 rounded-xl border-2 border-gray-50 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold outline-none focus:border-indigo-500 transition-all" />
                         <button type="submit" disabled={traceLoading} className="bg-indigo-600 text-white px-4 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-95">{traceLoading ? <Loader2 className="animate-spin" /> : <Route size={20} />}</button>
                      </div>
                   </form>

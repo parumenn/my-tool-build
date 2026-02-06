@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useContext } from 'react';
 import { FileText, Combine, Lock, RotateCw, Trash2, Download, Upload, Info, ShieldCheck, Zap, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { PDFDocument, degrees } from 'pdf-lib';
@@ -68,6 +67,20 @@ const PdfTools: React.FC = () => {
   };
 
   // Unlock Handlers
+  const handleUnlockFile = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
+    let file: File | null = null;
+    if ('files' in e.target && e.target.files?.[0]) {
+      file = e.target.files[0];
+    } else if ('dataTransfer' in e && e.dataTransfer.files?.[0]) {
+      e.preventDefault();
+      file = e.dataTransfer.files[0];
+    }
+    if (file && file.type === 'application/pdf') {
+        setUnlockFile(file);
+    }
+    setIsDragging(false);
+  }
+
   const processUnlock = async () => {
     if (!unlockFile || !password) return;
     setIsProcessing(true);
@@ -85,6 +98,20 @@ const PdfTools: React.FC = () => {
   };
 
   // Rotate Handlers
+  const handleRotateFile = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
+    let file: File | null = null;
+    if ('files' in e.target && e.target.files?.[0]) {
+      file = e.target.files[0];
+    } else if ('dataTransfer' in e && e.dataTransfer.files?.[0]) {
+      e.preventDefault();
+      file = e.dataTransfer.files[0];
+    }
+    if (file && file.type === 'application/pdf') {
+        setRotateFile(file);
+    }
+    setIsDragging(false);
+  }
+
   const processRotate = async () => {
     if (!rotateFile) return;
     setIsProcessing(true);
@@ -164,19 +191,17 @@ const PdfTools: React.FC = () => {
                                   <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-500 font-bold text-[10px]">{i + 1}</div>
                                   <span className="text-xs font-bold truncate text-gray-700 dark:text-gray-200">{f.name}</span>
                                </div>
-                               <button onClick={() => setMergeFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-500 transition-colors">
-                                  <Trash2 size={16}/>
-                                </button>
+                               <button onClick={() => setMergeFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
                             </div>
                          ))}
                       </div>
                       <button 
                         onClick={processMerge} 
-                        disabled={isProcessing || mergeFiles.length < 2} 
-                        className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-100 dark:shadow-none disabled:opacity-30 hover:bg-red-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                        disabled={isProcessing} 
+                        className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                       >
-                         {isProcessing ? <Loader2 className="animate-spin" /> : <Combine size={20} />}
-                         {isProcessing ? '結合処理中...' : '選択したPDFを結合して保存'}
+                         {isProcessing ? <Loader2 className="animate-spin" /> : <Combine size={20} />} 
+                         {isProcessing ? '結合処理中...' : 'PDFを結合してダウンロード'}
                       </button>
                    </div>
                 )}
@@ -185,40 +210,47 @@ const PdfTools: React.FC = () => {
 
           {/* UNLOCK TAB */}
           {activeTab === 'unlock' && (
-             <div className="space-y-6 animate-fade-in flex-1 flex flex-col max-w-xl mx-auto w-full justify-center">
-                {!unlockFile ? (
-                   <label className="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl p-12 block text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input type="file" accept=".pdf" onChange={(e) => setUnlockFile(e.target.files?.[0] || null)} className="hidden" />
-                      <Lock size={48} className="mx-auto mb-4 text-gray-300" />
-                      <p className="font-black text-gray-700 dark:text-gray-200">保護を解除するPDFを選択</p>
-                   </label>
-                ) : (
-                   <div className="bg-gray-50 dark:bg-gray-800 p-8 rounded-3xl border border-gray-200 dark:border-gray-700 space-y-6">
-                      <div className="flex items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                         <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-xl"><FileText size={24} /></div>
-                         <div className="overflow-hidden"><p className="font-bold truncate text-gray-800 dark:text-white">{unlockFile.name}</p><p className="text-xs text-gray-500">{(unlockFile.size/1024/1024).toFixed(2)} MB</p></div>
+             <div className="space-y-6 animate-fade-in flex-1 flex flex-col max-w-2xl mx-auto w-full">
+                <div 
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleUnlockFile}
+                  className={`border-4 border-dashed rounded-3xl p-10 text-center transition-all relative ${isDragging ? 'border-red-500 bg-red-50 dark:bg-red-900/20 scale-[0.98]' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+                >
+                   <input type="file" accept=".pdf" onChange={handleUnlockFile} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                   <Lock size={48} className={`mx-auto mb-4 ${isDragging ? 'text-red-500 animate-bounce' : 'text-gray-300'}`} />
+                   <p className="font-black text-lg text-gray-700 dark:text-gray-200">
+                      {isDragging ? 'ここにドロップ' : '保護されたPDFを選択'}
+                   </p>
+                </div>
+
+                {unlockFile && (
+                   <div className="space-y-4 animate-fade-in">
+                      <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                         <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-500"><FileText size={20} /></div>
+                         <span className="text-sm font-bold truncate flex-1 text-gray-700 dark:text-gray-200">{unlockFile.name}</span>
+                         <button onClick={() => setUnlockFile(null)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
                       </div>
-                      <div>
-                         <label className="block text-xs font-black text-gray-400 uppercase mb-2">閲覧パスワードを入力</label>
+                      
+                      <div className="space-y-2">
+                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest">パスワード</label>
                          <input 
                            type="password" 
                            value={password} 
                            onChange={(e) => setPassword(e.target.value)} 
-                           className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-900 text-lg font-bold" 
-                           placeholder="••••••••"
+                           placeholder="パスワードを入力..." 
+                           className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white font-bold outline-none focus:border-red-500 transition-colors"
                          />
                       </div>
-                      <div className="flex gap-3">
-                         <button onClick={() => setUnlockFile(null)} className="flex-1 py-3 font-bold text-gray-500 hover:bg-gray-100 rounded-xl">戻る</button>
-                         <button 
-                           onClick={processUnlock} 
-                           disabled={isProcessing || !password}
-                           className="flex-[2] py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black rounded-xl shadow-lg disabled:opacity-30 flex items-center justify-center gap-2"
-                         >
-                            {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                            解除して保存
-                         </button>
-                      </div>
+
+                      <button 
+                        onClick={processUnlock} 
+                        disabled={isProcessing || !password} 
+                        className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 transition-all"
+                      >
+                         {isProcessing ? <Loader2 className="animate-spin" /> : <Lock size={20} />} 
+                         {isProcessing ? '解除処理中...' : '保護を解除してダウンロード'}
+                      </button>
                    </div>
                 )}
              </div>
@@ -226,36 +258,51 @@ const PdfTools: React.FC = () => {
 
           {/* ROTATE TAB */}
           {activeTab === 'rotate' && (
-             <div className="space-y-6 animate-fade-in flex-1 flex flex-col max-w-xl mx-auto w-full justify-center">
-                {!rotateFile ? (
-                   <label className="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl p-12 block text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input type="file" accept=".pdf" onChange={(e) => setRotateFile(e.target.files?.[0] || null)} className="hidden" />
-                      <RotateCw size={48} className="mx-auto mb-4 text-gray-300" />
-                      <p className="font-black text-gray-700 dark:text-gray-200">回転させるPDFを選択</p>
-                   </label>
-                ) : (
-                   <div className="bg-gray-50 dark:bg-gray-800 p-8 rounded-3xl border border-gray-200 dark:border-gray-700 space-y-6 text-center">
-                      <div className="flex flex-col items-center gap-4">
-                         <div className="p-5 bg-white dark:bg-gray-700 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-600 transition-transform duration-500" style={{ transform: `rotate(${rotation}deg)` }}>
-                            <FileText size={64} className="text-red-500" />
-                         </div>
-                         <div><p className="font-bold text-gray-800 dark:text-white truncate max-w-xs">{rotateFile.name}</p></div>
+             <div className="space-y-6 animate-fade-in flex-1 flex flex-col max-w-2xl mx-auto w-full">
+                <div 
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleRotateFile}
+                  className={`border-4 border-dashed rounded-3xl p-10 text-center transition-all relative ${isDragging ? 'border-red-500 bg-red-50 dark:bg-red-900/20 scale-[0.98]' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
+                >
+                   <input type="file" accept=".pdf" onChange={handleRotateFile} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                   <RotateCw size={48} className={`mx-auto mb-4 ${isDragging ? 'text-red-500 animate-bounce' : 'text-gray-300'}`} />
+                   <p className="font-black text-lg text-gray-700 dark:text-gray-200">
+                      {isDragging ? 'ここにドロップ' : 'PDFファイルを選択'}
+                   </p>
+                </div>
+
+                {rotateFile && (
+                   <div className="space-y-6 animate-fade-in">
+                      <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                         <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-500"><FileText size={20} /></div>
+                         <span className="text-sm font-bold truncate flex-1 text-gray-700 dark:text-gray-200">{rotateFile.name}</span>
+                         <button onClick={() => setRotateFile(null)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                         <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50"><RotateCw size={16} /> 90° 回転</button>
-                         <button onClick={() => setRotation(0)} className="p-3 text-gray-400 font-bold hover:text-red-500">リセット</button>
+
+                      <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
+                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-4">回転角度 (右回り)</label>
+                         <div className="flex justify-center gap-4">
+                            {[90, 180, 270].map(deg => (
+                               <button 
+                                 key={deg} 
+                                 onClick={() => setRotation(deg)} 
+                                 className={`px-6 py-3 rounded-xl font-black text-sm transition-all flex items-center gap-2 ${rotation === deg ? 'bg-red-600 text-white shadow-lg' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}
+                               >
+                                  <RotateCw size={14} /> {deg}°
+                               </button>
+                            ))}
+                         </div>
                       </div>
 
                       <button 
                         onClick={processRotate} 
-                        disabled={isProcessing}
-                        className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                        disabled={isProcessing} 
+                        className="w-full py-4 bg-red-600 text-white font-black rounded-2xl shadow-xl hover:bg-red-700 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 transition-all"
                       >
-                         {isProcessing ? <Loader2 className="animate-spin" /> : <Download size={20} />}
-                         適用してダウンロード
+                         {isProcessing ? <Loader2 className="animate-spin" /> : <Download size={20} />} 
+                         {isProcessing ? '回転処理中...' : '回転してダウンロード'}
                       </button>
-                      <button onClick={() => setRotateFile(null)} className="text-xs text-gray-400 font-bold hover:underline">別のファイルを選ぶ</button>
                    </div>
                 )}
              </div>
@@ -263,25 +310,23 @@ const PdfTools: React.FC = () => {
        </div>
 
        {!isWorkspace && (
-         <article className="p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-            <h2 className="text-xl font-black flex items-center gap-2 mb-6"><Info className="text-blue-500" />無料PDFツールの安全性と機能について</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-               <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold"><ShieldCheck size={18} /> <span>100% ローカル処理</span></div>
-                  <p className="text-xs leading-relaxed text-gray-500">
-                     一般的なオンラインPDF変換サイトとは異なり、当ツールの処理はすべてブラウザ内で行われます。機密文書をアップロードする必要がないため、情報漏洩のリスクがありません。
+         <article className="mt-12 p-8 bg-white dark:bg-dark-lighter rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+            <h2 className="text-xl font-black flex items-center gap-2 mb-6">
+               <Info className="text-blue-500" />
+               PDFツールの特徴とセキュリティ
+            </h2>
+            <div className="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+               <div>
+                  <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><ShieldCheck size={18} className="text-red-500" />サーバー送信なしの完全ローカル処理</h3>
+                  <p>
+                     当サイトのPDF編集機能は、WebAssembly技術を活用し、すべてお使いのブラウザ内（クライアントサイド）で完結します。
+                     PDFファイルがサーバーにアップロードされることは一切ありません。契約書や請求書など、機密性の高い文書も安心して処理いただけます。
                   </p>
                </div>
-               <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold"><Zap size={18} /> <span>瞬時に結合・解除</span></div>
-                  <p className="text-xs leading-relaxed text-gray-500">
-                     複数の資料を1つのPDFにまとめたり、閲覧パスワードがかかったファイルを解除（保存し直し）したりといった日常的な作業を数秒で完了できます。
-                  </p>
-               </div>
-               <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold"><AlertCircle size={18} /> <span>登録不要・無料</span></div>
-                  <p className="text-xs leading-relaxed text-gray-500">
-                     すべての機能は登録不要で、回数制限もなく無料でご利用いただけます。ブラウザのお気に入りに入れておくことで、いつでもすぐにPDF編集が可能です。
+               <div>
+                  <h3 className="text-gray-800 dark:text-white font-bold mb-3 flex items-center gap-2"><Zap size={18} className="text-red-500" />シンプルな操作性</h3>
+                  <p>
+                     専用ソフトのインストールや会員登録は不要です。「結合」「解除」「回転」という日常的によく使う機能に絞り込み、ドラッグ＆ドロップで直感的に操作できるように設計されています。
                   </p>
                </div>
             </div>
