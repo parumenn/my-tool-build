@@ -12,7 +12,7 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
-// データ保存先を変更 (Git管理外のディレクトリへ)
+// データ保存先 (Git管理外だがフォルダ構造は維持されるディレクトリ)
 $DATA_DIR = __DIR__ . '/database';
 $OLD_DATA_DIR = __DIR__ . '/data';
 
@@ -21,32 +21,39 @@ $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
 $FAILURES_FILE = $DATA_DIR . '/login_failures.json';
 
-// .htaccess Content
+// .htaccess Content (Direct access protection)
 $HTACCESS_CONTENT = "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order Deny,Allow\n    Deny from all\n</IfModule>";
 
 // Initialize Directories & Migrate Data
+// フォルダが存在しない、または書き込めない場合に権限修正を試みる
 if (!file_exists($DATA_DIR)) {
     if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
         http_response_code(500); echo json_encode(['error' => 'Failed to create data directory']); exit;
     }
-    @file_put_contents($DATA_DIR . '/.htaccess', $HTACCESS_CONTENT);
+}
+// デプロイ後に権限がリセットされる場合があるため、毎回確認・設定する
+@chmod($DATA_DIR, 0777);
 
-    // 旧データからの移行処理 (初回のみ)
-    if (file_exists($OLD_DATA_DIR)) {
-        // JSONファイルのコピー
-        foreach (['posts.json', 'config.json', 'login_failures.json'] as $f) {
-            if (file_exists("$OLD_DATA_DIR/$f") && !file_exists("$DATA_DIR/$f")) {
-                @copy("$OLD_DATA_DIR/$f", "$DATA_DIR/$f");
-            }
+// .htaccessの復元（デプロイで上書きされた場合用）
+if (!file_exists($DATA_DIR . '/.htaccess')) {
+    @file_put_contents($DATA_DIR . '/.htaccess', $HTACCESS_CONTENT);
+}
+
+// 旧データからの移行処理 (初回または消失時のみ実行)
+if (file_exists($OLD_DATA_DIR) && !file_exists($POSTS_FILE)) {
+    // JSONファイルのコピー
+    foreach (['posts.json', 'config.json', 'login_failures.json'] as $f) {
+        if (file_exists("$OLD_DATA_DIR/$f") && !file_exists("$DATA_DIR/$f")) {
+            @copy("$OLD_DATA_DIR/$f", "$DATA_DIR/$f");
         }
-        // 画像ディレクトリのコピー (簡易版)
-        if (file_exists("$OLD_DATA_DIR/uploads") && !file_exists($UPLOADS_DIR)) {
-            if (mkdir($UPLOADS_DIR, 0777, true)) {
-                $files = glob("$OLD_DATA_DIR/uploads/*");
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        @copy($file, "$UPLOADS_DIR/" . basename($file));
-                    }
+    }
+    // 画像ディレクトリのコピー
+    if (file_exists("$OLD_DATA_DIR/uploads") && !file_exists($UPLOADS_DIR)) {
+        if (mkdir($UPLOADS_DIR, 0777, true)) {
+            $files = glob("$OLD_DATA_DIR/uploads/*");
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    @copy($file, "$UPLOADS_DIR/" . basename($file));
                 }
             }
         }
@@ -57,6 +64,9 @@ if (!file_exists($UPLOADS_DIR)) {
     if (!mkdir($UPLOADS_DIR, 0777, true) && !is_dir($UPLOADS_DIR)) {
         // Silently fail
     }
+}
+@chmod($UPLOADS_DIR, 0777);
+if (!file_exists($UPLOADS_DIR . '/.htaccess')) {
     @file_put_contents($UPLOADS_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
 
@@ -82,7 +92,7 @@ function getClientIp() {
 $ip = getClientIp();
 $now = time();
 
-// 安全な外部ファイル読み込み
+// 安全な外部ファイル読み込み (Backend側のデータを利用)
 $is_globally_blocked = false;
 $global_reason = '';
 $global_blocked_file = __DIR__ . '/../backend/data/blocked_ips.json';

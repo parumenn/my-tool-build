@@ -18,8 +18,10 @@ public/backend/data/
 public/brog/data/
 !public/brog/data/.htaccess
 
-# New Blog Data Directory (Git ignored)
-public/brog/database/
+# New Blog Data Directory (Persist structure, ignore data)
+public/brog/database/*
+!public/brog/database/.htaccess
+!public/brog/database/uploads/.gitkeep
 
 # Misc
 .DS_Store
