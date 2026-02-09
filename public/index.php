@@ -9,110 +9,15 @@ require_once __DIR__ . '/backend/security.php';
 // HTMLモードでチェック実行（ブロック時はHTMLエラーページを表示してexit）
 run_security_check(false);
 
-// チェックを通過した場合、以下のSPAコンテンツを表示
-?>
-<!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#3b82f6" />
-    <meta name="description" content="登録不要・完全無料の多機能Webツール集「まいつーる」。QRコード作成、家計簿、PDF編集、画像変換、パスワード生成など、40種類以上の便利ツールをブラウザだけで安全に利用できます。" />
-    
-    <title>登録不要・完全無料の多機能Webツール集 | まいつーる</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
-    
-    <!-- CSSを最優先で読み込み、App Shellを表示 -->
-        
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              primary: '#3b82f6',
-              secondary: '#6366f1',
-              dark: '#0f172a',
-              'dark-lighter': '#1e293b',
-              light: '#f8fafc',
-            },
-            fontFamily: {
-              sans: ['Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', 'sans-serif'],
-            },
-          }
-        }
-      }
-    </script>
-    
-    <!-- Highlight.js for Syntax Highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <!-- Common Languages -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/php.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/java.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/c.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ruby.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/rust.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+// チェックを通過した場合、index.html (SPAのエントリポイント) を読み込んで出力
+$index_html_path = __DIR__ . '/index.html';
 
-    <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.28.0?deps=react@18.3.1,react-dom@18.3.1",
-    "react-helmet-async": "https://esm.sh/react-helmet-async@2.0.5?deps=react@18.3.1",
-    "lucide-react": "https://esm.sh/lucide-react@0.453.0?deps=react@18.3.1",
-    "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.3.1,react-dom@18.3.1",
-    "diff": "https://esm.sh/diff@5.2.0",
-    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
-    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.0.379",
-    "@pdf-lib/fontkit": "https://esm.sh/@pdf-lib/fontkit@1.1.1",
-    "dompurify": "https://esm.sh/dompurify@3.0.9",
-    "alasql": "https://esm.sh/alasql@4.3.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-  }
+if (file_exists($index_html_path)) {
+    // Content-Typeヘッダーなどを index.html に合わせる（通常は text/html）
+    // security.php で既にヘッダーが出ている可能性もあるが、HTMLとして出力
+    readfile($index_html_path);
+} else {
+    // index.html が見つからない場合のフォールバック
+    echo '<!DOCTYPE html><html><body><h1>System Error</h1><p>Application entry point not found.</p></body></html>';
 }
-</script>
-  <link rel="stylesheet" href="./index.css">
-</head>
-  <body class="bg-gray-50 text-slate-800 antialiased dark:bg-dark dark:text-gray-100 transition-colors duration-200">
-    <div id="root">
-      <div class="flex h-screen bg-gray-50 overflow-hidden">
-        <div class="hidden lg:block w-64 bg-white border-r border-gray-200">
-          <div class="h-16 border-b flex items-center px-4">
-            <div class="w-8 h-8 bg-blue-600 rounded-lg"></div>
-            <div class="ml-2 h-4 bg-gray-200 rounded w-24"></div>
-          </div>
-          <div class="p-4 space-y-4">
-            <div class="h-10 bg-gray-100 rounded-xl w-full animate-pulse"></div>
-            <div class="h-10 bg-gray-100 rounded-xl w-full animate-pulse"></div>
-          </div>
-        </div>
-        <div class="flex-1 flex flex-col">
-          <header class="h-16 bg-white/80 border-b border-gray-200"></header>
-          <div class="flex-1 p-8">
-            <div class="max-w-4xl mx-auto h-48 bg-white rounded-3xl shadow-sm animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
-</html>
+?>
