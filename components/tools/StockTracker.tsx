@@ -7,7 +7,7 @@ import {
 import { 
   LayoutDashboard, Plus, Calendar as CalendarIcon, PieChart as ChartIcon, 
   TrendingUp, TrendingDown, History, Trash2, X, ChevronLeft, ChevronRight, 
-  Wallet, Info, ShieldCheck, Zap, JapaneseYen, Target, Download, RefreshCw, Briefcase, Globe, Search
+  Wallet, Info, ShieldCheck, Zap, JapaneseYen, Target, Download, Upload, RefreshCw, Briefcase, Globe, Search
 } from 'lucide-react';
 import { WorkspaceContext } from '../WorkspaceContext';
 import AdBanner from '../AdBanner';
@@ -103,6 +103,9 @@ const StockTracker: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingOpen, setIsSettingOpen] = useState(false);
+  
+  // File Input Ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form State
   const [formData, setFormData] = useState<Partial<TradeRecord>>({
@@ -306,6 +309,47 @@ const StockTracker: React.FC = () => {
     }
   };
 
+  const handleExportJson = () => {
+    const data = { initialAsset, trades };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `stock_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.trades && Array.isArray(json.trades)) {
+            if(confirm('現在のデータを上書きして復元しますか？')) {
+                setTrades(json.trades);
+                if (typeof json.initialAsset === 'number') {
+                    setInitialAsset(json.initialAsset);
+                }
+                alert('復元が完了しました。');
+                setIsSettingOpen(false);
+            }
+        } else {
+            alert('無効なデータ形式です。');
+        }
+      } catch (err) {
+        alert('ファイルの読み込みに失敗しました。');
+      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   const handleAddTrade = () => {
     if (!formData.date) {
         alert('日付は必須です');
@@ -503,25 +547,48 @@ const StockTracker: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 h-80">
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2"><TrendingUp size={18}/> 資産推移</h3>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tick={{fontSize: 10}} 
-                                    tickFormatter={(val) => (typeof val === 'string' && val.length >= 5) ? val.slice(5) : ''} 
-                                    stroke="#9ca3af" 
-                                />
-                                <YAxis tick={{fontSize: 10}} tickFormatter={(val) => `${val/10000}万`} width={40} domain={['auto', 'auto']} stroke="#9ca3af" />
-                                <Tooltip 
-                                    formatter={(val: number) => `¥${val.toLocaleString()}`} 
-                                    contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'rgba(255,255,255,0.9)', color: '#333'}} 
-                                />
-                                <Line type="monotone" dataKey="asset" stroke="#4f46e5" strokeWidth={3} dot={false} activeDot={{r: 6}} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 h-80">
+                            <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2"><TrendingUp size={18}/> 資産推移</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                    <XAxis 
+                                        dataKey="date" 
+                                        tick={{fontSize: 10}} 
+                                        tickFormatter={(val) => (typeof val === 'string' && val.length >= 5) ? val.slice(5) : ''} 
+                                        stroke="#9ca3af" 
+                                    />
+                                    <YAxis tick={{fontSize: 10}} tickFormatter={(val) => `${val/10000}万`} width={40} domain={['auto', 'auto']} stroke="#9ca3af" />
+                                    <Tooltip 
+                                        formatter={(val: number) => `¥${val.toLocaleString()}`} 
+                                        contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'rgba(255,255,255,0.9)', color: '#333'}} 
+                                    />
+                                    <Line type="monotone" dataKey="asset" stroke="#4f46e5" strokeWidth={3} dot={false} activeDot={{r: 6}} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 h-80">
+                            <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2"><ChartIcon size={18}/> 月次損益</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthlyData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                    <XAxis 
+                                        dataKey="date" 
+                                        tick={{fontSize: 10}} 
+                                        tickFormatter={(val) => (typeof val === 'string' && val.length >= 5) ? val.slice(5) : ''}
+                                        stroke="#9ca3af" 
+                                    />
+                                    <YAxis tickFormatter={(val) => `${val/10000}万`} width={40} stroke="#9ca3af" />
+                                    <Tooltip formatter={(val: number) => `¥${val.toLocaleString()}`} cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: '8px', color:'#333'}} />
+                                    <Bar dataKey="pnl">
+                                        {monthlyData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? '#ef4444' : '#10b981'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
                         <h3 className="font-bold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2"><History size={18}/> アクティビティ</h3>
@@ -740,7 +807,17 @@ const StockTracker: React.FC = () => {
                           <p className="text-[10px] text-gray-400 mt-2">※ここに入力した金額をスタート地点として損益を加算します。</p>
                       </div>
                       
-                      <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                           <button onClick={handleExportJson} className="py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+                               <Download size={14} /> バックアップ
+                           </button>
+                           <label className="py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                               <Upload size={14} /> 復元 (読込)
+                               <input type="file" accept=".json" onChange={handleImportJson} className="hidden" ref={fileInputRef} />
+                           </label>
+                      </div>
+
+                      <div className="pt-2">
                            <button onClick={handleResetData} className="w-full py-2 text-red-500 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center justify-center gap-2">
                                <RefreshCw size={14} /> 全データを初期化
                            </button>

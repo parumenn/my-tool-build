@@ -391,6 +391,48 @@
                 e.target.value = '';
             };
 
+            // クリップボードからの画像貼り付けを処理する関数
+            const handlePaste = async (e) => {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                let file = null;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") === 0) {
+                        file = items[i].getAsFile();
+                        break;
+                    }
+                }
+
+                if (file) {
+                    e.preventDefault(); // Base64貼り付けを阻止
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        execCmd('insertHTML', '<span id="loading-img">Uploading pasted image...</span>');
+                        
+                        const res = await fetch('./api.php?action=upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        
+                        const loadingSpan = document.getElementById('loading-img');
+                        if(loadingSpan) loadingSpan.remove();
+
+                        if (res.ok && data.url) {
+                            execCmd('insertImage', data.url);
+                        } else {
+                            alert('アップロード失敗: ' + (data.error || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        const loadingSpan = document.getElementById('loading-img');
+                        if(loadingSpan) loadingSpan.remove();
+                        alert('通信エラーが発生しました');
+                    }
+                }
+            };
+
             const handleSubmit = (status) => {
                 onSave({ 
                     ...post,
@@ -425,6 +467,7 @@
                                     contentEditable 
                                     className="editor-content w-full p-4 min-h-[300px] outline-none markdown"
                                     placeholder="ここに記事を書く..."
+                                    onPaste={handlePaste}
                                 ></div>
                             </div>
                         </div>
