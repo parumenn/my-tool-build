@@ -171,11 +171,14 @@
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
                 if (match) {
                     let url = match[1].replace(/&amp;/g, '&');
-                    // 相対パスのapi.phpを絶対パスに置換
+                    // "./api.php" や "api.php" を含むパスを絶対パスに置換
                     if (url.includes('api.php')) {
-                        const query = url.split('api.php')[1];
+                        const parts = url.split('api.php');
+                        // クエリ部分を取得し、API_URLと結合
+                        const query = parts.length > 1 ? parts[1] : '';
                         url = `${API_URL}${query}`;
                     }
+                    
                     if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/')) {
                         return url;
                     }
@@ -244,10 +247,13 @@
             const processedContent = useMemo(() => {
                 if (!post.content) return '';
                 let content = post.content;
-                // 1. src="api.php..." または src="./api.php..." を絶対パスに置換
-                content = content.replace(/src=(["'])(?:(?!\/|http).)*?api\.php/g, `src=$1${API_URL}`);
-                // 2. 画像読み込みエラー時に非表示にするスクリプトを注入
-                content = content.replace(/<img\s/g, '<img onerror="this.style.display=\'none\'" ');
+                // 1. src="api.php", src="./api.php" など、httpや/で始まらないパスを絶対URLに置換
+                content = content.replace(/src=(["'])(?:\.\/)?api\.php/g, `src=$1${API_URL}`);
+                
+                // 2. 画像読み込みエラー時に非表示にするスクリプトを注入 (二重注入防止)
+                if (!content.includes('onerror="this.style.display=\'none\'"')) {
+                    content = content.replace(/<img\s/g, '<img onerror="this.style.display=\'none\'" ');
+                }
                 return content;
             }, [post.content]);
 
@@ -376,7 +382,7 @@
                 if (editorRef.current) {
                     // 表示用: 保存された相対パス(api.php)を絶対パス(API_URL)に変換してエディタにセット
                     let content = post?.content || '';
-                    content = content.replace(/src=(["'])(?:(?!\/|http).)*?api\.php/g, `src=$1${API_URL}`);
+                    content = content.replace(/src=(["'])(?:\.\/)?api\.php/g, `src=$1${API_URL}`);
                     editorRef.current.innerHTML = content;
                 }
             }, [post]);
@@ -400,8 +406,8 @@
                         // 編集画面での表示用に絶対パスに置換して挿入
                         let imgUrl = data.url;
                         if (imgUrl.includes('api.php')) {
-                            const query = imgUrl.split('api.php')[1];
-                            imgUrl = `${API_URL}${query}`;
+                            // api.php または ./api.php で始まる場合に絶対パスへ
+                            imgUrl = imgUrl.replace(/^(\.\/)?api\.php/, API_URL);
                         }
                         execCmd('insertImage', imgUrl);
                     }
@@ -428,8 +434,7 @@
                         if (res.ok && data.url) {
                             let imgUrl = data.url;
                             if (imgUrl.includes('api.php')) {
-                                const query = imgUrl.split('api.php')[1];
-                                imgUrl = `${API_URL}${query}`;
+                                imgUrl = imgUrl.replace(/^(\.\/)?api\.php/, API_URL);
                             }
                             execCmd('insertImage', imgUrl);
                         }
