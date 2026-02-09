@@ -54,6 +54,8 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const BASE_PATH = '/brog';
+        // APIのエンドポイントを絶対パスで定義
+        const API_URL = `${BASE_PATH}/api.php`;
 
         // --- Icons Definition ---
         const ICONS = {
@@ -251,7 +253,8 @@
                 e.preventDefault();
                 setError('');
                 try {
-                    const res = await fetch('./api.php?action=login', {
+                    // Fix: Use absolute API_URL
+                    const res = await fetch(`${API_URL}?action=login`, {
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ password: pass })
@@ -302,7 +305,8 @@
                     return;
                 }
                 try {
-                    const res = await fetch('./api.php?action=change_password', {
+                    // Fix: Use absolute API_URL
+                    const res = await fetch(`${API_URL}?action=change_password`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ current_password: currentPass, new_password: newPass })
@@ -359,10 +363,21 @@
                 const formData = new FormData(); formData.append('file', file);
                 try {
                     execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
-                    const res = await fetch('./api.php?action=upload', { method: 'POST', body: formData });
+                    // Fix: Use absolute API_URL
+                    const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                     const data = await res.json();
                     const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
-                    if (res.ok && data.url) execCmd('insertImage', data.url);
+                    if (res.ok && data.url) {
+                        // 画像URLが相対パスで返ってくる場合、API_URLのディレクトリを考慮する必要があるが、
+                        // api.phpの実装を見ると `api.php?action=image&name=...` という形式で返している可能性がある。
+                        // その場合、現在のページからの相対パスだと詳細ページでリンク切れになる。
+                        // なので、返ってきたURLが `api.php` で始まるなら補完する。
+                        let imgUrl = data.url;
+                        if (imgUrl.startsWith('api.php')) {
+                            imgUrl = `${BASE_PATH}/${imgUrl}`;
+                        }
+                        execCmd('insertImage', imgUrl);
+                    }
                     else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
                 } catch (err) { alert('通信エラーが発生しました'); }
                 e.target.value = '';
@@ -379,10 +394,17 @@
                     const formData = new FormData(); formData.append('file', file);
                     try {
                         execCmd('insertHTML', '<span id="loading-img">Uploading pasted image...</span>');
-                        const res = await fetch('./api.php?action=upload', { method: 'POST', body: formData });
+                        // Fix: Use absolute API_URL
+                        const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                         const data = await res.json();
                         const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
-                        if (res.ok && data.url) execCmd('insertImage', data.url);
+                        if (res.ok && data.url) {
+                            let imgUrl = data.url;
+                            if (imgUrl.startsWith('api.php')) {
+                                imgUrl = `${BASE_PATH}/${imgUrl}`;
+                            }
+                            execCmd('insertImage', imgUrl);
+                        }
                         else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
                     } catch (err) {
                         const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
@@ -469,7 +491,8 @@
                     const id = path.split('/')[2];
                     // Fetch directly if not loaded
                     try {
-                        const res = await fetch(`./api.php?action=detail&id=${id}`);
+                        // Fix: Use absolute API_URL
+                        const res = await fetch(`${API_URL}?action=detail&id=${id}`);
                         const data = await res.json();
                         if (data && !data.error) {
                             setSelectedPost(data);
@@ -478,7 +501,10 @@
                             // ID found in URL but not in DB -> Redirect to list
                             navigate('/');
                         }
-                    } catch(e) { navigate('/'); }
+                    } catch(e) { 
+                        console.error("Detail fetch error:", e);
+                        navigate('/'); 
+                    }
                 }
             };
 
@@ -490,7 +516,8 @@
 
             const fetchPosts = async () => {
                 try {
-                    const res = await fetch('./api.php?action=list');
+                    // Fix: Use absolute API_URL
+                    const res = await fetch(`${API_URL}?action=list`);
                     if (res.status === 403) { setBlocked(true); return; }
                     const data = await res.json();
                     setPosts(data);
@@ -505,13 +532,15 @@
             const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('/'); };
 
             const handleSavePost = async (postData) => {
-                await fetch('./api.php?action=save', { method: 'POST', body: JSON.stringify(postData) });
+                // Fix: Use absolute API_URL
+                await fetch(`${API_URL}?action=save`, { method: 'POST', body: JSON.stringify(postData) });
                 await fetchPosts(); navigate('/admin');
             };
 
             const handleDeletePost = async (id) => {
                 if(!confirm('本当に削除しますか？')) return;
-                await fetch(`./api.php?action=delete&id=${id}`, { method: 'DELETE' });
+                // Fix: Use absolute API_URL
+                await fetch(`${API_URL}?action=delete&id=${id}`, { method: 'DELETE' });
                 await fetchPosts();
             };
 
