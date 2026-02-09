@@ -13,7 +13,8 @@ header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
 // データ保存先
-$DATA_DIR = __DIR__ . '/../backend/data/blog';
+// 修正: 以前のデータが存在すると思われるディレクトリ(./data)に戻します
+$DATA_DIR = __DIR__ . '/data';
 $UPLOADS_DIR = $DATA_DIR . '/uploads';
 $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
@@ -308,4 +309,3 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     if (count($posts) !== $beforeCount) saveData($POSTS_FILE, $posts);
     echo json_encode(['status' => 'ok']);
 }
-?>
