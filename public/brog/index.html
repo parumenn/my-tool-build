@@ -368,171 +368,122 @@
     const [title, setTitle] = useState(post?.title || '');
     const [tags, setTags] = useState(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
     const [date, setDate] = useState(toInputFormat(post?.date));
+    
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
+    const isInitialized = useRef(false);
 
-    // 修正: 依存配列に editorRef.current を追加するか、
-    // あるいはマウント後に確実に1回実行されるように調整します
     useEffect(() => {
-        setTitle(post?.title || '');
-        setTags(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
-        setDate(toInputFormat(post?.date));
-        
-        // editorRef が存在することを確認してから中身をセット
-        if (editorRef.current) {
-            let content = post?.content || '';
+        if (post && editorRef.current && !isInitialized.current) {
+            setTitle(post.title || '');
+            setTags(Array.isArray(post.tags) ? post.tags.join(', ') : (post.tags || ''));
+            setDate(toInputFormat(post.date));
+
+            let content = post.content || '';
             const origin = window.location.origin;
             content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
             
-            // 重要: 現在の入力内容と異なる場合のみ更新（カーソル飛び防止）
-            if (editorRef.current.innerHTML !== content) {
-                editorRef.current.innerHTML = content;
-            }
+            editorRef.current.innerHTML = content;
+            isInitialized.current = true;
         }
-    }, [post, editorRef.current]);
+    }, [post]);
 
-            const execCmd = (cmd, val) => {
-                document.execCommand(cmd, false, val);
-                editorRef.current?.focus();
-            };
+    const execCmd = (cmd, val) => {
+        document.execCommand(cmd, false, val);
+        editorRef.current?.focus();
+    };
 
-            const toggleTag = (tag) => {
-                let current = tags.split(',').map(t => t.trim()).filter(Boolean);
-                if (current.includes(tag)) {
-                    current = current.filter(t => t !== tag);
-                } else {
-                    current.push(tag);
-                }
-                setTags(current.join(', '));
-            };
+    // --- 追加: 画像アップロード処理 ---
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-            const handleImageUpload = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const formData = new FormData(); formData.append('file', file);
-                try {
-                    execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
-                    const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
-                    const data = await res.json();
-                    const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
-                    if (res.ok && data.url) {
-                        let imgUrl = data.url;
-                        if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
-                            const origin = window.location.origin;
-                            const parts = imgUrl.split('api.php');
-                            const query = parts.length > 1 ? parts[1] : '';
-                            imgUrl = `${origin}/brog/api.php${query}`;
-                        }
-                        execCmd('insertImage', imgUrl);
-                    }
-                    else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
-                } catch (err) { alert('通信エラーが発生しました'); }
-                e.target.value = '';
-            };
-
-            const handlePaste = async (e) => {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                let file = null;
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf("image") === 0) { file = items[i].getAsFile(); break; }
-                }
-                if (file) {
-                    e.preventDefault(); 
-                    const formData = new FormData(); formData.append('file', file);
-                    try {
-                        execCmd('insertHTML', '<span id="loading-img">Uploading pasted image...</span>');
-                        const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
-                        const data = await res.json();
-                        const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
-                        if (res.ok && data.url) {
-                            let imgUrl = data.url;
-                            if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
-                                const origin = window.location.origin;
-                                const parts = imgUrl.split('api.php');
-                                const query = parts.length > 1 ? parts[1] : '';
-                                imgUrl = `${origin}/brog/api.php${query}`;
-                            }
-                            execCmd('insertImage', imgUrl);
-                        }
-                        else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
-                    } catch (err) {
-                        const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
-                        alert('通信エラーが発生しました');
-                    }
-                }
-            };
-
-            const handleSubmit = (status) => {
-                let content = editorRef.current.innerHTML;
-                const origin = window.location.origin;
-                // 保存時は相対パス(api.php)に戻すことでポータビリティを確保
-                content = content.split(`${origin}/brog/api.php`).join('api.php');
-                content = content.split(`api.php`).join('api.php'); // 重複回避
-                
-                onSave({ 
-                    ...post, 
-                    title, 
-                    content, 
-                    tags: tags.split(',').map(t=>t.trim()).filter(Boolean), 
-                    date: toDbFormat(date), 
-                    status: status 
-                });
-            };
-
-            return (
-                <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-100">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Icon name="edit-3" size={20} /> {post ? '記事編集' : '新規投稿'}</h2>
-                    <form onSubmit={e => e.preventDefault()} className="space-y-4">
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label><input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">公開日時 (未来の日時で予約投稿)</label><input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" required /></div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
-                            <div className="border rounded-xl overflow-hidden">
-                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm">
-                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H1')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し1">H1</button>
-                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し2">H2</button>
-                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し3">H3</button>
-                                    <button type="button" onClick={()=>execCmd('formatBlock', 'P')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="標準テキスト">P</button>
-                                    <div className="w-px h-6 bg-slate-300 mx-1"></div>
-                                    <button type="button" onClick={()=>execCmd('bold')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="太字"><Icon name="bold" size={16}/></button>
-                                    <button type="button" onClick={()=>{const url=prompt('URL:'); if(url) execCmd('createLink', url)}} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="リンク"><Icon name="link" size={16}/></button>
-                                    <button type="button" onClick={()=>execCmd('formatBlock', 'pre')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="コードブロック"><Icon name="code" size={16}/></button>
-                                    <div className="w-px h-6 bg-slate-300 mx-1"></div>
-                                    <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="画像挿入"><Icon name="image" size={16}/></button>
-                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-                                </div>
-                                <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
-                            <input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" />
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {allTags.map(tag => (
-                                    <button 
-                                        key={tag} 
-                                        type="button"
-                                        onClick={() => toggleTag(tag)}
-                                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                                            tags.split(',').map(t=>t.trim()).includes(tag) 
-                                            ? 'bg-indigo-100 text-indigo-700 border-indigo-200' 
-                                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        #{tag}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex gap-4 pt-4">
-                            <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">キャンセル</button>
-                            <button type="button" onClick={() => handleSubmit('draft')} className="flex-1 py-3 bg-gray-500 text-white font-bold rounded-xl shadow-lg hover:bg-gray-600 flex items-center justify-center gap-2"><Icon name="save" size={16}/> 下書き保存</button>
-                            <button type="button" onClick={() => handleSubmit('published')} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"><Icon name="edit-3" size={16}/> 保存・公開</button>
-                        </div>
-                    </form>
-                </div>
-            );
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            // 編集エリアの最後に画像を挿入
+            const imgHtml = `<img src="${base64}" alt="uploaded image" style="max-width:100%; height:auto; border-radius:8px; margin:1em 0;">`;
+            execCmd('insertHTML', imgHtml);
+            // 入力値をリセットして同じファイルを再度選択可能にする
+            e.target.value = '';
         };
+        reader.readAsDataURL(file);
+    };
+
+    const handleSubmit = (status) => {
+        if (!title.trim()) {
+            alert("タイトルを入力してください");
+            return;
+        }
+        
+        let content = editorRef.current.innerHTML;
+        const origin = window.location.origin;
+        content = content.split(`${origin}/brog/api.php`).join('api.php');
+        
+        onSave({ 
+            ...post, 
+            title, 
+            content, 
+            tags: tags.split(',').map(t=>t.trim()).filter(Boolean), 
+            date: toDbFormat(date), 
+            status: status 
+        });
+    };
+
+    return (
+        <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-100 animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Icon name="edit-3" size={20} /> {post?.id ? '記事編集' : '新規投稿'}
+                </h2>
+                <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 text-sm font-bold">キャンセル</button>
+            </div>
+
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label>
+                    <input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="記事タイトルを入力..." />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">公開日時</label>
+                    <input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
+                    <div className="border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                        <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-0 z-10">
+                            <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded font-bold text-xs">H2</button>
+                            <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded font-bold text-xs">H3</button>
+                            <button type="button" onClick={()=>execCmd('bold')} className="p-2 hover:bg-slate-200 rounded"><Icon name="bold" size={16}/></button>
+                            <button type="button" onClick={()=>{const url=prompt('URL:'); if(url) execCmd('createLink', url)}} className="p-2 hover:bg-slate-200 rounded"><Icon name="link" size={16}/></button>
+                            <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded"><Icon name="image" size={16}/></button>
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        </div>
+                        <div 
+                            ref={editorRef} 
+                            contentEditable 
+                            className="editor-content w-full p-4 min-h-[400px] outline-none markdown bg-white" 
+                            placeholder="技術的な知見を共有しましょう..."
+                        ></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
+                    <input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" placeholder="React, JavaScript, アップデート..." />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                    <button onClick={() => handleSubmit('publish')} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                        <Icon name="save" size={18} /> 保存して公開
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
         const BlockedScreen = () => (
             <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
