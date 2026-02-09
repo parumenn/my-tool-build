@@ -54,8 +54,8 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const BASE_PATH = '/brog';
-        // APIのエンドポイントを絶対パスで定義
-        const API_URL = `${BASE_PATH}/api.php`;
+        // APIのエンドポイントを完全な絶対パスで定義（階層が深くても確実にアクセスさせるため）
+        const API_URL = `${window.location.origin}${BASE_PATH}/api.php`;
 
         // --- Icons Definition ---
         const ICONS = {
@@ -170,8 +170,12 @@
             const extractImage = (content) => {
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
                 if (match) {
-                    const url = match[1].replace(/&amp;/g, '&');
-                    if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('api.php')) {
+                    let url = match[1].replace(/&amp;/g, '&');
+                    // 相対パスの画像URLを絶対パスに補完
+                    if (url.startsWith('api.php')) {
+                        url = `${BASE_PATH}/${url}`;
+                    }
+                    if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/')) {
                         return url;
                     }
                 }
@@ -225,6 +229,13 @@
                 };
             }, [post]);
 
+            // 本文内の相対パス画像を絶対パスに変換
+            const processedContent = useMemo(() => {
+                if (!post.content) return '';
+                // api.phpで始まるsrc属性を /brog/api.php に置換
+                return post.content.replace(/src="api\.php/g, `src="${BASE_PATH}/api.php`);
+            }, [post.content]);
+
             return (
                 <div className="animate-fade-in">
                     <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
@@ -238,7 +249,7 @@
                                 </div>
                             )}
                         </div>
-                        <div className="markdown text-slate-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: post.content }}></div>
+                        <div className="markdown text-slate-700 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: processedContent }}></div>
                     </div>
                     <AdBanner type="rect" />
                 </div>
@@ -368,10 +379,7 @@
                     const data = await res.json();
                     const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
                     if (res.ok && data.url) {
-                        // 画像URLが相対パスで返ってくる場合、API_URLのディレクトリを考慮する必要があるが、
-                        // api.phpの実装を見ると `api.php?action=image&name=...` という形式で返している可能性がある。
-                        // その場合、現在のページからの相対パスだと詳細ページでリンク切れになる。
-                        // なので、返ってきたURLが `api.php` で始まるなら補完する。
+                        // 画像URLが相対パスで返ってくる場合、絶対パスに補完する
                         let imgUrl = data.url;
                         if (imgUrl.startsWith('api.php')) {
                             imgUrl = `${BASE_PATH}/${imgUrl}`;
