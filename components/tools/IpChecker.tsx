@@ -21,15 +21,19 @@ const IpChecker: React.FC = () => {
     setPortCheckResult('checking');
     
     try {
-        // Try to use a backend script if available, mimicking structure of ServerLocation.tsx
-        // If not available, it will fail gracefully.
-        const res = await fetch(`./backend/check_port.php?host=${ip}&port=${targetPort}`);
+        // Correct path to the existing backend script: public/backend/port_check.php
+        // Also corrected parameter name from 'host' to 'ip' to match PHP script ($_GET['ip'])
+        const res = await fetch(`./backend/port_check.php?ip=${ip}&port=${targetPort}`);
         if (res.ok) {
             const data = await res.json();
-            setPortCheckResult(data.open ? 'open' : 'closed');
+            // PHP returns { status: 'open' | 'closed' | 'error', ... }
+            if (data.status === 'error') {
+               setPortCheckResult('error');
+            } else {
+               setPortCheckResult(data.status === 'open' ? 'open' : 'closed');
+            }
         } else {
-            // Fallback simulation or error if backend script is missing
-            console.warn('Backend script check_port.php not found or error');
+            console.warn('Backend script returned http error');
             setPortCheckResult('error'); 
         }
     } catch (e) {
