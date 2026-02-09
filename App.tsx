@@ -3,11 +3,10 @@ import React, { useState, useEffect, createContext, useRef, lazy, Suspense } fro
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight, FileText, Shield } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
-import Dashboard from './components/Dashboard';
 
 // 遅延読み込みコンポーネント
 const SidebarContent = lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarContent })));
-// Dashboard is imported directly
+const Dashboard = lazy(() => import('./components/Dashboard'));
 const Settings = lazy(() => import('./components/Settings'));
 const AdminPage = lazy(() => import('./components/admin/AdminPage'));
 
