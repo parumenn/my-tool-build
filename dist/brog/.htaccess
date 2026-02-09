@@ -1,4 +1,6 @@
 
+DirectoryIndex index.html
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /brog/
@@ -9,5 +11,6 @@
     RewriteRule ^ - [L]
 
     # Rewrite all other routes to index.html
-    RewriteRule ^ index.html [L]
+    # "." matches any character, effectively catching all non-file/non-dir requests
+    RewriteRule . index.html [L]
 </IfModule>

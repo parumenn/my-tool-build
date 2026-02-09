@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Base tag for correct relative path resolution in SPA -->
+    <base href="/brog/">
     <title>開発者ブログ</title>
     <meta name="description" content="開発者による技術ブログ。最新のアップデート情報や技術的な知見を共有します。">
     <!-- Tailwind CSS -->
@@ -558,6 +560,12 @@
                 return () => window.removeEventListener('popstate', handleRoute);
             }, []);
 
+            // Initial Route Check (Separated from list fetch to ensure direct links work)
+            useEffect(() => {
+                fetchPosts();
+                handleRoute(); 
+            }, []);
+
             const fetchPosts = async () => {
                 try {
                     const res = await fetch(`${API_URL}?action=list`);
@@ -565,12 +573,8 @@
                     if (!res.ok) throw new Error('List fetch failed');
                     const data = await res.json();
                     setPosts(data);
-                    // Initial Route Check after data load
-                    handleRoute();
                 } catch (e) { console.error("Fetch error", e); }
             };
-
-            useEffect(() => { fetchPosts(); }, []);
 
             const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); navigate('/admin'); };
             const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('/'); };
