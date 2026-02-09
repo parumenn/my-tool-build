@@ -1,8 +1,8 @@
 
 <?php
 // Simple Blog API with Persistent Config & Image Upload
-error_reporting(E_ALL); // 開発中はエラーを表示（本番では0にする）
-ini_set('display_errors', 0); // JSONレスポンスを壊さないように画面表示はOFF
+error_reporting(0);
+ini_set('display_errors', 0);
 ini_set('memory_limit', '512M');
 ini_set('post_max_size', '512M');
 ini_set('upload_max_filesize', '512M');
@@ -12,62 +12,132 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
-// データ保存先 (Git管理外だがフォルダ構造は維持されるディレクトリ)
-$DATA_DIR = __DIR__ . '/database';
-$OLD_DATA_DIR = __DIR__ . '/data';
-
+// データ保存先 (永続化ディレクトリ: public/backend/data/blog)
+$DATA_DIR = __DIR__ . '/../backend/data/blog';
 $UPLOADS_DIR = $DATA_DIR . '/uploads';
 $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
 $FAILURES_FILE = $DATA_DIR . '/login_failures.json';
 
-// .htaccess Content (Direct access protection)
+// メインサイトと共有する設定・ブロックリスト
+$GLOBAL_BLOCKED_FILE = __DIR__ . '/../backend/data/blocked_ips.json';
+$ADMIN_CONFIG_FILE = __DIR__ . '/../backend/data/admin_config.json';
+
+// .htaccess Content
 $HTACCESS_CONTENT = "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order Deny,Allow\n    Deny from all\n</IfModule>";
 
-// Initialize Directories & Migrate Data
-// フォルダが存在しない、または書き込めない場合に権限修正を試みる
+// Initialize Directories
 if (!file_exists($DATA_DIR)) {
     if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
         http_response_code(500); echo json_encode(['error' => 'Failed to create data directory']); exit;
     }
-}
-// デプロイ後に権限がリセットされる場合があるため、毎回確認・設定する
-@chmod($DATA_DIR, 0777);
-
-// .htaccessの復元（デプロイで上書きされた場合用）
-if (!file_exists($DATA_DIR . '/.htaccess')) {
     @file_put_contents($DATA_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
+if (!file_exists($UPLOADS_DIR)) {
+    if (!mkdir($UPLOADS_DIR, 0777, true) && !is_dir($UPLOADS_DIR)) {
+        // Silently fail if exists
+    }
+    @file_put_contents($UPLOADS_DIR . '/.htaccess', $HTACCESS_CONTENT);
+}
 
-// 旧データからの移行処理 (初回または消失時のみ実行)
-if (file_exists($OLD_DATA_DIR) && !file_exists($POSTS_FILE)) {
-    // JSONファイルのコピー
-    foreach (['posts.json', 'config.json', 'login_failures.json'] as $f) {
-        if (file_exists("$OLD_DATA_DIR/$f") && !file_exists("$DATA_DIR/$f")) {
-            @copy("$OLD_DATA_DIR/$f", "$DATA_DIR/$f");
+// --- Data Migration Logic (Retrieve data from old locations if new location is empty) ---
+if (!file_exists($POSTS_FILE)) {
+    // 以前の保存場所候補 (優先順: database -> data)
+    $OLD_DIRS = [__DIR__ . '/database', __DIR__ . '/data'];
+    
+    foreach ($OLD_DIRS as $old_dir) {
+        if (file_exists($old_dir . '/posts.json')) {
+            // JSONファイルのコピー
+            foreach (['posts.json', 'config.json', 'login_failures.json'] as $f) {
+                if (file_exists("$old_dir/$f")) {
+                    @copy("$old_dir/$f", "$DATA_DIR/$f");
+                }
+            }
+            // 画像ディレクトリのコピー
+            if (file_exists("$old_dir/uploads")) {
+                $files = glob("$old_dir/uploads/*");
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        @copy($file, "$UPLOADS_DIR/" . basename($file));
+                    }
+                }
+            }
+            // 1つ見つかれば移行終了
+            break; 
         }
     }
-    // 画像ディレクトリのコピー
-    if (file_exists("$OLD_DATA_DIR/uploads") && !file_exists($UPLOADS_DIR)) {
-        if (mkdir($UPLOADS_DIR, 0777, true)) {
-            $files = glob("$OLD_DATA_DIR/uploads/*");
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    @copy($file, "$UPLOADS_DIR/" . basename($file));
+}
+
+// --- Minimal SMTP Class ---
+if (!class_exists('MinimalSMTP')) {
+    class MinimalSMTP {
+        private $host; private $port; private $user; private $pass;
+        private $socket;
+
+        public function __construct($host, $port, $user, $pass) {
+            $this->host = $host; $this->port = $port; $this->user = $user; $this->pass = $pass;
+        }
+
+        private function cmd($cmd, $expect = [250]) {
+            fputs($this->socket, $cmd . "\r\n");
+            $res = $this->read();
+            $code = (int)substr($res, 0, 3);
+            if (!in_array($code, $expect) && !empty($expect)) {
+                throw new Exception("SMTP Error [$code]: $res");
+            }
+            return $res;
+        }
+
+        private function read() {
+            $s = '';
+            while($str = fgets($this->socket, 515)) {
+                $s .= $str;
+                if(substr($str, 3, 1) == ' ') break;
+            }
+            return $s;
+        }
+
+        public function send($to, $subject, $body) {
+            try {
+                $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
+                $protocol = ($this->port == 465) ? 'ssl://' : '';
+                $this->socket = @stream_socket_client($protocol . $this->host . ':' . $this->port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $ctx);
+                if (!$this->socket) throw new Exception("Connection failed: $errstr");
+
+                $this->read(); 
+                $this->cmd("EHLO " . $_SERVER['SERVER_NAME']);
+                
+                if ($this->port == 587) {
+                    $this->cmd("STARTTLS", [220]);
+                    stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                    $this->cmd("EHLO " . $_SERVER['SERVER_NAME']);
                 }
+
+                $this->cmd("AUTH LOGIN", [334]);
+                $this->cmd(base64_encode($this->user), [334]);
+                $this->cmd(base64_encode($this->pass), [235]);
+
+                $this->cmd("MAIL FROM: <{$this->user}>");
+                $this->cmd("RCPT TO: <$to>");
+                $this->cmd("DATA", [354]);
+
+                $headers  = "MIME-Version: 1.0\r\n";
+                $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+                $headers .= "From: OmniTools Blog Admin <{$this->user}>\r\n";
+                $headers .= "To: <$to>\r\n";
+                $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+                $headers .= "Date: " . date("r") . "\r\n";
+
+                $this->cmd($headers . "\r\n" . $body . "\r\n.", [250]);
+                $this->cmd("QUIT", [221]);
+                fclose($this->socket);
+                return true;
+            } catch (Exception $e) {
+                if ($this->socket) fclose($this->socket);
+                return $e->getMessage();
             }
         }
     }
-}
-
-if (!file_exists($UPLOADS_DIR)) {
-    if (!mkdir($UPLOADS_DIR, 0777, true) && !is_dir($UPLOADS_DIR)) {
-        // Silently fail
-    }
-}
-@chmod($UPLOADS_DIR, 0777);
-if (!file_exists($UPLOADS_DIR . '/.htaccess')) {
-    @file_put_contents($UPLOADS_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
 
 // Helpers
@@ -92,24 +162,13 @@ function getClientIp() {
 $ip = getClientIp();
 $now = time();
 
-// 安全な外部ファイル読み込み (Backend側のデータを利用)
-$is_globally_blocked = false;
-$global_reason = '';
-$global_blocked_file = __DIR__ . '/../backend/data/blocked_ips.json';
-
-if (file_exists($global_blocked_file)) {
-    $global_blocked = getData($global_blocked_file);
-    if (isset($global_blocked[$ip]) && $global_blocked[$ip]['expiry'] > $now) {
-        $is_globally_blocked = true;
-        $global_reason = $global_blocked[$ip]['reason'] ?? 'Unknown';
-    }
-}
-
-if ($is_globally_blocked) {
+// 1. グローバルブロックリスト(メインサイトと共有)のチェック
+$global_blocked = getData($GLOBAL_BLOCKED_FILE);
+if (isset($global_blocked[$ip]) && $global_blocked[$ip]['expiry'] > $now) {
     http_response_code(403);
     echo json_encode([
         'error' => "アクセスがブロックされています。",
-        'message' => "セキュリティ違反により、このIPからのアクセスは全サイトで制限されています。(Reason: $global_reason)",
+        'message' => "セキュリティ違反により、このIPからのアクセスは全サイトで制限されています。(Reason: " . ($global_blocked[$ip]['reason'] ?? 'Unknown') . ")",
         'blocked' => true
     ]);
     exit;
@@ -191,8 +250,37 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
             
             if ($attemptsLeft <= 0) {
+                // 3回失敗 -> グローバルブロックリストに追加
+                $global_blocked = getData($GLOBAL_BLOCKED_FILE);
+                $reason = 'Blog Login Failed (3 attempts)';
+                $global_blocked[$ip] = [
+                    'expiry' => $now + $blockDuration,
+                    'time' => date('Y-m-d H:i:s'),
+                    'reason' => $reason
+                ];
+                saveData($GLOBAL_BLOCKED_FILE, $global_blocked);
+
+                unset($failures[$ip]);
+                saveData($FAILURES_FILE, $failures);
+
+                // メール通知
+                if (file_exists($ADMIN_CONFIG_FILE)) {
+                    $adminConfig = getData($ADMIN_CONFIG_FILE);
+                    if (!empty($adminConfig['alert_email']) && !empty($adminConfig['smtp_host'])) {
+                        $smtp = new MinimalSMTP(
+                            $adminConfig['smtp_host'], 
+                            $adminConfig['smtp_port'], 
+                            $adminConfig['smtp_user'], 
+                            $adminConfig['smtp_pass']
+                        );
+                        $subject = "[OmniTools Security] Blog Access Blocked";
+                        $body = "Security Alert:\n\nIP: {$ip}\nReason: {$reason}\nTime: " . date('Y-m-d H:i:s') . "\n\nThis IP has been blocked from all sites for 30 minutes.\n";
+                        $smtp->send($adminConfig['alert_email'], $subject, $body);
+                    }
+                }
+
                 http_response_code(403);
-                echo json_encode(['error' => "ログイン試行回数が上限を超えました。しばらくお待ちください。", 'blocked' => true]);
+                echo json_encode(['error' => "ログイン試行回数が上限を超えました。IPアドレスを一時的に全サイトでブロックしました。", 'blocked' => true]);
             } else {
                 http_response_code(401); 
                 echo json_encode(['error' => "パスワードが違います（あと{$attemptsLeft}回でブロック）"]);
