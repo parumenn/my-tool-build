@@ -108,9 +108,8 @@
             }
         };
 
-        // --- Ad Component (Fixed to prevent network errors) ---
+        // --- Ad Component ---
         const AdBanner = ({ type = 'rect' }) => {
-            // エラー回避のため、広告スクリプトの実行を一時停止し、プレースホルダーを表示
             const style = type === 'skyscraper' 
                 ? { width: '160px', height: '600px' } 
                 : type === 'banner' 
@@ -135,7 +134,7 @@
         const Header = ({ setView, isAdmin, logout }) => (
             <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <h1 onClick={() => setView('list')} className="text-xl font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
+                    <h1 onClick={() => { window.location.hash = ''; setView('list'); }} className="text-xl font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
                         <Icon name="feather" className="text-indigo-500" /> 開発者ブログ
                     </h1>
                     <div className="flex items-center gap-4">
@@ -220,6 +219,7 @@
             </div>
         );
 
+        // ... (Login, PasswordChange, AdminEditor components remain unchanged) ...
         const Login = ({ onLogin, setBlocked }) => {
             const [pass, setPass] = useState('');
             const [error, setError] = useState('');
@@ -256,16 +256,8 @@
                     <div className="mb-6 flex justify-center text-indigo-500"><Icon name="lock" size={40} /></div>
                     <h2 className="text-xl font-black mb-6 text-slate-800">管理者ログイン</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Hidden username field for accessibility compliance */}
                         <input type="text" name="username" autoComplete="username" style={{display: 'none'}} />
-                        <input 
-                            type="password" 
-                            autoComplete="current-password"
-                            value={pass} 
-                            onChange={e=>setPass(e.target.value)} 
-                            className="w-full p-3 border rounded-xl bg-slate-50 text-center font-bold" 
-                            placeholder="Password" 
-                        />
+                        <input type="password" autoComplete="current-password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full p-3 border rounded-xl bg-slate-50 text-center font-bold" placeholder="Password" />
                         {error && <p className="text-red-500 text-xs font-bold">{error}</p>}
                         <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">認証</button>
                     </form>
@@ -308,20 +300,10 @@
                     <button onClick={onBack} className="mb-6 text-sm font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1"><Icon name="arrow-left" size={16} /> 戻る</button>
                     <h2 className="text-xl font-black mb-6 text-slate-800 flex items-center gap-2"><Icon name="key" className="text-indigo-500"/> パスワード変更</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Hidden username field for accessibility compliance */}
                         <input type="text" name="username" autoComplete="username" style={{display: 'none'}} />
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">現在のパスワード</label>
-                            <input type="password" autoComplete="current-password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード</label>
-                            <input type="password" autoComplete="new-password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード (確認)</label>
-                            <input type="password" autoComplete="new-password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full p-3 border rounded-xl" required />
-                        </div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">現在のパスワード</label><input type="password" autoComplete="current-password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード</label><input type="password" autoComplete="new-password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">新しいパスワード (確認)</label><input type="password" autoComplete="new-password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
                         {msg.text && <p className={`text-xs font-bold ${msg.isError ? 'text-red-500' : 'text-green-500'}`}>{msg.text}</p>}
                         <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-colors">変更を保存</button>
                     </form>
@@ -350,30 +332,15 @@
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                const formData = new FormData();
-                formData.append('file', file);
-
+                const formData = new FormData(); formData.append('file', file);
                 try {
                     execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
-                    
-                    const res = await fetch('./api.php?action=upload', {
-                        method: 'POST',
-                        body: formData
-                    });
+                    const res = await fetch('./api.php?action=upload', { method: 'POST', body: formData });
                     const data = await res.json();
-                    
-                    const loadingSpan = document.getElementById('loading-img');
-                    if(loadingSpan) loadingSpan.remove();
-
-                    if (res.ok && data.url) {
-                        execCmd('insertImage', data.url);
-                    } else {
-                        alert('アップロード失敗: ' + (data.error || 'Unknown error'));
-                    }
-                } catch (err) {
-                    alert('通信エラーが発生しました');
-                }
+                    const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
+                    if (res.ok && data.url) execCmd('insertImage', data.url);
+                    else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
+                } catch (err) { alert('通信エラーが発生しました'); }
                 e.target.value = '';
             };
 
@@ -381,63 +348,35 @@
                 const items = (e.clipboardData || e.originalEvent.clipboardData).items;
                 let file = null;
                 for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf("image") === 0) {
-                        file = items[i].getAsFile();
-                        break;
-                    }
+                    if (items[i].type.indexOf("image") === 0) { file = items[i].getAsFile(); break; }
                 }
-
                 if (file) {
                     e.preventDefault(); 
-                    const formData = new FormData();
-                    formData.append('file', file);
-
+                    const formData = new FormData(); formData.append('file', file);
                     try {
                         execCmd('insertHTML', '<span id="loading-img">Uploading pasted image...</span>');
-                        const res = await fetch('./api.php?action=upload', {
-                            method: 'POST',
-                            body: formData
-                        });
+                        const res = await fetch('./api.php?action=upload', { method: 'POST', body: formData });
                         const data = await res.json();
-                        const loadingSpan = document.getElementById('loading-img');
-                        if(loadingSpan) loadingSpan.remove();
-
-                        if (res.ok && data.url) {
-                            execCmd('insertImage', data.url);
-                        } else {
-                            alert('アップロード失敗: ' + (data.error || 'Unknown error'));
-                        }
+                        const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
+                        if (res.ok && data.url) execCmd('insertImage', data.url);
+                        else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
                     } catch (err) {
-                        const loadingSpan = document.getElementById('loading-img');
-                        if(loadingSpan) loadingSpan.remove();
+                        const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
                         alert('通信エラーが発生しました');
                     }
                 }
             };
 
             const handleSubmit = (status) => {
-                onSave({ 
-                    ...post,
-                    title,
-                    content: editorRef.current.innerHTML,
-                    tags: tags.split(',').map(t=>t.trim()).filter(Boolean),
-                    date: toDbFormat(date), // 日時をDB形式に変換して保存
-                    status: status
-                });
+                onSave({ ...post, title, content: editorRef.current.innerHTML, tags: tags.split(',').map(t=>t.trim()).filter(Boolean), date: toDbFormat(date), status: status });
             };
 
             return (
                 <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-100">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Icon name="edit-3" size={20} /> {post ? '記事編集' : '新規投稿'}</h2>
                     <form onSubmit={e => e.preventDefault()} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label>
-                            <input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">公開日時 (未来の日時で予約投稿)</label>
-                            <input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" required />
-                        </div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label><input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">公開日時 (未来の日時で予約投稿)</label><input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" required /></div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
                             <div className="border rounded-xl overflow-hidden">
@@ -454,19 +393,10 @@
                                     <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="画像挿入"><Icon name="image" size={16}/></button>
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                                 </div>
-                                <div 
-                                    ref={editorRef}
-                                    contentEditable 
-                                    className="editor-content w-full p-4 min-h-[300px] outline-none markdown"
-                                    placeholder="ここに記事を書く..."
-                                    onPaste={handlePaste}
-                                ></div>
+                                <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
-                            <input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" />
-                        </div>
+                        <div><label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label><input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" /></div>
                         <div className="flex gap-4 pt-4">
                             <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">キャンセル</button>
                             <button type="button" onClick={() => handleSubmit('draft')} className="flex-1 py-3 bg-gray-500 text-white font-bold rounded-xl shadow-lg hover:bg-gray-600 flex items-center justify-center gap-2"><Icon name="save" size={16}/> 下書き保存</button>
@@ -482,10 +412,7 @@
                 <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border-2 border-red-100">
                     <div className="text-red-500 mb-4 flex justify-center"><Icon name="alert-triangle" size={64} /></div>
                     <h1 className="text-2xl font-black text-slate-800 mb-4">アクセスがブロックされました</h1>
-                    <p className="text-slate-600 mb-6 font-bold">
-                        セキュリティ上の理由により、あなたのIPアドレスからのアクセスは一時的に制限されています。<br/>
-                        (ログイン試行回数の超過など)
-                    </p>
+                    <p className="text-slate-600 mb-6 font-bold">セキュリティ上の理由により、あなたのIPアドレスからのアクセスは一時的に制限されています。<br/>(ログイン試行回数の超過など)</p>
                     <p className="text-xs text-slate-400">解除されるまでしばらくお待ちください。</p>
                 </div>
             </div>
@@ -501,37 +428,65 @@
             const fetchPosts = async () => {
                 try {
                     const res = await fetch('./api.php?action=list');
-                    if (res.status === 403) {
-                        setBlocked(true);
-                        return;
-                    }
+                    if (res.status === 403) { setBlocked(true); return; }
                     const data = await res.json();
                     setPosts(data);
-                } catch (e) {
-                    console.error("Fetch error", e);
-                }
+                } catch (e) { console.error("Fetch error", e); }
             };
 
             useEffect(() => { fetchPosts(); }, []);
 
-            const handleLogin = (t) => {
-                localStorage.setItem('brog_token', t);
-                setToken(t);
-                setView('admin_list');
+            // --- Routing Logic ---
+            useEffect(() => {
+                const handleHashChange = async () => {
+                    const hash = window.location.hash; // e.g., #!/post/123
+                    if (hash.startsWith('#!/post/')) {
+                        const id = hash.split('/')[2];
+                        if (id) {
+                            try {
+                                const res = await fetch(`./api.php?action=detail&id=${id}`);
+                                const data = await res.json();
+                                if (data && !data.error) {
+                                    setSelectedPost(data);
+                                    setView('detail');
+                                } else {
+                                    setView('list'); // ID not found
+                                }
+                            } catch(e) { setView('list'); }
+                        }
+                    } else if (view === 'detail' && !hash) {
+                        setView('list');
+                        setSelectedPost(null);
+                    }
+                };
+
+                // Listen for hash changes
+                window.addEventListener('hashchange', handleHashChange);
+                
+                // Initial check
+                handleHashChange();
+
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []); // Run once on mount
+
+            const handlePostClick = (post) => {
+                // Update URL hash, router will handle state change
+                window.location.hash = `#!/post/${post.id}`;
             };
 
-            const handleLogout = () => {
-                localStorage.removeItem('brog_token');
-                setToken(null);
-                setView('list');
+            const handleBackToList = () => {
+                // Clear hash, router will handle state change
+                window.location.hash = '';
+                // Fallback state change if hash was already empty (edge case)
+                setView('list'); 
             };
+
+            const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); setView('admin_list'); };
+            const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); setView('list'); };
 
             const handleSavePost = async (postData) => {
-                await fetch('./api.php?action=save', {
-                    method: 'POST', body: JSON.stringify(postData)
-                });
-                await fetchPosts();
-                setView('admin_list');
+                await fetch('./api.php?action=save', { method: 'POST', body: JSON.stringify(postData) });
+                await fetchPosts(); setView('admin_list');
             };
 
             const handleDeletePost = async (id) => {
@@ -540,31 +495,22 @@
                 await fetchPosts();
             };
 
-            if (blocked) {
-                return <BlockedScreen />;
-            }
+            if (blocked) return <BlockedScreen />;
 
             // Public list filtering: allow posts with 'published' status OR undefined status (legacy data)
             const publicPosts = posts.filter(p => (!p.status || p.status === 'published') && !isFuture(p.date));
 
             return (
                 <div className="min-h-screen pb-20 relative">
-                    {/* 左側の広告 (PCのみ表示) */}
-                    <div className="fixed left-4 top-24 hidden xl:block w-[160px] h-[600px] z-10">
-                        <AdBanner type="skyscraper" />
-                    </div>
-
-                    {/* 右側の広告 (PCのみ表示) */}
-                    <div className="fixed right-4 top-24 hidden xl:block w-[160px] h-[600px] z-10">
-                        <AdBanner type="skyscraper" />
-                    </div>
+                    <div className="fixed left-4 top-24 hidden xl:block w-[160px] h-[600px] z-10"><AdBanner type="skyscraper" /></div>
+                    <div className="fixed right-4 top-24 hidden xl:block w-[160px] h-[600px] z-10"><AdBanner type="skyscraper" /></div>
 
                     <Header setView={setView} isAdmin={!!token} logout={handleLogout} />
                     <main className="max-w-4xl mx-auto px-4 mt-8">
+                        {view === 'list' && <PostList posts={publicPosts} onPostClick={handlePostClick} />}
                         
-                        {view === 'list' && <PostList posts={publicPosts} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
+                        {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={handleBackToList} />}
                         
-                        {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={() => setView('list')} />}
                         {view === 'login' && <Login onLogin={handleLogin} setBlocked={setBlocked} />}
                         
                         {view === 'admin_list' && token && (
