@@ -54,8 +54,10 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const BASE_PATH = '/brog';
-        // APIのエンドポイントを完全な絶対パスで定義（階層が深くても確実にアクセスさせるため）
-        const API_URL = `${window.location.origin}${BASE_PATH}/api.php`;
+        
+        // APIのエンドポイントをルート相対パスで固定定義
+        // これにより /brog/post/123 などの階層からでも正しく /brog/api.php にアクセスできる
+        const API_URL = '/brog/api.php';
 
         // --- Icons Definition ---
         const ICONS = {
@@ -171,10 +173,10 @@
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
                 if (match) {
                     let url = match[1].replace(/&amp;/g, '&');
-                    // "./api.php" や "api.php" を含むパスを絶対パスに置換
+                    
+                    // 相対パスのapi.phpを絶対パスに置換
                     if (url.includes('api.php')) {
                         const parts = url.split('api.php');
-                        // クエリ部分を取得し、API_URLと結合
                         const query = parts.length > 1 ? parts[1] : '';
                         url = `${API_URL}${query}`;
                     }
@@ -247,8 +249,9 @@
             const processedContent = useMemo(() => {
                 if (!post.content) return '';
                 let content = post.content;
-                // 1. src="api.php", src="./api.php" など、httpや/で始まらないパスを絶対URLに置換
-                content = content.replace(/src=(["'])(?:\.\/)?api\.php/g, `src=$1${API_URL}`);
+                // 1. src="api.php", src="./api.php", src="/brog/api.php" など全てのバリエーションを一旦絶対パスに置換
+                // 正規表現: src=(["']) (任意の文字) api.php をキャプチャ
+                content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
                 
                 // 2. 画像読み込みエラー時に非表示にするスクリプトを注入 (二重注入防止)
                 if (!content.includes('onerror="this.style.display=\'none\'"')) {
@@ -277,7 +280,6 @@
             );
         };
 
-        // ... (Login, PasswordChange, AdminEditor components remain same but used by router) ...
         const Login = ({ onLogin, setBlocked }) => {
             const [pass, setPass] = useState('');
             const [error, setError] = useState('');
@@ -285,7 +287,6 @@
                 e.preventDefault();
                 setError('');
                 try {
-                    // Fix: Use absolute API_URL
                     const res = await fetch(`${API_URL}?action=login`, {
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' },
@@ -337,7 +338,6 @@
                     return;
                 }
                 try {
-                    // Fix: Use absolute API_URL
                     const res = await fetch(`${API_URL}?action=change_password`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -382,7 +382,7 @@
                 if (editorRef.current) {
                     // 表示用: 保存された相対パス(api.php)を絶対パス(API_URL)に変換してエディタにセット
                     let content = post?.content || '';
-                    content = content.replace(/src=(["'])(?:\.\/)?api\.php/g, `src=$1${API_URL}`);
+                    content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
                     editorRef.current.innerHTML = content;
                 }
             }, [post]);
@@ -398,7 +398,7 @@
                 const formData = new FormData(); formData.append('file', file);
                 try {
                     execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
-                    // Fix: Use absolute API_URL
+                    // Use absolute API_URL
                     const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                     const data = await res.json();
                     const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
@@ -407,7 +407,7 @@
                         let imgUrl = data.url;
                         if (imgUrl.includes('api.php')) {
                             // api.php または ./api.php で始まる場合に絶対パスへ
-                            imgUrl = imgUrl.replace(/^(\.\/)?api\.php/, API_URL);
+                            imgUrl = imgUrl.replace(/^.*api\.php/, API_URL);
                         }
                         execCmd('insertImage', imgUrl);
                     }
@@ -427,14 +427,13 @@
                     const formData = new FormData(); formData.append('file', file);
                     try {
                         execCmd('insertHTML', '<span id="loading-img">Uploading pasted image...</span>');
-                        // Fix: Use absolute API_URL
                         const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                         const data = await res.json();
                         const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
                         if (res.ok && data.url) {
                             let imgUrl = data.url;
                             if (imgUrl.includes('api.php')) {
-                                imgUrl = imgUrl.replace(/^(\.\/)?api\.php/, API_URL);
+                                imgUrl = imgUrl.replace(/^.*api\.php/, API_URL);
                             }
                             execCmd('insertImage', imgUrl);
                         }
@@ -449,6 +448,7 @@
             const handleSubmit = (status) => {
                 // 保存用: 絶対パス(API_URL)を相対パス(api.php)に戻す
                 let content = editorRef.current.innerHTML;
+                // シンプルに置換
                 content = content.split(API_URL).join('api.php');
                 
                 onSave({ 
@@ -535,7 +535,6 @@
                     const id = path.split('/')[2];
                     // Fetch directly if not loaded
                     try {
-                        // Fix: Use absolute API_URL
                         const res = await fetch(`${API_URL}?action=detail&id=${id}`);
                         if (!res.ok) throw new Error('Not found'); // Handle 404 cleanly
                         const data = await res.json();
@@ -561,7 +560,6 @@
 
             const fetchPosts = async () => {
                 try {
-                    // Fix: Use absolute API_URL
                     const res = await fetch(`${API_URL}?action=list`);
                     if (res.status === 403) { setBlocked(true); return; }
                     if (!res.ok) throw new Error('List fetch failed');
@@ -578,14 +576,12 @@
             const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('/'); };
 
             const handleSavePost = async (postData) => {
-                // Fix: Use absolute API_URL
                 await fetch(`${API_URL}?action=save`, { method: 'POST', body: JSON.stringify(postData) });
                 await fetchPosts(); navigate('/admin');
             };
 
             const handleDeletePost = async (id) => {
                 if(!confirm('本当に削除しますか？')) return;
-                // Fix: Use absolute API_URL
                 await fetch(`${API_URL}?action=delete&id=${id}`, { method: 'DELETE' });
                 await fetchPosts();
             };
