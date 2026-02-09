@@ -1,55 +1,52 @@
 @echo off
 setlocal
-chcp 64101 > nul
+chcp 65001 > nul
 
-echo ZIPƒtƒ@ƒCƒ‹‚ğ‘I‘ğ‚µ‚Ä‚­‚¾‚³‚¢...
+echo ZIPãƒ•ã‚¡ã‚¤ãƒ«ã‚’é¸æŠã—ã¦ãã ã•ã„...
 
-:: 1. PowerShell‚ğŒÄ‚Ño‚µ‚Äƒtƒ@ƒCƒ‹‘I‘ğƒ_ƒCƒAƒƒO‚ğ•\¦
-set "psCommand="(new-object -com shell.application).browseforfolder(0,'ZIPƒtƒ@ƒCƒ‹‚ğ‘I‘ğ‚µ‚Ä‚­‚¾‚³‚¢',0x4000,0).self.path""
+:: 1. PowerShellã‚’å‘¼ã³å‡ºã—ã¦ãƒ•ã‚¡ã‚¤ãƒ«é¸æŠãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã‚’è¡¨ç¤º
+set "psCommand="(new-object -com shell.application).browseforfolder(0,'ZIPãƒ•ã‚¡ã‚¤ãƒ«ã‚’é¸æŠã—ã¦ãã ã•ã„',0x4000,0).self.path""
 for /f "usebackq delims=" %%I in (`powershell -command %psCommand%`) do set "zipFile=%%I"
 
-:: ƒtƒ@ƒCƒ‹‚ª‘I‘ğ‚³‚ê‚È‚©‚Á‚½ê‡‚ÍI—¹
+:: ãƒ•ã‚¡ã‚¤ãƒ«ãŒé¸æŠã•ã‚Œãªã‹ã£ãŸå ´åˆã¯çµ‚äº†
 if "%zipFile%"=="" (
-    echo ƒtƒ@ƒCƒ‹‚ª‘I‘ğ‚³‚ê‚Ü‚¹‚ñ‚Å‚µ‚½B
+    echo ãƒ•ã‚¡ã‚¤ãƒ«ãŒé¸æŠã•ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚
     pause
     exit /b
 )
 
-:: “WŠJæƒpƒX‚Ìİ’è
-set "destDir=G:\Documents\ƒvƒƒOƒ‰ƒ€\‚Ü‚¢‚Â[‚é\“WŠJƒtƒ@ƒCƒ‹"
+:: å±•é–‹å…ˆãƒ‘ã‚¹ã®è¨­å®š
+set "destDir=G:\Documents\ãƒ—ãƒ­ã‚°ãƒ©ãƒ \ã¾ã„ã¤ãƒ¼ã‚‹\å±•é–‹ãƒ•ã‚¡ã‚¤ãƒ«"
 
-:: “WŠJæ‚ÌƒfƒBƒŒƒNƒgƒŠ‚ª‚È‚¢ê‡‚Íì¬
+:: å±•é–‹å…ˆã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒãªã„å ´åˆã¯ä½œæˆ
 if not exist "%destDir%" mkdir "%destDir%"
 
-echo “WŠJ’†: %zipFile%
-echo “WŠJæ: %destDir%
+echo å±•é–‹ä¸­: %zipFile%
+echo å±•é–‹å…ˆ: %destDir%
 
-:: 2. PowerShell‚Å“WŠJi-Force ‚Åã‘‚«w’èj
+:: 2. PowerShellã§å±•é–‹ï¼ˆ-Force ã§ä¸Šæ›¸ãæŒ‡å®šï¼‰
 powershell -command "Expand-Archive -Path '%zipFile%' -DestinationPath '%destDir%' -Force"
 
 echo.
-echo “WŠJ‚ªŠ®—¹‚µ‚Ü‚µ‚½B
+echo å±•é–‹ãŒå®Œäº†ã—ã¾ã—ãŸã€‚
 setlocal enabledelayedexpansion
 
-echo --- 1. ƒrƒ‹ƒh‚ğŠJn‚µ‚Ü‚· ---
+echo --- 1. ãƒ“ãƒ«ãƒ‰ã‚’é–‹å§‹ã—ã¾ã™ ---
 call npm install
 call npm run build
 
-echo --- 2. èŒ³‚Ì•ÏX‚ğˆê’UGit‚É—a‚¯‚Ü‚· ---
-:: .gitignore‚ğ–³‹‚µ‚ÄdistƒtƒHƒ‹ƒ_‚ğ‹­§’Ç‰Á
+echo --- 2. æ‰‹å…ƒã®å¤‰æ›´ã‚’Gitã«è¨˜éŒ²ã—ã¾ã™ ---
+:: .gitignoreã‚’ç„¡è¦–ã—ã¦distãƒ•ã‚©ãƒ«ãƒ€ã‚’å¼·åˆ¶è¿½åŠ 
 git add -f dist/
 git add .
 set datetime=%date% %time%
-git commit -m "pre-rebase update !datetime!"
+git commit -m "deploy update !datetime!"
 
-echo --- 3. GitHub‘¤‚Ì•ÏX‚ğæ‚è‚ñ‚Å‡‘Ì‚³‚¹‚Ü‚· ---
-:: ‚±‚ê‚ÅREADME‚Ì•ÒW•ª‚È‚Ç‚ªƒ[ƒJƒ‹‚É”½‰f‚³‚ê‚Ü‚·
-git pull origin master --rebase
-
-echo --- 4. ÅŒã‚ÉGitHub‚Ö‘—‚è‚Â‚¯‚Ü‚· ---
-git push origin master
+echo --- 3. GitHubã¸å¼·åˆ¶çš„ã«åŒæœŸã—ã¾ã™ï¼ˆå¼·åˆ¶ãƒ—ãƒƒã‚·ãƒ¥ï¼‰ ---
+:: ã‚³ãƒ³ãƒ•ãƒªã‚¯ãƒˆã‚’é¿ã‘ã‚‹ãŸã‚ã€æ‰‹å…ƒã®æœ€æ–°ç‰ˆã§ãƒªãƒ¢ãƒ¼ãƒˆã‚’ä¸Šæ›¸ãã—ã¾ã™
+git push -f origin master
 
 echo.
-echo ---Š®—¹IGitHub‚Ì dist/assets ‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢ ---
+echo ---å®Œäº†ï¼GitHubã® dist/assets ã‚’ç¢ºèªã—ã¦ãã ã•ã„ ---
 
 pause
