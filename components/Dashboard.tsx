@@ -75,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
         </h2>
         <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
           「まいつーる」は、登録不要・インストール不要で使える無料のWebツール集です。<br/>
-          QRコード作成、家計簿、PDF編集、画像変換など、40種類以上の便利ツールを安全なローカル処理で提供します。
+          QRコード作成、家計簿、PDF編集、画像変換など、40種類以上の便利ツールを最大限安全なローカル処理で提供します。
         </p>
         
         <div className="flex flex-wrap justify-center gap-4 mb-8">

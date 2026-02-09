@@ -454,7 +454,7 @@ const StockTracker: React.FC = () => {
   };
 
   return (
-    <div className={`mx-auto h-full flex flex-col ${isWorkspace ? 'w-full p-2' : 'max-w-6xl space-y-6 pb-20'}`}>
+    <div className={`${isWorkspace ? 'mx-auto h-full flex flex-col w-full p-2' : 'mx-auto max-w-6xl space-y-6 pb-20'}`}>
       
       {!isWorkspace && (
         <div className="flex justify-between items-center shrink-0">
@@ -492,7 +492,7 @@ const StockTracker: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className={isWorkspace ? "flex-1 overflow-y-auto no-scrollbar" : ""}>
         {activeTab === 'dashboard' && (
             <div className="space-y-6 animate-fade-in">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -549,7 +549,7 @@ const StockTracker: React.FC = () => {
         
         {/* Market / Chart Tab */}
         {activeTab === 'market' && (
-           <div className="flex flex-col h-full animate-fade-in space-y-4">
+           <div className={`flex flex-col animate-fade-in space-y-4 ${isWorkspace ? 'h-full' : 'h-[80vh] min-h-[500px]'}`}>
                <div className="flex-1 bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 relative">
                    <TradingViewWidget key={chartSymbol} symbol={chartSymbol} />
                </div>
@@ -557,7 +557,7 @@ const StockTracker: React.FC = () => {
         )}
 
         {activeTab === 'history' && (
-            <div className="animate-fade-in bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col h-full">
+            <div className={`animate-fade-in bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col ${isWorkspace ? 'h-full' : 'min-h-[500px]'}`}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h3 className="font-bold text-gray-700 dark:text-gray-300">取引履歴一覧</h3>
                     <button 
@@ -567,7 +567,7 @@ const StockTracker: React.FC = () => {
                         <Download size={14} /> CSV出力
                     </button>
                 </div>
-                <div className="overflow-x-auto flex-1">
+                <div className={`overflow-x-auto ${isWorkspace ? 'flex-1' : ''}`}>
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 font-bold sticky top-0">
                             <tr>
