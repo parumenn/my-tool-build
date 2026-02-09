@@ -10,7 +10,47 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="apple-touch-icon" href="./favicon.svg">
     
-    <!-- CSS and JS will be injected by Vite build -->
+    <!-- Environment Check Script -->
+    <script>
+      (function() {
+        // file:// プロトコルでの直接実行を検知
+        if (window.location.protocol === 'file:') {
+          window.addEventListener('DOMContentLoaded', function() {
+            document.body.innerHTML = `
+              <div style="
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                font-family: sans-serif; 
+                color: #333; 
+                background: #f8f9fa; 
+                text-align: center;
+                padding: 20px;
+              ">
+                <div style="background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 600px;">
+                  <h1 style="color: #e11d48; margin-bottom: 20px;">⚠️ 実行環境エラー</h1>
+                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                    現在、ファイルを直接開いています (<code>file://</code>)。<br>
+                    セキュリティ制限（CORS）およびTypeScriptの仕様上、このアプリは<strong>Webサーバー経由</strong>で実行する必要があります。
+                  </p>
+                  <div style="text-align: left; background: #1e293b; color: #fff; padding: 20px; border-radius: 10px; font-family: monospace; margin-bottom: 20px;">
+                    <p style="margin: 0 0 10px 0; opacity: 0.7;"># ターミナルで以下のコマンドを実行してください</p>
+                    <p style="margin: 0 0 5px 0;">$ npm install</p>
+                    <p style="margin: 0;">$ npm run dev</p>
+                  </div>
+                  <p style="font-size: 14px; color: #666;">
+                    コマンド実行後、表示されるURL (例: <code>http://localhost:5173</code>) にアクセスしてください。
+                  </p>
+                </div>
+              </div>
+            `;
+          });
+          throw new Error("Execution blocked: file:// protocol detected. Please use a local server.");
+        }
+      })();
+    </script>
 
 <link rel="stylesheet" href="./index.css">
   <script type="importmap">
