@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>開発者ブログ</title>
     <meta name="description" content="開発者による技術ブログ。最新のアップデート情報や技術的な知見を共有します。">
+    <!-- Base tag is crucial for relative assets in History Mode -->
+    <base href="/brog/">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- React & ReactDOM -->
@@ -41,7 +43,7 @@
         fetch('/backend/admin_api.php?action=log_access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: window.location.pathname + window.location.hash })
+          body: JSON.stringify({ path: window.location.pathname })
         });
       } catch(e){}
     })();
@@ -53,8 +55,9 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
+        const BASE_PATH = '/brog';
         
-        // API URLを絶対パスで定義 (ハッシュルーターでも安全に動作するように)
+        // API URLを絶対パスで定義
         const API_URL = `${window.location.origin}/brog/api.php`;
 
         // --- Icons Definition ---
@@ -238,7 +241,7 @@
             const processedContent = useMemo(() => {
                 if (!post.content) return '';
                 let content = post.content;
-                // ハッシュルーターではパスが変わらないため相対パスも動作するが、念のためAPI_URL置換を行う
+                // SEO対策: ハッシュルーターではなくHistory APIなので、相対パスも絶対パスへ変換
                 content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
                 
                 if (!content.includes('onerror="this.style.display=\'none\'"')) {
@@ -501,25 +504,26 @@
             const [token, setToken] = useState(localStorage.getItem('brog_token'));
             const [blocked, setBlocked] = useState(false);
 
-            // Hash Router Logic
+            // History Router Logic (Updated from Hash Router)
             const navigate = (path) => {
-                window.location.hash = path;
+                // path starts with /
+                window.history.pushState({}, '', BASE_PATH + path);
+                handleRoute();
             };
 
             const handleRoute = async () => {
-                // ハッシュからパスを取得（#/を除去）
-                let hash = window.location.hash.slice(1);
-                if (!hash) hash = '/';
+                // Get current path relative to base
+                const path = window.location.pathname.replace(BASE_PATH, '') || '/';
                 
-                if (hash === '/' || hash === '') {
+                if (path === '/' || path === '') {
                     setView('list');
                     setSelectedPost(null);
-                } else if (hash === '/login') {
+                } else if (path === '/login') {
                     setView('login');
-                } else if (hash === '/admin') {
+                } else if (path === '/admin') {
                     setView('admin_list');
-                } else if (hash.startsWith('/post/')) {
-                    const id = hash.split('/')[2];
+                } else if (path.startsWith('/post/')) {
+                    const id = path.split('/')[2];
                     try {
                         const res = await fetch(`${API_URL}?action=detail&id=${id}`);
                         if (!res.ok) throw new Error('Not found');
@@ -537,11 +541,12 @@
                 }
             };
 
-            // Listen to hash changes
+            // Listen to history changes (Back/Forward buttons)
             useEffect(() => {
-                window.addEventListener('hashchange', handleRoute);
+                window.addEventListener('popstate', handleRoute);
+                // Initial Route Check
                 handleRoute(); 
-                return () => window.removeEventListener('hashchange', handleRoute);
+                return () => window.removeEventListener('popstate', handleRoute);
             }, []);
 
             // Initial data fetch
