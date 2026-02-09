@@ -365,18 +365,15 @@
         };
 
         const AdminEditor = ({ post, onSave, onCancel, allTags }) => {
-    // 1. Stateの初期化（postがある場合はその値を、ない場合は空を入れる）
     const [title, setTitle] = useState(post?.title || '');
     const [tags, setTags] = useState(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
     const [date, setDate] = useState(toInputFormat(post?.date));
     
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
-    const isInitialized = useRef(false); // 初期化済みフラグ
+    const isInitialized = useRef(false);
 
-    // 2. データの初期流し込み
     useEffect(() => {
-        // 記事データがあり、まだエディタに反映させていない場合のみ実行
         if (post && editorRef.current && !isInitialized.current) {
             setTitle(post.title || '');
             setTags(Array.isArray(post.tags) ? post.tags.join(', ') : (post.tags || ''));
@@ -384,18 +381,33 @@
 
             let content = post.content || '';
             const origin = window.location.origin;
-            
-            // 画像パスの正規化（表示用）
             content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
             
             editorRef.current.innerHTML = content;
-            isInitialized.current = true; // 流し込み完了
+            isInitialized.current = true;
         }
-    }, [post]); // postがセットされたタイミングで発火
+    }, [post]);
 
     const execCmd = (cmd, val) => {
         document.execCommand(cmd, false, val);
         editorRef.current?.focus();
+    };
+
+    // --- 追加: 画像アップロード処理 ---
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            // 編集エリアの最後に画像を挿入
+            const imgHtml = `<img src="${base64}" alt="uploaded image" style="max-width:100%; height:auto; border-radius:8px; margin:1em 0;">`;
+            execCmd('insertHTML', imgHtml);
+            // 入力値をリセットして同じファイルを再度選択可能にする
+            e.target.value = '';
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSubmit = (status) => {
@@ -406,8 +418,6 @@
         
         let content = editorRef.current.innerHTML;
         const origin = window.location.origin;
-        
-        // 保存時は「api.php」の相対パス形式にクリーニング
         content = content.split(`${origin}/brog/api.php`).join('api.php');
         
         onSave({ 
@@ -443,7 +453,6 @@
                 <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
                     <div className="border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                        {/* ツールバー */}
                         <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-0 z-10">
                             <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded font-bold text-xs">H2</button>
                             <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded font-bold text-xs">H3</button>
@@ -452,7 +461,6 @@
                             <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded"><Icon name="image" size={16}/></button>
                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                         </div>
-                        {/* 編集エリア */}
                         <div 
                             ref={editorRef} 
                             contentEditable 
