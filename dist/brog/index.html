@@ -63,7 +63,8 @@
             link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>',
             image: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>',
             code: '<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>',
-            'alert-triangle': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>'
+            'alert-triangle': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+            'save': '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>'
         };
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -390,20 +391,20 @@
                 e.target.value = '';
             };
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
+            const handleSubmit = (status) => {
                 onSave({ 
                     ...post,
                     title,
                     content: editorRef.current.innerHTML,
-                    tags: tags.split(',').map(t=>t.trim()).filter(Boolean)
+                    tags: tags.split(',').map(t=>t.trim()).filter(Boolean),
+                    status: status
                 });
             };
 
             return (
                 <div className="bg-white rounded-2xl p-6 shadow-xl border border-slate-100">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Icon name="edit-3" size={20} /> {post ? '記事編集' : '新規投稿'}</h2>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={e => e.preventDefault()} className="space-y-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label>
                             <input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required />
@@ -433,7 +434,8 @@
                         </div>
                         <div className="flex gap-4 pt-4">
                             <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">キャンセル</button>
-                            <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700">保存する</button>
+                            <button type="button" onClick={() => handleSubmit('draft')} className="flex-1 py-3 bg-gray-500 text-white font-bold rounded-xl shadow-lg hover:bg-gray-600 flex items-center justify-center gap-2"><Icon name="save" size={16}/> 下書き保存</button>
+                            <button type="button" onClick={() => handleSubmit('published')} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2"><Icon name="edit-3" size={16}/> 公開する</button>
                         </div>
                     </form>
                 </div>
@@ -521,7 +523,9 @@
 
                     <Header setView={setView} isAdmin={!!token} logout={handleLogout} />
                     <main className="max-w-4xl mx-auto px-4 mt-8">
-                        {view === 'list' && <PostList posts={posts} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
+                        {/* 一般公開リストでは下書き(draft)を除外して表示 */}
+                        {view === 'list' && <PostList posts={posts.filter(p => p.status !== 'draft')} onPostClick={(p) => { setSelectedPost(p); setView('detail'); }} />}
+                        
                         {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={() => setView('list')} />}
                         {view === 'login' && <Login onLogin={handleLogin} setBlocked={setBlocked} />}
                         
@@ -537,7 +541,10 @@
                                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                                     {posts.map(p => (
                                         <div key={p.id} className="p-4 border-b border-slate-100 last:border-0 flex justify-between items-center hover:bg-slate-50">
-                                            <div className="truncate flex-1 font-bold text-slate-700 mr-4">{p.title}</div>
+                                            <div className={`truncate flex-1 font-bold mr-4 flex items-center gap-2 ${p.status === 'draft' ? 'text-gray-400' : 'text-slate-700'}`}>
+                                                {p.status === 'draft' && <span className="text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded">下書き</span>}
+                                                {p.title}
+                                            </div>
                                             <div className="flex gap-2 shrink-0">
                                                 <button onClick={() => { setSelectedPost(p); setView('editor'); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg"><Icon name="edit-2" size={16}/></button>
                                                 <button onClick={() => handleDeletePost(p.id)} className="p-2 text-slate-400 hover:text-red-500 bg-white border border-slate-200 rounded-lg"><Icon name="trash" size={16}/></button>

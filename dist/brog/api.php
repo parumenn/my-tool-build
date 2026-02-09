@@ -265,7 +265,8 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'title' => $input['title'] ?? '無題',
             'content' => $input['content'] ?? '',
             'date' => !empty($input['date']) ? $input['date'] : date('Y-m-d H:i:s'),
-            'tags' => !empty($input['tags']) ? $input['tags'] : []
+            'tags' => !empty($input['tags']) ? $input['tags'] : [],
+            'status' => $input['status'] ?? 'published' // draft or published
         ];
         $exists = false;
         foreach($posts as &$p) { if ($p['id'] === $newPost['id']) { $p = $newPost; $exists = true; break; } }
