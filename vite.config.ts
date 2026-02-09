@@ -14,5 +14,17 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  build: {
+    // 巨大なJSファイルを分割してキャッシュ効率を向上させる設定
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-helmet-async'],
+          'vendor-ui': ['lucide-react', 'recharts'],
+          'vendor-utils': ['alasql', 'diff', 'dompurify', 'highlight.js', 'pdf-lib', 'pdfjs-dist']
+        }
+      }
+    }
   }
 })
