@@ -4,19 +4,26 @@
   RewriteBase /
   
   # index.php を最優先にする
-  DirectoryIndex index.php index.html
+  DirectoryIndex index.php
 
   # /brog および /freebord ディレクトリ以下はSPAのリライト対象から完全に除外する
   RewriteCond %{REQUEST_URI} ^/(brog|freebord) [NC]
   RewriteRule ^ - [L]
 
-  # index.html への直接アクセスは index.php にリライト（セキュリティチェックを通すため）
-  RewriteRule ^index\.html$ index.php [L]
+  # 本物のアプリファイルへの直接アクセスを禁止
+  RewriteRule ^app_view\.html$ - [F,L]
+
+  # index.html へのリクエストはルート（index.php経由）へリダイレクト
+  RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+index\.html [NC]
+  RewriteRule ^index\.html$ / [R=301,L]
 
   # 存在するファイルやディレクトリへのアクセスはリライトせずそのまま通す
-  # ただし index.html は除外（index.php に処理させるため）
-  RewriteCond %{REQUEST_FILENAME} !index.html
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  # ただし index.html, app_view.html は除外（index.php に処理させるため）
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteCond %{REQUEST_FILENAME} !/index\.html$
+  RewriteCond %{REQUEST_FILENAME} !/app_view\.html$
+  RewriteRule ^ - [L]
+
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
   

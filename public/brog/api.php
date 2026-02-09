@@ -24,18 +24,21 @@ $GLOBAL_BLOCKED_FILE = __DIR__ . '/../backend/data/blocked_ips.json';
 // ★追加: メインサイトの管理者設定（SMTP情報用）
 $ADMIN_CONFIG_FILE = __DIR__ . '/../backend/data/admin_config.json';
 
+// .htaccess Content (Apache 2.2/2.4 Compatible)
+$HTACCESS_CONTENT = "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order Deny,Allow\n    Deny from all\n</IfModule>";
+
 // Initialize Directories
 if (!file_exists($DATA_DIR)) {
     if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
         http_response_code(500); echo json_encode(['error' => 'Failed to create data directory']); exit;
     }
-    @file_put_contents($DATA_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
+    @file_put_contents($DATA_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
 if (!file_exists($UPLOADS_DIR)) {
     if (!mkdir($UPLOADS_DIR, 0777, true) && !is_dir($UPLOADS_DIR)) {
         http_response_code(500); echo json_encode(['error' => 'Failed to create uploads directory']); exit;
     }
-    @file_put_contents($UPLOADS_DIR . '/.htaccess', "Order Deny,Allow\nDeny from all");
+    @file_put_contents($UPLOADS_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
 
 // --- Minimal SMTP Class ---
@@ -182,7 +185,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
             $mimes = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
             $mime = $mimes[$ext] ?? 'application/octet-stream';
+            
+            // バッファをクリアして画像データのみを出力
+            while (ob_get_level()) { ob_end_clean(); }
+            
             header("Content-Type: $mime");
+            header("Content-Length: " . filesize($path));
+            header("Cache-Control: public, max-age=86400");
             readfile($path);
             exit;
         } else {

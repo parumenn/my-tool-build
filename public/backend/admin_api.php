@@ -22,75 +22,7 @@ $FAILURES_FILE = $DATA_DIR . '/admin_login_failures.json';
 // 出力バッファリング開始（security.php以前の出力防止のため再度確認）
 if (ob_get_length()) ob_clean();
 
-// --- Minimal SMTP Class ---
-class MinimalSMTP {
-    private $host; private $port; private $user; private $pass;
-    private $socket;
-
-    public function __construct($host, $port, $user, $pass) {
-        $this->host = $host; $this->port = $port; $this->user = $user; $this->pass = $pass;
-    }
-
-    private function cmd($cmd, $expect = [250]) {
-        fputs($this->socket, $cmd . "\r\n");
-        $res = $this->read();
-        $code = (int)substr($res, 0, 3);
-        if (!in_array($code, $expect) && !empty($expect)) {
-            throw new Exception("SMTP Error [$code]: $res");
-        }
-        return $res;
-    }
-
-    private function read() {
-        $s = '';
-        while($str = fgets($this->socket, 515)) {
-            $s .= $str;
-            if(substr($str, 3, 1) == ' ') break;
-        }
-        return $s;
-    }
-
-    public function send($to, $subject, $body) {
-        try {
-            $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
-            $protocol = ($this->port == 465) ? 'ssl://' : '';
-            $this->socket = @stream_socket_client($protocol . $this->host . ':' . $this->port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $ctx);
-            if (!$this->socket) throw new Exception("Connection failed: $errstr");
-
-            $this->read(); 
-            $this->cmd("EHLO " . $_SERVER['SERVER_NAME']);
-            
-            if ($this->port == 587) {
-                $this->cmd("STARTTLS", [220]);
-                stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-                $this->cmd("EHLO " . $_SERVER['SERVER_NAME']);
-            }
-
-            $this->cmd("AUTH LOGIN", [334]);
-            $this->cmd(base64_encode($this->user), [334]);
-            $this->cmd(base64_encode($this->pass), [235]);
-
-            $this->cmd("MAIL FROM: <{$this->user}>");
-            $this->cmd("RCPT TO: <$to>");
-            $this->cmd("DATA", [354]);
-
-            $headers  = "MIME-Version: 1.0\r\n";
-            $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-            $headers .= "From: OmniTools Admin <{$this->user}>\r\n";
-            $headers .= "To: <$to>\r\n";
-            $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-            $headers .= "Date: " . date("r") . "\r\n";
-
-            $this->cmd($headers . "\r\n" . $body . "\r\n.", [250]);
-            $this->cmd("QUIT", [221]);
-            fclose($this->socket);
-            return true;
-        } catch (Exception $e) {
-            if ($this->socket) fclose($this->socket);
-            return $e->getMessage();
-        }
-    }
-}
+// MinimalSMTPクラスは security.php で定義済みのため削除
 
 // --- Helpers ---
 // get_server_stats は API 固有のためここに定義
@@ -167,10 +99,7 @@ if ($action === 'login') {
     $maxAttempts = 3;
     $blockDuration = 30 * 60; // 30分
 
-    // 既にブロックされているかは security.php で弾かれるが、
-    // ここでも念の為、過去の失敗履歴を確認
     if (isset($failures[$ip])) {
-        // 30分以上経過していればリセット
         if (($now - $failures[$ip]['last_attempt']) >= $blockDuration) {
             unset($failures[$ip]);
             save_json($FAILURES_FILE, $failures);
@@ -178,7 +107,6 @@ if ($action === 'login') {
     }
 
     if (password_verify($input['password'] ?? '', $config['password_hash'])) {
-        // ログイン成功 -> 失敗記録をリセット
         if (isset($failures[$ip])) {
             unset($failures[$ip]);
             save_json($FAILURES_FILE, $failures);
@@ -189,7 +117,6 @@ if ($action === 'login') {
         save_json($GLOBALS['TOKENS_FILE'], $tokens);
         $response = ['token' => $token];
     } else {
-        // ログイン失敗
         if (!isset($failures[$ip])) {
             $failures[$ip] = ['count' => 0, 'last_attempt' => 0];
         }
@@ -199,18 +126,24 @@ if ($action === 'login') {
         $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
 
         if ($attemptsLeft <= 0) {
-            // 3回失敗 -> ブロックリストに追加
             $blocked = load_json($GLOBALS['BLOCKED_IPS_FILE']);
+            $reason = 'Main Admin Login Failed (3 attempts)';
             $blocked[$ip] = [
                 'expiry' => $now + $blockDuration,
                 'time' => date('Y-m-d H:i:s'),
-                'reason' => 'Main Admin Login Failed (3 attempts)'
+                'reason' => $reason
             ];
             save_json($GLOBALS['BLOCKED_IPS_FILE'], $blocked);
             
-            // 失敗記録はリセット（次回解除後用）
             unset($failures[$ip]);
             save_json($FAILURES_FILE, $failures);
+
+            // メール通知
+            if (!empty($config['alert_email']) && !empty($config['smtp_host'])) {
+                $smtp = new MinimalSMTP($config['smtp_host'], $config['smtp_port'], $config['smtp_user'], $config['smtp_pass']);
+                $body = "Security Alert: Admin Login Failed\n\nIP: {$ip}\nReason: {$reason}\nTime: " . date('Y-m-d H:i:s');
+                $smtp->send($config['alert_email'], "[OmniTools Security] Admin Blocked", $body);
+            }
 
             http_response_code(403);
             $response = ['error' => 'ログイン試行回数が上限を超えました。IPアドレスを一時的にブロックしました。'];

@@ -9,15 +9,16 @@ require_once __DIR__ . '/backend/security.php';
 // HTMLモードでチェック実行（ブロック時はHTMLエラーページを表示してexit）
 run_security_check(false);
 
-// チェックを通過した場合、index.html (SPAのエントリポイント) を読み込んで出力
-$index_html_path = __DIR__ . '/index.html';
+// チェックを通過した場合、本物のアプリHTML (app_view.html) を読み込んで出力
+$app_view_path = __DIR__ . '/app_view.html';
 
-if (file_exists($index_html_path)) {
-    // Content-Typeヘッダーなどを index.html に合わせる（通常は text/html）
-    // security.php で既にヘッダーが出ている可能性もあるが、HTMLとして出力
-    readfile($index_html_path);
+if (file_exists($app_view_path)) {
+    // Content-TypeヘッダーなどをHTMLに合わせる
+    header('Content-Type: text/html; charset=UTF-8');
+    readfile($app_view_path);
 } else {
-    // index.html が見つからない場合のフォールバック
-    echo '<!DOCTYPE html><html><body><h1>System Error</h1><p>Application entry point not found.</p></body></html>';
+    // ファイルが見つからない場合のフォールバック
+    http_response_code(500);
+    echo '<!DOCTYPE html><html><body><h1>System Error</h1><p>Application entry point (app_view.html) not found.</p></body></html>';
 }
 ?>
