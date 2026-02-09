@@ -371,7 +371,12 @@
             const editorRef = useRef(null);
             const fileInputRef = useRef(null);
 
+            // postプロパティの変更を検知してstateを更新
             useEffect(() => {
+                setTitle(post?.title || '');
+                setTags(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
+                setDate(toInputFormat(post?.date));
+                
                 if (editorRef.current) {
                     let content = post?.content || '';
                     const origin = window.location.origin;
