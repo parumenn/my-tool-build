@@ -5,12 +5,11 @@ DirectoryIndex index.html
     RewriteEngine On
     RewriteBase /brog/
 
-    # Allow access to existing files (css, js, images, api.php)
+    # Simply serve files if they exist, otherwise let the browser handle it or serve index.html for root
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
-
-    # Rewrite all other routes to index.html
-    # "." matches any character, effectively catching all non-file/non-dir requests
+    
+    # Fallback to index.html for SPA routing (optional for HashRouter but good practice)
     RewriteRule . index.html [L]
 </IfModule>

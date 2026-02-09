@@ -4,8 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Base tag for correct relative path resolution in SPA -->
-    <base href="/brog/">
     <title>開発者ブログ</title>
     <meta name="description" content="開発者による技術ブログ。最新のアップデート情報や技術的な知見を共有します。">
     <!-- Tailwind CSS -->
@@ -43,7 +41,7 @@
         fetch('/backend/admin_api.php?action=log_access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: window.location.pathname })
+          body: JSON.stringify({ path: window.location.pathname + window.location.hash })
         });
       } catch(e){}
     })();
@@ -55,11 +53,9 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
-        const BASE_PATH = '/brog';
         
-        // APIのエンドポイントをルート相対パスで固定定義
-        // これにより /brog/post/123 などの階層からでも正しく /brog/api.php にアクセスできる
-        const API_URL = '/brog/api.php';
+        // API URLを絶対パスで定義 (ハッシュルーターでも安全に動作するように)
+        const API_URL = `${window.location.origin}/brog/api.php`;
 
         // --- Icons Definition ---
         const ICONS = {
@@ -90,7 +86,6 @@
             );
         };
 
-        // --- Utils for Date Handling ---
         const toInputFormat = (dbDate) => {
             if (!dbDate) {
                 const now = new Date();
@@ -125,18 +120,15 @@
             return tmp.textContent || tmp.innerText || "";
         };
 
-        // --- Ad Component ---
         const AdBanner = ({ type = 'rect' }) => {
             const style = type === 'skyscraper' 
                 ? { width: '160px', height: '600px' } 
                 : type === 'banner' 
                     ? { width: '468px', height: '60px' }
                     : { width: '300px', height: '250px' };
-            
             const containerClass = type === 'skyscraper' 
                 ? "w-full h-full flex justify-center items-start" 
                 : "w-full flex justify-center my-8 items-center overflow-hidden bg-slate-50 border border-slate-100 rounded-xl py-4";
-
             return (
                 <div className={containerClass}>
                     <div style={{ ...style, backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', fontSize: '10px', borderRadius: '4px' }}>
@@ -175,14 +167,12 @@
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
                 if (match) {
                     let url = match[1].replace(/&amp;/g, '&');
-                    
                     // 相対パスのapi.phpを絶対パスに置換
-                    if (url.includes('api.php')) {
+                    if (url.includes('api.php') && !url.startsWith('http')) {
                         const parts = url.split('api.php');
                         const query = parts.length > 1 ? parts[1] : '';
                         url = `${API_URL}${query}`;
                     }
-                    
                     if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/')) {
                         return url;
                     }
@@ -206,7 +196,6 @@
                                                 alt={post.title} 
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                                                 onError={(e) => {
-                                                    // 画像読み込みエラー時に親要素ごと非表示にする
                                                     e.target.style.display = 'none';
                                                     const container = e.target.closest('.thumbnail-container');
                                                     if(container) container.style.display = 'none';
@@ -236,7 +225,6 @@
         };
 
         const PostDetail = ({ post, onBack }) => {
-            // Update Metadata on Mount
             useEffect(() => {
                 if (post) {
                     const desc = stripHtml(post.content).substring(0, 120) + '...';
@@ -247,15 +235,12 @@
                 };
             }, [post]);
 
-            // 本文内の相対パス画像を絶対パスに変換 & エラー時非表示処理を注入
             const processedContent = useMemo(() => {
                 if (!post.content) return '';
                 let content = post.content;
-                // 1. src="api.php", src="./api.php", src="/brog/api.php" など全てのバリエーションを一旦絶対パスに置換
-                // 正規表現: src=(["']) (任意の文字) api.php をキャプチャ
+                // ハッシュルーターではパスが変わらないため相対パスも動作するが、念のためAPI_URL置換を行う
                 content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
                 
-                // 2. 画像読み込みエラー時に非表示にするスクリプトを注入 (二重注入防止)
                 if (!content.includes('onerror="this.style.display=\'none\'"')) {
                     content = content.replace(/<img\s/g, '<img onerror="this.style.display=\'none\'" ');
                 }
@@ -382,7 +367,6 @@
 
             useEffect(() => {
                 if (editorRef.current) {
-                    // 表示用: 保存された相対パス(api.php)を絶対パス(API_URL)に変換してエディタにセット
                     let content = post?.content || '';
                     content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
                     editorRef.current.innerHTML = content;
@@ -400,16 +384,15 @@
                 const formData = new FormData(); formData.append('file', file);
                 try {
                     execCmd('insertHTML', '<span id="loading-img">Uploading...</span>');
-                    // Use absolute API_URL
                     const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                     const data = await res.json();
                     const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
                     if (res.ok && data.url) {
-                        // 編集画面での表示用に絶対パスに置換して挿入
                         let imgUrl = data.url;
-                        if (imgUrl.includes('api.php')) {
-                            // api.php または ./api.php で始まる場合に絶対パスへ
-                            imgUrl = imgUrl.replace(/^.*api\.php/, API_URL);
+                        if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
+                            const parts = imgUrl.split('api.php');
+                            const query = parts.length > 1 ? parts[1] : '';
+                            imgUrl = `${API_URL}${query}`;
                         }
                         execCmd('insertImage', imgUrl);
                     }
@@ -434,8 +417,10 @@
                         const loadingSpan = document.getElementById('loading-img'); if(loadingSpan) loadingSpan.remove();
                         if (res.ok && data.url) {
                             let imgUrl = data.url;
-                            if (imgUrl.includes('api.php')) {
-                                imgUrl = imgUrl.replace(/^.*api\.php/, API_URL);
+                            if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
+                                const parts = imgUrl.split('api.php');
+                                const query = parts.length > 1 ? parts[1] : '';
+                                imgUrl = `${API_URL}${query}`;
                             }
                             execCmd('insertImage', imgUrl);
                         }
@@ -448,15 +433,14 @@
             };
 
             const handleSubmit = (status) => {
-                // 保存用: 絶対パス(API_URL)を相対パス(api.php)に戻す
                 let content = editorRef.current.innerHTML;
-                // シンプルに置換
+                // 保存時は絶対パスを相対パス(api.php)に戻すことでポータビリティを確保
                 content = content.split(API_URL).join('api.php');
                 
                 onSave({ 
                     ...post, 
                     title, 
-                    content, // 相対パスに戻したコンテンツを保存
+                    content, 
                     tags: tags.split(',').map(t=>t.trim()).filter(Boolean), 
                     date: toDbFormat(date), 
                     status: status 
@@ -517,34 +501,33 @@
             const [token, setToken] = useState(localStorage.getItem('brog_token'));
             const [blocked, setBlocked] = useState(false);
 
-            // History Router Logic
+            // Hash Router Logic
             const navigate = (path) => {
-                window.history.pushState({}, '', BASE_PATH + path);
-                handleRoute();
+                window.location.hash = path;
             };
 
             const handleRoute = async () => {
-                const path = window.location.pathname.replace(BASE_PATH, '') || '/';
+                // ハッシュからパスを取得（#/を除去）
+                let hash = window.location.hash.slice(1);
+                if (!hash) hash = '/';
                 
-                if (path === '/' || path === '') {
+                if (hash === '/' || hash === '') {
                     setView('list');
                     setSelectedPost(null);
-                } else if (path === '/login') {
+                } else if (hash === '/login') {
                     setView('login');
-                } else if (path === '/admin') {
+                } else if (hash === '/admin') {
                     setView('admin_list');
-                } else if (path.startsWith('/post/')) {
-                    const id = path.split('/')[2];
-                    // Fetch directly if not loaded
+                } else if (hash.startsWith('/post/')) {
+                    const id = hash.split('/')[2];
                     try {
                         const res = await fetch(`${API_URL}?action=detail&id=${id}`);
-                        if (!res.ok) throw new Error('Not found'); // Handle 404 cleanly
+                        if (!res.ok) throw new Error('Not found');
                         const data = await res.json();
                         if (data && !data.error) {
                             setSelectedPost(data);
                             setView('detail');
                         } else {
-                            // ID found in URL but not in DB -> Redirect to list
                             navigate('/');
                         }
                     } catch(e) { 
@@ -554,18 +537,14 @@
                 }
             };
 
-            // Listen to browser back/forward
+            // Listen to hash changes
             useEffect(() => {
-                window.addEventListener('popstate', handleRoute);
-                return () => window.removeEventListener('popstate', handleRoute);
-            }, []);
-
-            // Initial Route Check (Separated from list fetch to ensure direct links work)
-            useEffect(() => {
-                fetchPosts();
+                window.addEventListener('hashchange', handleRoute);
                 handleRoute(); 
+                return () => window.removeEventListener('hashchange', handleRoute);
             }, []);
 
+            // Initial data fetch
             const fetchPosts = async () => {
                 try {
                     const res = await fetch(`${API_URL}?action=list`);
@@ -575,6 +554,8 @@
                     setPosts(data);
                 } catch (e) { console.error("Fetch error", e); }
             };
+
+            useEffect(() => { fetchPosts(); }, []);
 
             const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); navigate('/admin'); };
             const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('/'); };
