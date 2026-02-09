@@ -12,8 +12,10 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Content-Type: application/json; charset=UTF-8");
 
-// データ保存先
-$DATA_DIR = __DIR__ . '/data';
+// データ保存先を変更 (Git管理外のディレクトリへ)
+$DATA_DIR = __DIR__ . '/database';
+$OLD_DATA_DIR = __DIR__ . '/data';
+
 $UPLOADS_DIR = $DATA_DIR . '/uploads';
 $POSTS_FILE = $DATA_DIR . '/posts.json';
 $CONFIG_FILE = $DATA_DIR . '/config.json';
@@ -22,16 +24,38 @@ $FAILURES_FILE = $DATA_DIR . '/login_failures.json';
 // .htaccess Content
 $HTACCESS_CONTENT = "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order Deny,Allow\n    Deny from all\n</IfModule>";
 
-// Initialize Directories
+// Initialize Directories & Migrate Data
 if (!file_exists($DATA_DIR)) {
     if (!mkdir($DATA_DIR, 0777, true) && !is_dir($DATA_DIR)) {
         http_response_code(500); echo json_encode(['error' => 'Failed to create data directory']); exit;
     }
     @file_put_contents($DATA_DIR . '/.htaccess', $HTACCESS_CONTENT);
+
+    // 旧データからの移行処理 (初回のみ)
+    if (file_exists($OLD_DATA_DIR)) {
+        // JSONファイルのコピー
+        foreach (['posts.json', 'config.json', 'login_failures.json'] as $f) {
+            if (file_exists("$OLD_DATA_DIR/$f") && !file_exists("$DATA_DIR/$f")) {
+                @copy("$OLD_DATA_DIR/$f", "$DATA_DIR/$f");
+            }
+        }
+        // 画像ディレクトリのコピー (簡易版)
+        if (file_exists("$OLD_DATA_DIR/uploads") && !file_exists($UPLOADS_DIR)) {
+            if (mkdir($UPLOADS_DIR, 0777, true)) {
+                $files = glob("$OLD_DATA_DIR/uploads/*");
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        @copy($file, "$UPLOADS_DIR/" . basename($file));
+                    }
+                }
+            }
+        }
+    }
 }
+
 if (!file_exists($UPLOADS_DIR)) {
     if (!mkdir($UPLOADS_DIR, 0777, true) && !is_dir($UPLOADS_DIR)) {
-        // Silently fail if upload dir creation fails, will error on upload
+        // Silently fail
     }
     @file_put_contents($UPLOADS_DIR . '/.htaccess', $HTACCESS_CONTENT);
 }
@@ -58,7 +82,7 @@ function getClientIp() {
 $ip = getClientIp();
 $now = time();
 
-// 安全な外部ファイル読み込み（エラーで止まらないようにする）
+// 安全な外部ファイル読み込み
 $is_globally_blocked = false;
 $global_reason = '';
 $global_blocked_file = __DIR__ . '/../backend/data/blocked_ips.json';
@@ -92,17 +116,8 @@ if (!file_exists($CONFIG_FILE)) {
     file_put_contents($CONFIG_FILE, json_encode($defaultConfig, JSON_PRETTY_PRINT));
 }
 
-// データ復旧ロジック: 現在のデータファイルがなく、バックエンド側にデータがある場合はコピーする
 if (!file_exists($POSTS_FILE)) {
-    $legacy_backend_file = __DIR__ . '/../backend/data/blog/posts.json';
-    if (file_exists($legacy_backend_file)) {
-        // バックエンドからデータを復元
-        $legacy_data = file_get_contents($legacy_backend_file);
-        file_put_contents($POSTS_FILE, $legacy_data);
-    } else {
-        // 空で初期化
-        file_put_contents($POSTS_FILE, json_encode([], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-    }
+    file_put_contents($POSTS_FILE, json_encode([], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
 $action = $_GET['action'] ?? '';
@@ -132,7 +147,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $mimes = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
             $mime = $mimes[$ext] ?? 'application/octet-stream';
             
-            // バッファをクリアして画像データのみを出力
             while (ob_get_level()) { ob_end_clean(); }
             
             header("Content-Type: $mime");
@@ -167,7 +181,6 @@ elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $attemptsLeft = $maxAttempts - $failures[$ip]['count'];
             
             if ($attemptsLeft <= 0) {
-                // ブログ単体でのブロック処理（グローバルへの書き込みは避ける）
                 http_response_code(403);
                 echo json_encode(['error' => "ログイン試行回数が上限を超えました。しばらくお待ちください。", 'blocked' => true]);
             } else {

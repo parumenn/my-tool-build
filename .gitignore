@@ -18,6 +18,9 @@ public/backend/data/
 public/brog/data/
 !public/brog/data/.htaccess
 
+# New Blog Data Directory (Git ignored)
+public/brog/database/
+
 # Misc
 .DS_Store
 .env
