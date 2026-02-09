@@ -364,7 +364,7 @@
             );
         };
 
-        const AdminEditor = ({ post, onSave, onCancel }) => {
+        const AdminEditor = ({ post, onSave, onCancel, allTags }) => {
             const [title, setTitle] = useState(post?.title || '');
             const [tags, setTags] = useState(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
             const [date, setDate] = useState(toInputFormat(post?.date));
@@ -383,6 +383,16 @@
             const execCmd = (cmd, val) => {
                 document.execCommand(cmd, false, val);
                 editorRef.current?.focus();
+            };
+
+            const toggleTag = (tag) => {
+                let current = tags.split(',').map(t => t.trim()).filter(Boolean);
+                if (current.includes(tag)) {
+                    current = current.filter(t => t !== tag);
+                } else {
+                    current.push(tag);
+                }
+                setTags(current.join(', '));
             };
 
             const handleImageUpload = async (e) => {
@@ -467,7 +477,7 @@
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
                             <div className="border rounded-xl overflow-hidden">
-                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap">
+                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm">
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H1')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し1">H1</button>
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し2">H2</button>
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し3">H3</button>
@@ -483,7 +493,26 @@
                                 <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
                             </div>
                         </div>
-                        <div><label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label><input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" /></div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
+                            <input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" />
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {allTags.map(tag => (
+                                    <button 
+                                        key={tag} 
+                                        type="button"
+                                        onClick={() => toggleTag(tag)}
+                                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                                            tags.split(',').map(t=>t.trim()).includes(tag) 
+                                            ? 'bg-indigo-100 text-indigo-700 border-indigo-200' 
+                                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        #{tag}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         <div className="flex gap-4 pt-4">
                             <button type="button" onClick={onCancel} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">キャンセル</button>
                             <button type="button" onClick={() => handleSubmit('draft')} className="flex-1 py-3 bg-gray-500 text-white font-bold rounded-xl shadow-lg hover:bg-gray-600 flex items-center justify-center gap-2"><Icon name="save" size={16}/> 下書き保存</button>
@@ -592,6 +621,16 @@
                 await fetchPosts();
             };
 
+            const allTags = useMemo(() => {
+                const tagSet = new Set();
+                posts.forEach(p => {
+                    if (Array.isArray(p.tags)) {
+                        p.tags.forEach(t => tagSet.add(t));
+                    }
+                });
+                return Array.from(tagSet).sort();
+            }, [posts]);
+
             if (blocked) return <BlockedScreen />;
 
             // Public list filtering
@@ -642,7 +681,13 @@
                         )}
 
                         {route.mode === 'editor' && token && (
-                            <AdminEditor post={selectedPost} onSave={handleSavePost} onCancel={() => navigate('admin')} />
+                            <AdminEditor 
+                                key={selectedPost ? selectedPost.id : 'new'} 
+                                post={selectedPost} 
+                                allTags={allTags}
+                                onSave={handleSavePost} 
+                                onCancel={() => navigate('admin')} 
+                            />
                         )}
 
                         {route.mode === 'password' && token && (
