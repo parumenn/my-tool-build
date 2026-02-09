@@ -544,8 +544,8 @@
                 return <BlockedScreen />;
             }
 
-            // Public list filtering: status must be published AND date must be <= now
-            const publicPosts = posts.filter(p => p.status === 'published' && !isFuture(p.date));
+            // Public list filtering: allow posts with 'published' status OR undefined status (legacy data)
+            const publicPosts = posts.filter(p => (!p.status || p.status === 'published') && !isFuture(p.date));
 
             return (
                 <div className="min-h-screen pb-20 relative">
@@ -578,11 +578,12 @@
                                 </div>
                                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                                     {posts.map(p => {
-                                        const isScheduled = p.status === 'published' && isFuture(p.date);
+                                        const isScheduled = (!p.status || p.status === 'published') && isFuture(p.date);
+                                        const isDraft = p.status === 'draft';
                                         return (
                                             <div key={p.id} className="p-4 border-b border-slate-100 last:border-0 flex justify-between items-center hover:bg-slate-50">
-                                                <div className={`truncate flex-1 font-bold mr-4 flex items-center gap-2 ${p.status === 'draft' ? 'text-gray-400' : 'text-slate-700'}`}>
-                                                    {p.status === 'draft' && <span className="text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded">下書き</span>}
+                                                <div className={`truncate flex-1 font-bold mr-4 flex items-center gap-2 ${isDraft ? 'text-gray-400' : 'text-slate-700'}`}>
+                                                    {isDraft && <span className="text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded">下書き</span>}
                                                     {isScheduled && <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded flex items-center gap-1"><Icon name="clock" size={10} /> 予約: {p.date}</span>}
                                                     {p.title}
                                                 </div>
