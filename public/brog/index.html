@@ -486,30 +486,24 @@
                         <div><label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label><input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
                         <div><label className="block text-xs font-bold text-slate-500 mb-1">公開日時 (未来の日時で予約投稿)</label><input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" required /></div>
                         <div>
-    <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
-    
-    {/* 修正1: overflow-hidden を削除し、背景色 bg-white を明示 */}
-    <div className="border rounded-xl bg-white relative">
-        
-        {/* 修正2: rounded-t-xl を追加（枠線の丸みに合わせるため） */}
-        <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm rounded-t-xl">
-            <button type="button" onClick={()=>execCmd('formatBlock', 'H1')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し1">H1</button>
-            <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し2">H2</button>
-            <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し3">H3</button>
-            <button type="button" onClick={()=>execCmd('formatBlock', 'P')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="標準テキスト">P</button>
-            <div className="w-px h-6 bg-slate-300 mx-1"></div>
-            <button type="button" onClick={()=>execCmd('bold')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="太字"><Icon name="bold" size={16}/></button>
-            <button type="button" onClick={()=>{const url=prompt('URL:'); if(url) execCmd('createLink', url)}} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="リンク"><Icon name="link" size={16}/></button>
-            <button type="button" onClick={()=>execCmd('formatBlock', 'pre')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="コードブロック"><Icon name="code" size={16}/></button>
-            <div className="w-px h-6 bg-slate-300 mx-1"></div>
-            <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="画像挿入"><Icon name="image" size={16}/></button>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-        </div>
-        
-        {/* 修正3: rounded-b-xl を追加（下部の丸み用） */}
-        <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown rounded-b-xl" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
-    </div>
-</div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
+                            <div className="border rounded-xl overflow-hidden">
+                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm">
+                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H1')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し1">H1</button>
+                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し2">H2</button>
+                                    <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し3">H3</button>
+                                    <button type="button" onClick={()=>execCmd('formatBlock', 'P')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="標準テキスト">P</button>
+                                    <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                                    <button type="button" onClick={()=>execCmd('bold')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="太字"><Icon name="bold" size={16}/></button>
+                                    <button type="button" onClick={()=>{const url=prompt('URL:'); if(url) execCmd('createLink', url)}} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="リンク"><Icon name="link" size={16}/></button>
+                                    <button type="button" onClick={()=>execCmd('formatBlock', 'pre')} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="コードブロック"><Icon name="code" size={16}/></button>
+                                    <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                                    <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="画像挿入"><Icon name="image" size={16}/></button>
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                </div>
+                                <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
+                            </div>
+                        </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">タグ (カンマ区切り)</label>
                             <input type="text" value={tags} onChange={e=>setTags(e.target.value)} className="w-full p-3 border rounded-xl" />
@@ -605,26 +599,24 @@
 
             // Detail view loader
             useEffect(() => {
-    if (route.mode === 'post' && route.id) {
-        const loadDetail = async () => {
-            try {
-                const res = await fetch(`${API_URL}?action=detail&id=${route.id}`);
-                if (!res.ok) throw new Error('Not found');
-                const data = await res.json();
-                if (data && !data.error) {
-                    setSelectedPost(data);
+                if (route.mode === 'post' && route.id) {
+                    const loadDetail = async () => {
+                        try {
+                            const res = await fetch(`${API_URL}?action=detail&id=${route.id}`);
+                            if (!res.ok) throw new Error('Not found');
+                            const data = await res.json();
+                            if (data && !data.error) {
+                                setSelectedPost(data);
+                            } else {
+                                navigate('list');
+                            }
+                        } catch(e) { navigate('list'); }
+                    };
+                    loadDetail();
                 } else {
-                    navigate('list');
+                    setSelectedPost(null);
                 }
-            } catch(e) { navigate('list'); }
-        };
-        loadDetail();
-    } else if (route.mode !== 'editor') {
-        // 【修正点】モードが 'editor' ではない場合のみデータをクリアする
-        // これにより、編集ボタン経由でセットされたデータが維持されます
-        setSelectedPost(null);
-    }
-}, [route.mode, route.id]);
+            }, [route.mode, route.id]);
 
             const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); navigate('admin'); };
             const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('list'); };
