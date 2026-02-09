@@ -4,12 +4,16 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /brog/
+    
+    # Disable MultiViews to avoid content negotiation issues
+    Options -MultiViews
 
     # Allow access to existing files (css, js, images, api.php)
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Route all other requests to index.html for React History Router
-    RewriteRule . index.html [L]
+    # Rewrite all other routes to /brog/index.html
+    # Using absolute path ensures correct routing from deep links like /brog/post/123
+    RewriteRule . /brog/index.html [L]
 </IfModule>
