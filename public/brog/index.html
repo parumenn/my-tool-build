@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>開発者ブログ</title>
     <meta name="description" content="開発者による技術ブログ。最新のアップデート情報や技術的な知見を共有します。">
-    <!-- Base tag is crucial for relative assets in History Mode -->
-    <base href="/brog/">
+    <!-- Base href is set to current directory to ensure relative links work -->
+    <base href="./">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- React & ReactDOM -->
@@ -40,10 +40,11 @@
     <script>
     (function(){
       try {
+        // Log current URL parameters for debugging
         fetch('/backend/admin_api.php?action=log_access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: window.location.pathname })
+          body: JSON.stringify({ path: window.location.pathname + window.location.search })
         });
       } catch(e){}
     })();
@@ -55,10 +56,9 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
-        const BASE_PATH = '/brog';
         
-        // API URLを絶対パスで定義
-        const API_URL = `${window.location.origin}/brog/api.php`;
+        // API URL Definition (Relative is safer with <base href="./">)
+        const API_URL = `./api.php`;
 
         // --- Icons Definition ---
         const ICONS = {
@@ -146,17 +146,17 @@
         const Header = ({ onNavigate, isAdmin, logout }) => (
             <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <h1 onClick={() => onNavigate('/')} className="text-xl font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
+                    <h1 onClick={() => onNavigate('list')} className="text-xl font-black text-slate-800 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors">
                         <Icon name="feather" className="text-indigo-500" /> 開発者ブログ
                     </h1>
                     <div className="flex items-center gap-4">
                         {isAdmin ? (
                             <>
-                                <button onClick={() => onNavigate('/admin')} className="text-sm font-bold text-slate-500 hover:text-indigo-600">管理画面</button>
+                                <button onClick={() => onNavigate('admin')} className="text-sm font-bold text-slate-500 hover:text-indigo-600">管理画面</button>
                                 <button onClick={logout} className="text-sm font-bold text-red-500 hover:text-red-700">ログアウト</button>
                             </>
                         ) : (
-                            <button onClick={() => onNavigate('/login')} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                            <button onClick={() => onNavigate('login')} className="text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
                                 <Icon name="lock" size={14} /> Admin
                             </button>
                         )}
@@ -170,11 +170,13 @@
                 const match = content.match(/<img[^>]+src="([^">]+)"/);
                 if (match) {
                     let url = match[1].replace(/&amp;/g, '&');
-                    // 相対パスのapi.phpを絶対パスに置換
+                    // 相対パスのapi.phpを絶対パスに置換 (Base hrefの影響を受けないように)
                     if (url.includes('api.php') && !url.startsWith('http')) {
+                        // シンプルに現在のorigin + /brog/ + api.phpにする
+                        const origin = window.location.origin;
                         const parts = url.split('api.php');
                         const query = parts.length > 1 ? parts[1] : '';
-                        url = `${API_URL}${query}`;
+                        url = `${origin}/brog/api.php${query}`;
                     }
                     if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('/')) {
                         return url;
@@ -241,8 +243,9 @@
             const processedContent = useMemo(() => {
                 if (!post.content) return '';
                 let content = post.content;
-                // SEO対策: ハッシュルーターではなくHistory APIなので、相対パスも絶対パスへ変換
-                content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
+                // 画像パスの調整: api.php への相対リンクを絶対パス化
+                const origin = window.location.origin;
+                content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
                 
                 if (!content.includes('onerror="this.style.display=\'none\'"')) {
                     content = content.replace(/<img\s/g, '<img onerror="this.style.display=\'none\'" ');
@@ -371,7 +374,8 @@
             useEffect(() => {
                 if (editorRef.current) {
                     let content = post?.content || '';
-                    content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${API_URL}`);
+                    const origin = window.location.origin;
+                    content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
                     editorRef.current.innerHTML = content;
                 }
             }, [post]);
@@ -393,9 +397,10 @@
                     if (res.ok && data.url) {
                         let imgUrl = data.url;
                         if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
+                            const origin = window.location.origin;
                             const parts = imgUrl.split('api.php');
                             const query = parts.length > 1 ? parts[1] : '';
-                            imgUrl = `${API_URL}${query}`;
+                            imgUrl = `${origin}/brog/api.php${query}`;
                         }
                         execCmd('insertImage', imgUrl);
                     }
@@ -421,9 +426,10 @@
                         if (res.ok && data.url) {
                             let imgUrl = data.url;
                             if (imgUrl.includes('api.php') && !imgUrl.startsWith('http')) {
+                                const origin = window.location.origin;
                                 const parts = imgUrl.split('api.php');
                                 const query = parts.length > 1 ? parts[1] : '';
-                                imgUrl = `${API_URL}${query}`;
+                                imgUrl = `${origin}/brog/api.php${query}`;
                             }
                             execCmd('insertImage', imgUrl);
                         }
@@ -437,8 +443,10 @@
 
             const handleSubmit = (status) => {
                 let content = editorRef.current.innerHTML;
-                // 保存時は絶対パスを相対パス(api.php)に戻すことでポータビリティを確保
-                content = content.split(API_URL).join('api.php');
+                const origin = window.location.origin;
+                // 保存時は相対パス(api.php)に戻すことでポータビリティを確保
+                content = content.split(`${origin}/brog/api.php`).join('api.php');
+                content = content.split(`api.php`).join('api.php'); // 重複回避
                 
                 onSave({ 
                     ...post, 
@@ -497,59 +505,46 @@
             </div>
         );
 
+        // Custom Hook for Query-based Routing
+        const useQueryRouter = () => {
+            const getParams = () => {
+                const params = new URLSearchParams(window.location.search);
+                return {
+                    mode: params.get('mode') || 'list',
+                    id: params.get('post') || params.get('id') || null
+                };
+            };
+            const [route, setRoute] = useState(getParams());
+
+            useEffect(() => {
+                const handler = () => setRoute(getParams());
+                window.addEventListener('popstate', handler);
+                return () => window.removeEventListener('popstate', handler);
+            }, []);
+
+            const navigate = (mode, id = null) => {
+                const params = new URLSearchParams();
+                if (mode && mode !== 'list') params.set('mode', mode);
+                if (id) params.set('post', id);
+                
+                // クエリストリングのみを変更し、ページリロードなしで遷移
+                const newUrl = `${window.location.pathname}?${params.toString()}`;
+                window.history.pushState({}, '', newUrl);
+                setRoute({ mode, id });
+                window.scrollTo(0, 0);
+            };
+
+            return { route, navigate };
+        };
+
         const App = () => {
-            const [view, setView] = useState('list');
+            const { route, navigate } = useQueryRouter();
             const [posts, setPosts] = useState([]);
             const [selectedPost, setSelectedPost] = useState(null);
             const [token, setToken] = useState(localStorage.getItem('brog_token'));
             const [blocked, setBlocked] = useState(false);
 
-            // History Router Logic (Updated from Hash Router)
-            const navigate = (path) => {
-                // path starts with /
-                window.history.pushState({}, '', BASE_PATH + path);
-                handleRoute();
-            };
-
-            const handleRoute = async () => {
-                // Get current path relative to base
-                const path = window.location.pathname.replace(BASE_PATH, '') || '/';
-                
-                if (path === '/' || path === '') {
-                    setView('list');
-                    setSelectedPost(null);
-                } else if (path === '/login') {
-                    setView('login');
-                } else if (path === '/admin') {
-                    setView('admin_list');
-                } else if (path.startsWith('/post/')) {
-                    const id = path.split('/')[2];
-                    try {
-                        const res = await fetch(`${API_URL}?action=detail&id=${id}`);
-                        if (!res.ok) throw new Error('Not found');
-                        const data = await res.json();
-                        if (data && !data.error) {
-                            setSelectedPost(data);
-                            setView('detail');
-                        } else {
-                            navigate('/');
-                        }
-                    } catch(e) { 
-                        console.error("Detail fetch error:", e);
-                        navigate('/'); 
-                    }
-                }
-            };
-
-            // Listen to history changes (Back/Forward buttons)
-            useEffect(() => {
-                window.addEventListener('popstate', handleRoute);
-                // Initial Route Check
-                handleRoute(); 
-                return () => window.removeEventListener('popstate', handleRoute);
-            }, []);
-
-            // Initial data fetch
+            // Fetch Data
             const fetchPosts = async () => {
                 try {
                     const res = await fetch(`${API_URL}?action=list`);
@@ -562,12 +557,33 @@
 
             useEffect(() => { fetchPosts(); }, []);
 
-            const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); navigate('/admin'); };
-            const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('/'); };
+            // Detail view loader
+            useEffect(() => {
+                if (route.mode === 'post' && route.id) {
+                    const loadDetail = async () => {
+                        try {
+                            const res = await fetch(`${API_URL}?action=detail&id=${route.id}`);
+                            if (!res.ok) throw new Error('Not found');
+                            const data = await res.json();
+                            if (data && !data.error) {
+                                setSelectedPost(data);
+                            } else {
+                                navigate('list');
+                            }
+                        } catch(e) { navigate('list'); }
+                    };
+                    loadDetail();
+                } else {
+                    setSelectedPost(null);
+                }
+            }, [route.mode, route.id]);
+
+            const handleLogin = (t) => { localStorage.setItem('brog_token', t); setToken(t); navigate('admin'); };
+            const handleLogout = () => { localStorage.removeItem('brog_token'); setToken(null); navigate('list'); };
 
             const handleSavePost = async (postData) => {
                 await fetch(`${API_URL}?action=save`, { method: 'POST', body: JSON.stringify(postData) });
-                await fetchPosts(); navigate('/admin');
+                await fetchPosts(); navigate('admin');
             };
 
             const handleDeletePost = async (id) => {
@@ -588,19 +604,19 @@
 
                     <Header onNavigate={navigate} isAdmin={!!token} logout={handleLogout} />
                     <main className="max-w-4xl mx-auto px-4 mt-8">
-                        {view === 'list' && <PostList posts={publicPosts} onPostClick={(p) => navigate(`/post/${p.id}`)} />}
+                        {route.mode === 'list' && <PostList posts={publicPosts} onPostClick={(p) => navigate('post', p.id)} />}
                         
-                        {view === 'detail' && selectedPost && <PostDetail post={selectedPost} onBack={() => navigate('/')} />}
+                        {route.mode === 'post' && selectedPost && <PostDetail post={selectedPost} onBack={() => navigate('list')} />}
                         
-                        {view === 'login' && <Login onLogin={handleLogin} setBlocked={setBlocked} />}
+                        {route.mode === 'login' && <Login onLogin={handleLogin} setBlocked={setBlocked} />}
                         
-                        {view === 'admin_list' && token && (
+                        {route.mode === 'admin' && token && (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-2xl font-bold">記事管理</h2>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setView('password')} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-2"><Icon name="key" size={16}/> パスワード変更</button>
-                                        <button onClick={() => { setSelectedPost(null); setView('editor'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><Icon name="plus" size={16}/> 新規作成</button>
+                                        <button onClick={() => navigate('password')} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-2"><Icon name="key" size={16}/> パスワード変更</button>
+                                        <button onClick={() => { setSelectedPost(null); navigate('editor'); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><Icon name="plus" size={16}/> 新規作成</button>
                                     </div>
                                 </div>
                                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -615,7 +631,7 @@
                                                     {p.title}
                                                 </div>
                                                 <div className="flex gap-2 shrink-0">
-                                                    <button onClick={() => { setSelectedPost(p); setView('editor'); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg"><Icon name="edit-2" size={16}/></button>
+                                                    <button onClick={() => { setSelectedPost(p); navigate('editor'); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg"><Icon name="edit-2" size={16}/></button>
                                                     <button onClick={() => handleDeletePost(p.id)} className="p-2 text-slate-400 hover:text-red-500 bg-white border border-slate-200 rounded-lg"><Icon name="trash" size={16}/></button>
                                                 </div>
                                             </div>
@@ -625,12 +641,12 @@
                             </div>
                         )}
 
-                        {view === 'editor' && token && (
-                            <AdminEditor post={selectedPost} onSave={handleSavePost} onCancel={() => navigate('/admin')} />
+                        {route.mode === 'editor' && token && (
+                            <AdminEditor post={selectedPost} onSave={handleSavePost} onCancel={() => navigate('admin')} />
                         )}
 
-                        {view === 'password' && token && (
-                            <PasswordChange onBack={() => navigate('/admin')} />
+                        {route.mode === 'password' && token && (
+                            <PasswordChange onBack={() => navigate('admin')} />
                         )}
                     </main>
                     

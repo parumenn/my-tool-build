@@ -1,19 +1,14 @@
 
 DirectoryIndex index.html
 
+# Disable MultiViews (can interfere with routing)
 <IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /brog/
-    
-    # Disable MultiViews to avoid content negotiation issues
     Options -MultiViews
+</IfModule>
 
-    # Allow access to existing files (css, js, images, api.php)
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
-
-    # Rewrite all other routes to /brog/index.html
-    # Using absolute path ensures correct routing from deep links like /brog/post/123
-    RewriteRule . /brog/index.html [L]
+# Cache Settings
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+  ExpiresByType text/html "access plus 0 seconds"
 </IfModule>
