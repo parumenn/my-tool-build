@@ -365,35 +365,48 @@
         };
 
         const AdminEditor = ({ post, onSave, onCancel, allTags }) => {
-    const [title, setTitle] = useState(post?.title || '');
-    const [tags, setTags] = useState(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
-    const [date, setDate] = useState(toInputFormat(post?.date));
-    const editorRef = useRef(null);
-    const fileInputRef = useRef(null);
+            const [title, setTitle] = useState(post?.title || '');
+            const [tags, setTags] = useState(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
+            const [date, setDate] = useState(toInputFormat(post?.date));
+            const editorRef = useRef(null);
+            const fileInputRef = useRef(null);
 
-    // 修正: 依存配列に editorRef.current を追加するか、
-    // あるいはマウント後に確実に1回実行されるように調整します
-    useEffect(() => {
-        setTitle(post?.title || '');
-        setTags(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
-        setDate(toInputFormat(post?.date));
-        
-        // editorRef が存在することを確認してから中身をセット
-        if (editorRef.current) {
-            let content = post?.content || '';
-            const origin = window.location.origin;
-            content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
-            
-            // 重要: 現在の入力内容と異なる場合のみ更新（カーソル飛び防止）
-            if (editorRef.current.innerHTML !== content) {
-                editorRef.current.innerHTML = content;
-            }
-        }
-    }, [post, editorRef.current]);
+            useEffect(() => {
+                setTitle(post?.title || '');
+                setTags(Array.isArray(post?.tags) ? post.tags.join(', ') : (post?.tags || ''));
+                setDate(toInputFormat(post?.date));
+                
+                if (editorRef.current) {
+                    let content = post?.content || '';
+                    const origin = window.location.origin;
+                    content = content.replace(/src=(["'])(?:(?!\1).)*api\.php/g, `src=$1${origin}/brog/api.php`);
+                    
+                    if (editorRef.current.innerHTML !== content) {
+                        editorRef.current.innerHTML = content;
+                    }
+                }
+            }, [post]);
 
             const execCmd = (cmd, val) => {
                 document.execCommand(cmd, false, val);
                 editorRef.current?.focus();
+            };
+
+            // --- 画像のalt編集機能 ---
+            const editImageAlt = (imgNode) => {
+                const currentAlt = imgNode.getAttribute('alt') || '';
+                const newAlt = prompt('画像の代替テキスト(alt)を入力してください:', currentAlt);
+                if (newAlt !== null) {
+                    imgNode.setAttribute('alt', newAlt);
+                    imgNode.setAttribute('title', newAlt); // マウスホバー時にも表示されるように
+                }
+            };
+
+            // エディタ内のクリックイベントで画像を検知
+            const handleEditorClick = (e) => {
+                if (e.target.tagName === 'IMG') {
+                    editImageAlt(e.target);
+                }
             };
 
             const toggleTag = (tag) => {
@@ -423,7 +436,11 @@
                             const query = parts.length > 1 ? parts[1] : '';
                             imgUrl = `${origin}/brog/api.php${query}`;
                         }
-                        execCmd('insertImage', imgUrl);
+                        
+                        // 画像挿入後にaltを編集させる
+                        const altText = prompt('画像の代替テキスト(alt)を入力してください:', '');
+                        const imgHtml = `<img src="${imgUrl}" alt="${altText || ''}" title="${altText || ''}" onerror="this.style.display='none'">`;
+                        execCmd('insertHTML', imgHtml);
                     }
                     else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
                 } catch (err) { alert('通信エラーが発生しました'); }
@@ -452,7 +469,9 @@
                                 const query = parts.length > 1 ? parts[1] : '';
                                 imgUrl = `${origin}/brog/api.php${query}`;
                             }
-                            execCmd('insertImage', imgUrl);
+                            const altText = prompt('貼り付けた画像の代替テキスト(alt)を入力してください:', '');
+                            const imgHtml = `<img src="${imgUrl}" alt="${altText || ''}" title="${altText || ''}" onerror="this.style.display='none'">`;
+                            execCmd('insertHTML', imgHtml);
                         }
                         else alert('アップロード失敗: ' + (data.error || 'Unknown error'));
                     } catch (err) {
@@ -465,9 +484,8 @@
             const handleSubmit = (status) => {
                 let content = editorRef.current.innerHTML;
                 const origin = window.location.origin;
-                // 保存時は相対パス(api.php)に戻すことでポータビリティを確保
                 content = content.split(`${origin}/brog/api.php`).join('api.php');
-                content = content.split(`api.php`).join('api.php'); // 重複回避
+                content = content.split(`api.php`).join('api.php');
                 
                 onSave({ 
                     ...post, 
@@ -486,9 +504,9 @@
                         <div><label className="block text-xs font-bold text-slate-500 mb-1">タイトル</label><input type="text" value={title} onChange={e=>setTitle(e.target.value)} className="w-full p-3 border rounded-xl" required /></div>
                         <div><label className="block text-xs font-bold text-slate-500 mb-1">公開日時 (未来の日時で予約投稿)</label><input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)} className="w-full p-3 border rounded-xl font-mono text-sm" required /></div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">本文</label>
-                            <div className="border rounded-xl overflow-hidden">
-                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">本文 (画像クリックでalt編集)</label>
+                            <div className="border rounded-xl bg-white relative">
+                                <div className="bg-slate-50 border-b p-2 flex gap-1 items-center flex-wrap sticky top-16 z-20 shadow-sm rounded-t-xl">
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H1')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し1">H1</button>
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H2')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し2">H2</button>
                                     <button type="button" onClick={()=>execCmd('formatBlock', 'H3')} className="p-2 hover:bg-slate-200 rounded text-slate-600 font-bold text-sm" title="見出し3">H3</button>
@@ -501,7 +519,14 @@
                                     <button type="button" onClick={()=>fileInputRef.current.click()} className="p-2 hover:bg-slate-200 rounded text-slate-600" title="画像挿入"><Icon name="image" size={16}/></button>
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                                 </div>
-                                <div ref={editorRef} contentEditable className="editor-content w-full p-4 min-h-[300px] outline-none markdown" placeholder="ここに記事を書く..." onPaste={handlePaste}></div>
+                                <div 
+                                    ref={editorRef} 
+                                    contentEditable 
+                                    className="editor-content w-full p-4 min-h-[300px] outline-none markdown rounded-b-xl" 
+                                    placeholder="ここに記事を書く..." 
+                                    onPaste={handlePaste}
+                                    onClick={handleEditorClick}
+                                ></div>
                             </div>
                         </div>
                         <div>
