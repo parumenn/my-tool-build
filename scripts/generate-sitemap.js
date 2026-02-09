@@ -17,6 +17,7 @@ const generateSitemap = () => {
     // 静的ページ（HashRouterを使用しているため /#/ を付与）
     const pages = [
       { loc: '/#/', priority: '1.0' },
+      { loc: '/brog/', priority: '0.9' }, // 開発者ブログ（重要）
       { loc: '/#/about', priority: '0.5' },
       { loc: '/#/privacy', priority: '0.5' },
       { loc: '/#/terms', priority: '0.5' }

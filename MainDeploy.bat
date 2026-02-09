@@ -1,9 +1,9 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 chcp 65001 > nul
 
 echo --- ファイル選択 ---
-:: 1. ファイル選択ダイアログ（ファイル専用）を呼び出すように修正
+:: ファイル選択ダイアログ
 set "psCommand=Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'ZIPファイル (*.zip)|*.zip'; $f.ShowDialog() | Out-Null; $f.FileName"
 
 for /f "usebackq delims=" %%I in (`powershell -command "%psCommand%"`) do set "zipFile=%%I"
@@ -14,21 +14,22 @@ if "%zipFile%"=="" (
     exit /b
 )
 
-:: 展開先パス（ここが空にならないよう固定、または適切に処理）
-set "destDir=G:\Documents\プログラム\まいつーる\展開ファイル"
-if not exist "%destDir%" mkdir "%destDir%"
+:: 展開先をバッチの変数ではなく、ここで直接指定
+echo 展開を開始します...
 
-echo 展開中: "%zipFile%"
-echo 展開先: "%destDir%"
+:: PowerShell側で変数を作らず、直接パスを書き込む形に変更
+powershell -command "Expand-Archive -Path '%zipFile%' -DestinationPath 'G:\Documents\プログラム\まいつーる\展開ファイル' -Force"
 
-:: 2. パスをダブルクォーテーションで囲み、スペース対策を強化
-powershell -command "Expand-Archive -Path '%zipFile%' -DestinationPath '%destDir%' -Force"
+if %errorlevel% neq 0 (
+    echo 展開に失敗しました。パスを確認してください。
+    pause
+    exit /b
+)
 
-echo.
 echo 展開が完了しました。
 
-:: 展開先に移動してからビルドを実行する（ここ重要！）
-pushd "%destDir%"
+:: 展開先に移動
+pushd "G:\Documents\プログラム\まいつーる\展開ファイル"
 
 echo --- 1. ビルドを開始します ---
 call npm install
@@ -43,9 +44,6 @@ git commit -m "deploy update %datetime%"
 echo --- 3. GitHubへ強制的に同期します ---
 git push -f origin master
 
-:: 元のディレクトリに戻る
 popd
-
-echo.
-echo --- 完了！GitHubの dist/assets を確認してください ---
+echo --- 完了 ---
 pause
