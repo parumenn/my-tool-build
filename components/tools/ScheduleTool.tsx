@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
@@ -224,6 +225,26 @@ const ScheduleTool: React.FC = () => {
     } catch(e) {
         alert('通信エラーが発生しました');
     }
+  };
+
+  const handleEditDateSelect = (date: Date, pollIndex: number) => {
+      if (!editEventData) return;
+      const newPolls = [...editEventData.polls];
+      const dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} (${['日','月','火','水','木','金','土'][date.getDay()]})`;
+      const val = isTimeEnabled ? `${dateStr} ${timeRange.start}〜${timeRange.end}` : dateStr;
+      
+      if (!newPolls[pollIndex].candidates.some(c => c.name === val)) {
+          newPolls[pollIndex].candidates.push({ name: val, note: '' });
+          newPolls[pollIndex].candidates.sort((a, b) => new Date(a.name.split(' ')[0]).getTime() - new Date(b.name.split(' ')[0]).getTime());
+          setEditEventData({ ...editEventData, polls: newPolls });
+      }
+  };
+
+  const removeCandidateEdit = (pollIndex: number, candIndex: number) => {
+      if (!editEventData) return;
+      const newPolls = [...editEventData.polls];
+      newPolls[pollIndex].candidates.splice(candIndex, 1);
+      setEditEventData({ ...editEventData, polls: newPolls });
   };
 
   const handleUpdateEvent = async () => {
@@ -711,44 +732,81 @@ const ScheduleTool: React.FC = () => {
                                                 }}
                                                 className="w-full bg-transparent border-b border-gray-300 dark:border-gray-600 py-1 font-bold text-base focus:border-teal-500 outline-none text-gray-800 dark:text-white mb-3"
                                            />
-                                           {/* Candidates */}
-                                           <div className="space-y-2">
-                                                {poll.candidates.map((cand, cIdx) => (
-                                                    <div key={cIdx} className="flex gap-2">
-                                                        <input 
-                                                            type="text" 
-                                                            value={cand.name} 
-                                                            onChange={e => {
-                                                                const newPolls = [...editEventData.polls];
-                                                                newPolls[pIdx].candidates[cIdx].name = e.target.value;
-                                                                setEditEventData({...editEventData, polls: newPolls});
-                                                            }}
-                                                            className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
-                                                        />
-                                                        {/* 削除機能は回答整合性のため慎重に。ここでは簡易的にUI非表示にしておくか、追加のみとするのが無難だが、要望通り編集可能にする */}
-                                                    </div>
-                                                ))}
-                                                {/* 追加UI */}
-                                                <div className="flex gap-2 mt-2">
-                                                     <input type="text" id={`new-cand-name-${pIdx}`} className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm" placeholder="新しい候補名" />
-                                                     <button 
-                                                        onClick={() => {
-                                                            const el = document.getElementById(`new-cand-name-${pIdx}`) as HTMLInputElement;
-                                                            if (el.value) {
-                                                                const newPolls = [...editEventData.polls];
-                                                                newPolls[pIdx].candidates.push({ name: el.value, note: '' });
-                                                                setEditEventData({...editEventData, polls: newPolls});
-                                                                el.value = '';
-                                                            }
-                                                        }}
-                                                        className="px-3 bg-teal-600 text-white rounded text-xs font-bold"
-                                                     >追加</button>
-                                                </div>
-                                           </div>
+                                           
+                                           {poll.type === 'date' ? (
+                                              <div className="space-y-4">
+                                                  <div className="bg-white dark:bg-gray-900 p-2 rounded-xl border border-gray-200 dark:border-gray-600">
+                                                      <CalendarPicker onSelect={(d) => handleEditDateSelect(d, pIdx)} />
+                                                  </div>
+                                                  <div>
+                                                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block">現在の候補</label>
+                                                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                                                          {poll.candidates.map((cand, cIdx) => (
+                                                              <div key={cIdx} className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm">
+                                                                  <span className="font-mono font-bold text-sm text-gray-700 dark:text-gray-200">{cand.name}</span>
+                                                                  <button onClick={() => removeCandidateEdit(pIdx, cIdx)} className="text-gray-400 hover:text-red-500 p-1"><X size={14}/></button>
+                                                              </div>
+                                                          ))}
+                                                          {poll.candidates.length === 0 && <div className="text-gray-400 text-xs p-2 text-center">カレンダーの日付をクリックして追加</div>}
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                           ) : (
+                                              <div className="space-y-2">
+                                                  {poll.candidates.map((cand, cIdx) => (
+                                                      <div key={cIdx} className="flex flex-col sm:flex-row gap-2 bg-white dark:bg-gray-700 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                                                          <input 
+                                                              type="text" 
+                                                              value={cand.name} 
+                                                              onChange={e => {
+                                                                  const newPolls = [...editEventData.polls];
+                                                                  newPolls[pIdx].candidates[cIdx].name = e.target.value;
+                                                                  setEditEventData({...editEventData, polls: newPolls});
+                                                              }}
+                                                              className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
+                                                              placeholder="候補名"
+                                                          />
+                                                          <div className="flex gap-2 flex-1">
+                                                              <input 
+                                                                  type="text" 
+                                                                  value={cand.note} 
+                                                                  onChange={e => {
+                                                                      const newPolls = [...editEventData.polls];
+                                                                      newPolls[pIdx].candidates[cIdx].note = e.target.value;
+                                                                      setEditEventData({...editEventData, polls: newPolls});
+                                                                  }}
+                                                                  className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm"
+                                                                  placeholder="備考・URL"
+                                                              />
+                                                              <button onClick={() => removeCandidateEdit(pIdx, cIdx)} className="text-gray-400 hover:text-red-500 p-2"><X size={16}/></button>
+                                                          </div>
+                                                      </div>
+                                                  ))}
+                                                  {/* 追加UI */}
+                                                  <div className="flex flex-col sm:flex-row gap-2 mt-2 bg-white dark:bg-gray-700 p-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                                                       <input type="text" id={`new-cand-name-${pIdx}`} className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm" placeholder="新しい候補名" />
+                                                       <div className="flex gap-2 flex-1">
+                                                           <input type="text" id={`new-cand-note-${pIdx}`} className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm" placeholder="備考・URL" />
+                                                           <button 
+                                                              onClick={() => {
+                                                                  const nameEl = document.getElementById(`new-cand-name-${pIdx}`) as HTMLInputElement;
+                                                                  const noteEl = document.getElementById(`new-cand-note-${pIdx}`) as HTMLInputElement;
+                                                                  if (nameEl.value) {
+                                                                      const newPolls = [...editEventData.polls];
+                                                                      newPolls[pIdx].candidates.push({ name: nameEl.value, note: noteEl.value });
+                                                                      setEditEventData({...editEventData, polls: newPolls});
+                                                                      nameEl.value = '';
+                                                                      noteEl.value = '';
+                                                                  }
+                                                              }}
+                                                              className="px-3 bg-teal-600 text-white rounded text-xs font-bold whitespace-nowrap"
+                                                           >追加</button>
+                                                       </div>
+                                                  </div>
+                                              </div>
+                                           )}
                                        </div>
                                    ))}
-                                   
-                                   {/* Poll 追加ボタンは複雑になるため省略するか、必要なら実装 */}
                                </div>
                                
                                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
