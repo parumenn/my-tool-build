@@ -6,11 +6,12 @@ import {
   FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
   Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
   BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
-  Pipette, Bath, Share2, Layers, Monitor, TrendingUp
+  Pipette, Bath, Share2, Layers, Monitor, TrendingUp, CalendarCheck
 } from 'lucide-react';
 import { Tool } from '../types';
 
 export const TOOLS: Tool[] = [
+  { id: 'schedule', name: 'まいつーる日程調整', path: '/schedule', description: 'イベントの出欠確認・日程調整ツール', icon: CalendarCheck, color: 'text-teal-600', lightBg: 'bg-teal-50' },
   { id: 'stock', name: '株トレード記録', path: '/stock', description: '売買記録・資産推移・分析', icon: TrendingUp, color: 'text-indigo-600', lightBg: 'bg-indigo-50' },
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50' },
   { id: 'bundle', name: 'URLまとめURL', path: '/bundle', description: '複数URLを1つのリンクに集約', icon: Layers, color: 'text-cyan-500', lightBg: 'bg-cyan-50' },

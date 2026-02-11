@@ -1,6 +1,6 @@
 
 import React, { useContext, useRef, useState } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from './AppContext';
 import { Monitor, Shield, Database, Download, Upload, AlertCircle, Mail, Send, Loader2, CheckCircle2 } from 'lucide-react';
 import AdBanner from './AdBanner';
 

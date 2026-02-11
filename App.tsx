@@ -1,12 +1,14 @@
 
-import React, { useState, useEffect, createContext, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Info, CheckCircle2, X, Cookie, ExternalLink, ChevronRight, FileText, Shield } from 'lucide-react';
+import { Menu, LayoutGrid, Sun, Moon, ShieldCheck, Zap, Cookie, CheckCircle2, X, FileText, Shield } from 'lucide-react';
 import LoadingSkeleton from './components/LoadingSkeleton';
+import Dashboard from './components/Dashboard';
+import { AppContext } from './components/AppContext';
 
 // 遅延読み込みコンポーネント
 const SidebarContent = lazy(() => import('./components/Sidebar').then(m => ({ default: m.SidebarContent })));
-const Dashboard = lazy(() => import('./components/Dashboard'));
+// Dashboard is imported directly
 const Settings = lazy(() => import('./components/Settings'));
 const AdminPage = lazy(() => import('./components/admin/AdminPage'));
 
@@ -59,8 +61,7 @@ const BathProcrastinationPreventer = lazy(() => import('./components/tools/BathP
 const TextShare = lazy(() => import('./components/tools/TextShare'));
 const UrlBundler = lazy(() => import('./components/tools/UrlBundler'));
 const StockTracker = lazy(() => import('./components/tools/StockTracker'));
-
-export const AppContext = createContext({ showAds: true, setShowAds: (v: boolean) => {} });
+const ScheduleTool = lazy(() => import('./components/tools/ScheduleTool'));
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -363,6 +364,7 @@ const Layout: React.FC = () => {
                   <Route path="/share" element={<TextShare />} />
                   <Route path="/bundle" element={<UrlBundler />} />
                   <Route path="/stock" element={<StockTracker />} />
+                  <Route path="/schedule" element={<ScheduleTool />} />
                 </Routes>
               </Suspense>
             </div>

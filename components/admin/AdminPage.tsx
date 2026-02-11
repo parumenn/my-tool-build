@@ -560,7 +560,7 @@ const AdminPage: React.FC = () => {
                        sub: serverResources ? `${formatSize(serverResources.disk.used)} / ${formatSize(serverResources.disk.total)}` : '--',
                        percent: serverResources?.disk.percent ?? 0
                      }
-                   ].map((res, i) => (
+                   ].map((res: { label: string; val: number; icon: any; color: string; sub: string; percent: number }, i) => (
                       <div key={i} className="bg-white dark:bg-dark-lighter p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
                          <div className="flex justify-between items-start mb-4">
                             <div className={`${res.color} bg-gray-50 dark:bg-gray-800 p-2 rounded-xl`}>
@@ -717,7 +717,9 @@ const AdminPage: React.FC = () => {
                           {filteredLogs.length === 0 ? (
                              <tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold">該当するログはありません</td></tr>
                           ) : (
-                             filteredLogs.map((log: AccessLog, i) => (
+                             filteredLogs.map((log: AccessLog, i) => {
+                                const status = typeof log.status === 'number' ? log.status : 200;
+                                return (
                                 <tr key={i} className={`transition-colors ${log.path === ADMIN_PATH ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-500 whitespace-nowrap">{log.date}</td>
                                    <td className="px-8 py-4">
@@ -728,9 +730,9 @@ const AdminPage: React.FC = () => {
                                    </td>
                                    <td className="px-8 py-4 font-mono text-[11px] text-gray-400">{log.ip}</td>
                                    <td className="px-8 py-4 font-mono text-[11px] font-black">{log.duration ? `${log.duration}ms` : '--'}</td>
-                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${log.status && Number(log.status) >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{log.status || 200}</span></td>
+                                   <td className="px-8 py-4 text-right"><span className={`px-2 py-0.5 rounded text-[10px] font-black ${status >= 400 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{status}</span></td>
                                 </tr>
-                             ))
+                             )})
                           )}
                        </tbody>
                     </table>

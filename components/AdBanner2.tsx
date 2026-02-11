@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from './AppContext';
 
 // --- AdBanner2 (468x60) - Auto Scaling ---
 export const AdBanner2: React.FC = () => {

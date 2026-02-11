@@ -1,6 +1,6 @@
 
 import React, { useContext, useEffect, useRef } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from './AppContext';
 
 const AdBanner: React.FC = () => {
   const { showAds } = useContext(AppContext);
