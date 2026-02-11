@@ -840,7 +840,7 @@ const ScheduleTool: React.FC = () => {
                                </div>
                                
                                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                                   <p className="text-xs text-red-500 font-bold mb-2">危険な操作</p>
+                                   <p className="text-xs text-red-500 font-bold mb-2">管理</p>
                                    <button onClick={deleteEvent} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200 dark:border-red-800 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors">イベントを削除する</button>
                                </div>
                           </div>
