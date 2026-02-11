@@ -375,8 +375,8 @@ const ScheduleTool: React.FC = () => {
           else if (status === 1) tri++;
           else x++;
       });
-      // 全員参加可能か（回答者がいて、×が0）
-      const isPerfect = eventData.answers.length > 0 && x === 0 && o > 0;
+      // 全員参加可能か（回答者がいて、かつ全員が〇）
+      const isPerfect = eventData.answers.length > 0 && o === eventData.answers.length;
       return { o, tri, x, isPerfect };
   };
 
@@ -509,20 +509,8 @@ const ScheduleTool: React.FC = () => {
                                       </th>
                                   ))}
                               </tr>
-                              {/* Score Row */}
-                              <tr className="bg-teal-50 dark:bg-teal-900/20 sticky top-[calc(100%-2rem)] z-30"> 
-                                  {/* ↑ sticky top position needs specific height if row height is fixed, but here let's keep it simple or use JS for complex sticky header groups. For now, just styling. 
-                                      Better approach: The whole THEAD is sticky. The rows inside THEAD stack.
-                                  */}
-                                  <th className="p-2 border-b border-r border-teal-100 dark:border-teal-900 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-40 text-teal-800 dark:text-teal-200 font-bold text-right text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">回答</th>
-                                  {displayCandidates.map((cand) => (
-                                      <td key={cand.originalIndex} className={`p-2 border-b border-r border-teal-100 dark:border-teal-900 text-center font-bold text-teal-700 dark:text-teal-300 text-xs ${cand.stats.isPerfect ? 'bg-orange-100/50 dark:bg-orange-900/40' : ''}`}>
-                                          〇{cand.stats.o} / △{cand.stats.tri}
-                                      </td>
-                                  ))}
-                              </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="pb-12">
                               {eventData.answers.length === 0 ? (
                                   <tr><td colSpan={displayCandidates.length + 1} className="p-8 text-center text-gray-400 text-xs">まだ回答がありません</td></tr>
                               ) : eventData.answers.map((ans) => (
@@ -559,6 +547,17 @@ const ScheduleTool: React.FC = () => {
                                   </tr>
                               ))}
                           </tbody>
+                          {/* Score Row: Moved to tfoot for better sticky positioning */}
+                          <tfoot className="bg-teal-50 dark:bg-teal-900/20 sticky bottom-0 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+                              <tr>
+                                  <th className="p-2 border-t border-r border-teal-100 dark:border-teal-900 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-40 text-teal-800 dark:text-teal-200 font-bold text-right text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">回答</th>
+                                  {displayCandidates.map((cand) => (
+                                      <td key={cand.originalIndex} className={`p-2 border-t border-r border-teal-100 dark:border-teal-900 text-center font-bold text-teal-700 dark:text-teal-300 text-xs ${cand.stats.isPerfect ? 'bg-orange-100/50 dark:bg-orange-900/40' : ''}`}>
+                                          〇{cand.stats.o} / △{cand.stats.tri}
+                                      </td>
+                                  ))}
+                              </tr>
+                          </tfoot>
                       </table>
                   </div>
 
