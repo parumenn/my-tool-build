@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   CalendarCheck, Plus, Trash2, Calendar, Clock, 
   Link as LinkIcon, Check, Copy, User, MessageSquare, 
   ChevronLeft, ChevronRight, Share2, ExternalLink,
   Edit2, X, AlertCircle, Circle, XCircle, Triangle,
-  Info, ShieldCheck, Zap, Lock, Settings
+  Info, ShieldCheck, Zap, Lock, Settings, Filter, Star
 } from 'lucide-react';
 import AdBanner from '../AdBanner';
 import { WorkspaceContext } from '../WorkspaceContext';
@@ -67,6 +67,7 @@ const ScheduleTool: React.FC = () => {
   const [eventData, setEventData] = useState<ScheduleEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'perfect' | 'possible'>('all'); // 絞り込みモード
   
   // Admin / Auth States
   const [adminToken, setAdminToken] = useState<string | null>(urlToken);
@@ -364,6 +365,30 @@ const ScheduleTool: React.FC = () => {
       return str.startsWith('http://') || str.startsWith('https://');
   };
 
+  // --- Filtering Logic ---
+  const getCandidateStatus = (poll: PollOption, candIndex: number) => {
+      if (!eventData) return { o: 0, tri: 0, x: 0, isPerfect: false };
+      let o = 0, tri = 0, x = 0;
+      eventData.answers.forEach(ans => {
+          const status = ans.selections[poll.id]?.[candIndex]?.status;
+          if (status === 2) o++;
+          else if (status === 1) tri++;
+          else x++;
+      });
+      // 全員参加可能か（回答者がいて、×が0）
+      const isPerfect = eventData.answers.length > 0 && x === 0 && o > 0;
+      return { o, tri, x, isPerfect };
+  };
+
+  const filteredCandidates = (poll: PollOption) => {
+      return poll.candidates.map((cand, i) => ({ ...cand, originalIndex: i, stats: getCandidateStatus(poll, i) }))
+          .filter(c => {
+              if (filterMode === 'perfect') return c.stats.isPerfect;
+              if (filterMode === 'possible') return c.stats.x === 0 && eventData!.answers.length > 0;
+              return true;
+          });
+  };
+
   // --- Components ---
 
   const CalendarPicker = ({ onSelect }: { onSelect?: (d: Date) => void }) => {
@@ -423,6 +448,9 @@ const ScheduleTool: React.FC = () => {
       if (loading && !eventData) return <div className="p-10 text-center"><div className="animate-spin text-teal-500 text-4xl mx-auto mb-4">C</div>読み込み中...</div>;
       if (!eventData) return <div className="p-10 text-center text-red-500">イベントが見つかりません</div>;
 
+      const mainPoll = eventData.polls[0];
+      const displayCandidates = filteredCandidates(mainPoll);
+
       return (
           <div className={`mx-auto max-w-5xl pb-20 ${isWorkspace ? 'p-2' : 'space-y-6'}`}>
               <div className="bg-white dark:bg-dark-lighter rounded-3xl p-4 md:p-10 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -453,55 +481,62 @@ const ScheduleTool: React.FC = () => {
                       </div>
                   )}
 
+                  {/* Filter Controls */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+                      <button onClick={() => setFilterMode('all')} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterMode === 'all' ? 'bg-teal-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                          全表示
+                      </button>
+                      <button onClick={() => setFilterMode('perfect')} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterMode === 'perfect' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                          <Star size={12} fill="currentColor"/> 全員〇
+                      </button>
+                      <button onClick={() => setFilterMode('possible')} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterMode === 'possible' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                          <Filter size={12}/> 〇/△のみ
+                      </button>
+                  </div>
+
                   {/* Main Table */}
-                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-2xl relative max-h-[60vh]">
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-2xl relative max-h-[60vh] bg-white dark:bg-dark-lighter">
                       <table className="w-full text-sm text-left border-collapse">
-                          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-20 shadow-sm">
+                          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-30 shadow-sm">
                               <tr>
-                                  <th className="p-3 min-w-[120px] border-b border-r dark:border-gray-700 sticky left-0 bg-gray-50 dark:bg-gray-800 z-30 font-bold text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">参加者 / 候補</th>
-                                  {eventData.polls[0].candidates.map((cand, i) => (
-                                      <th key={i} className="p-2 min-w-[100px] border-b border-r dark:border-gray-700 font-bold text-center relative group text-xs whitespace-normal">
+                                  <th className="p-3 min-w-[120px] border-b border-r dark:border-gray-700 sticky left-0 bg-gray-50 dark:bg-gray-800 z-40 font-bold text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">参加者 / 候補</th>
+                                  {displayCandidates.map((cand) => (
+                                      <th key={cand.originalIndex} className={`p-2 min-w-[100px] border-b border-r dark:border-gray-700 font-bold text-center relative group text-xs whitespace-normal ${cand.stats.isPerfect ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
+                                          {cand.stats.isPerfect && <div className="absolute top-0 left-0 w-full h-1 bg-orange-400"></div>}
                                           <div className="text-gray-800 dark:text-white px-1">{cand.name}</div>
                                           {cand.note && <div className="text-[10px] text-gray-500 font-normal mt-1 truncate">{cand.note}</div>}
-                                          <button onClick={() => exportGoogleCalendar(eventData.polls[0], i)} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 p-1"><Calendar size={12}/></button>
+                                          <button onClick={() => exportGoogleCalendar(mainPoll, cand.originalIndex)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 p-1"><Calendar size={12}/></button>
                                       </th>
                                   ))}
                               </tr>
-                              {/* Score Row - Fixed overlapping issue with higher z-index for left column */}
-                              <tr className="bg-teal-50 dark:bg-teal-900/20">
-                                  <th className="p-2 border-b border-r border-teal-100 dark:border-teal-900 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-30 text-teal-800 dark:text-teal-200 font-bold text-right text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">回答</th>
-                                  {eventData.polls[0].candidates.map((_, i) => {
-                                      let countO = 0;
-                                      let countTri = 0;
-                                      eventData.answers.forEach(ans => {
-                                          const status = ans.selections[eventData.polls[0].id]?.[i]?.status;
-                                          if (status === 2) countO++;
-                                          else if (status === 1) countTri++;
-                                      });
-                                      
-                                      return (
-                                          <td key={i} className="p-2 border-b border-r border-teal-100 dark:border-teal-900 text-center font-bold text-teal-700 dark:text-teal-300 text-xs">
-                                              〇{countO} / △{countTri}
-                                          </td>
-                                      );
-                                  })}
+                              {/* Score Row */}
+                              <tr className="bg-teal-50 dark:bg-teal-900/20 sticky top-[calc(100%-2rem)] z-30"> 
+                                  {/* ↑ sticky top position needs specific height if row height is fixed, but here let's keep it simple or use JS for complex sticky header groups. For now, just styling. 
+                                      Better approach: The whole THEAD is sticky. The rows inside THEAD stack.
+                                  */}
+                                  <th className="p-2 border-b border-r border-teal-100 dark:border-teal-900 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-40 text-teal-800 dark:text-teal-200 font-bold text-right text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">回答</th>
+                                  {displayCandidates.map((cand) => (
+                                      <td key={cand.originalIndex} className={`p-2 border-b border-r border-teal-100 dark:border-teal-900 text-center font-bold text-teal-700 dark:text-teal-300 text-xs ${cand.stats.isPerfect ? 'bg-orange-100/50 dark:bg-orange-900/40' : ''}`}>
+                                          〇{cand.stats.o} / △{cand.stats.tri}
+                                      </td>
+                                  ))}
                               </tr>
                           </thead>
                           <tbody>
                               {eventData.answers.length === 0 ? (
-                                  <tr><td colSpan={eventData.polls[0].candidates.length + 1} className="p-8 text-center text-gray-400 text-xs">まだ回答がありません</td></tr>
+                                  <tr><td colSpan={displayCandidates.length + 1} className="p-8 text-center text-gray-400 text-xs">まだ回答がありません</td></tr>
                               ) : eventData.answers.map((ans) => (
                                   <tr key={ans.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                      <td className="p-3 border-b border-r dark:border-gray-700 sticky left-0 bg-white dark:bg-dark-lighter z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                      <td className="p-3 border-b border-r dark:border-gray-700 sticky left-0 bg-white dark:bg-dark-lighter z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                           <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">{ans.name}</div>
                                           {ans.comment && <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1"><MessageSquare size={8}/> {ans.comment}</div>}
                                       </td>
-                                      {eventData.polls[0].candidates.map((_, i) => {
-                                          const sel = ans.selections[eventData.polls[0].id]?.[i];
+                                      {displayCandidates.map((cand) => {
+                                          const sel = ans.selections[mainPoll.id]?.[cand.originalIndex];
                                           const status = sel?.status;
                                           const comment = sel?.comment;
                                           return (
-                                              <td key={i} className="p-2 border-b border-r dark:border-gray-700 text-center relative group">
+                                              <td key={cand.originalIndex} className={`p-2 border-b border-r dark:border-gray-700 text-center relative group ${cand.stats.isPerfect ? 'bg-orange-50/30 dark:bg-orange-900/10' : ''}`}>
                                                   <div className="flex flex-col items-center justify-center h-full">
                                                       {status === 2 ? <Circle className="text-red-500 fill-red-50 dark:fill-red-900/30" size={18} /> :
                                                        status === 1 ? <Triangle className="text-yellow-500 fill-yellow-50 dark:fill-yellow-900/30" size={18} /> :
@@ -513,7 +548,7 @@ const ScheduleTool: React.FC = () => {
                                                           </div>
                                                       )}
                                                       {comment && (
-                                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-gray-900 text-white text-[10px] rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-40">
+                                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-gray-900 text-white text-[10px] rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                                               {comment}
                                                           </div>
                                                       )}
@@ -546,19 +581,14 @@ const ScheduleTool: React.FC = () => {
                       </h3>
                       {/* Simple List for non-date polls */}
                       <div className="space-y-3">
-                          {poll.candidates.map((cand, i) => {
-                              let countO = 0;
-                              let countTri = 0;
-                              eventData.answers.forEach(ans => {
-                                  const status = ans.selections[poll.id]?.[i]?.status;
-                                  if (status === 2) countO++;
-                                  else if (status === 1) countTri++;
-                              });
-                              
+                          {filteredCandidates(poll).map((cand) => {
                               return (
-                                  <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 gap-2">
+                                  <div key={cand.originalIndex} className={`flex flex-col md:flex-row md:items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 gap-2 ${cand.stats.isPerfect ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' : 'bg-gray-50 dark:bg-gray-800'}`}>
                                       <div className="flex flex-col">
-                                          <span className="font-bold text-sm text-gray-700 dark:text-gray-200">{cand.name}</span>
+                                          <div className="flex items-center gap-2">
+                                              {cand.stats.isPerfect && <Star size={14} className="text-orange-500 fill-orange-500" />}
+                                              <span className="font-bold text-sm text-gray-700 dark:text-gray-200">{cand.name}</span>
+                                          </div>
                                           {cand.note && (
                                               isUrl(cand.note) ? (
                                                   <a href={cand.note} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline break-all flex items-center gap-1 mt-1">
@@ -571,11 +601,12 @@ const ScheduleTool: React.FC = () => {
                                       </div>
                                       <div className="flex items-center gap-2">
                                           <span className="text-xs font-bold text-gray-500">回答:</span>
-                                          <span className="text-sm font-black text-teal-600 dark:text-teal-400">〇{countO} / △{countTri}</span>
+                                          <span className="text-sm font-black text-teal-600 dark:text-teal-400">〇{cand.stats.o} / △{cand.stats.tri}</span>
                                       </div>
                                   </div>
                               );
                           })}
+                          {filteredCandidates(poll).length === 0 && <div className="text-center text-xs text-gray-400 p-4">該当する候補がありません</div>}
                       </div>
                   </div>
               ))}
