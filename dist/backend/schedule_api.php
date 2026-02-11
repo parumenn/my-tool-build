@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Schedule API
@@ -49,6 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
         'updated_at' => time()
     ];
 
+    // パスワードが設定されている場合ハッシュ化して保存
+    if (!empty($input['password'])) {
+        $data['password_hash'] = password_hash($input['password'], PASSWORD_DEFAULT);
+    }
+
     if (file_put_contents($filename, json_encode($data, JSON_UNESCAPED_UNICODE))) {
         echo json_encode([
             'status' => 'success',
@@ -72,15 +78,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get') {
     $filename = $DATA_DIR . '/' . $id . '.json';
     if (file_exists($filename)) {
         $data = json_decode(file_get_contents($filename), true);
-        // 管理者トークンは、閲覧時には隠す（編集権限確認は別途行う）
-        // クライアント側で token param がある場合のみ照合に使用するが、
-        // GETレスポンスには含めないのが安全。
-        // ただし簡易実装のため、admin_tokenは除外して返す。
-        // 編集・削除時にtokenをPOSTさせる。
+        
+        // パスワード保護の有無をクライアントに通知
+        $data['has_password'] = !empty($data['password_hash']);
+        
+        // センシティブな情報は削除して返す
         unset($data['admin_token']);
+        unset($data['password_hash']);
+        
         echo json_encode($data);
     } else {
         http_response_code(404); echo json_encode(['error' => 'Not Found']);
+    }
+    exit;
+}
+
+// --- Action: Auth (幹事ログイン) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'auth') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? '';
+    $password = $input['password'] ?? '';
+
+    $filename = $DATA_DIR . '/' . $id . '.json';
+    if (file_exists($filename)) {
+        $data = json_decode(file_get_contents($filename), true);
+        
+        // パスワードが設定されていない場合、誰でも管理者になれる
+        if (empty($data['password_hash'])) {
+            echo json_encode(['status' => 'success', 'admin_token' => $data['admin_token']]);
+            exit;
+        }
+
+        // パスワード照合
+        if (password_verify($password, $data['password_hash'])) {
+            echo json_encode(['status' => 'success', 'admin_token' => $data['admin_token']]);
+        } else {
+            http_response_code(401);
+            echo json_encode(['error' => 'パスワードが間違っています']);
+        }
+    } else {
+        http_response_code(404); echo json_encode(['error' => 'Not Found']);
+    }
+    exit;
+}
+
+// --- Action: Update Event ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? '';
+    $token = $input['token'] ?? '';
+    
+    $filename = $DATA_DIR . '/' . $id . '.json';
+    if (!file_exists($filename)) {
+        http_response_code(404); echo json_encode(['error' => 'Not Found']); exit;
+    }
+
+    // ファイルロック
+    $fp = fopen($filename, 'r+');
+    if (flock($fp, LOCK_EX)) {
+        $content = fread($fp, filesize($filename));
+        $data = json_decode($content, true);
+        
+        // 権限チェック
+        if (($data['admin_token'] ?? '') !== $token) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            http_response_code(403); 
+            echo json_encode(['error' => 'Invalid Token']);
+            exit;
+        }
+
+        // データの更新 (タイトル、説明、期限、ポーリング内容)
+        if (isset($input['title'])) $data['title'] = $input['title'];
+        if (isset($input['description'])) $data['description'] = $input['description'];
+        if (isset($input['deadline'])) $data['deadline'] = $input['deadline'];
+        
+        // アンケート項目の更新（回答の整合性を保つため、IDベースでマージするか、ここでは単純な上書きとするが要注意）
+        // 簡易実装として、既存の構造を維持しつつ上書き
+        if (isset($input['polls'])) {
+             $data['polls'] = $input['polls'];
+        }
+
+        $data['updated_at'] = time();
+
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, json_encode($data, JSON_UNESCAPED_UNICODE));
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        
+        echo json_encode(['status' => 'success']);
+    } else {
+        http_response_code(503); echo json_encode(['error' => 'Busy']);
     }
     exit;
 }
@@ -99,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'answer') {
         http_response_code(404); echo json_encode(['error' => 'Not Found']); exit;
     }
 
-    // ファイルロック機構（簡易）
+    // ファイルロック機構
     $fp = fopen($filename, 'r+');
     if (flock($fp, LOCK_EX)) {
         $content = fread($fp, filesize($filename));

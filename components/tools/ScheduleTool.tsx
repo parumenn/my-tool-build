@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
@@ -6,7 +5,7 @@ import {
   Link as LinkIcon, Check, Copy, User, MessageSquare, 
   ChevronLeft, ChevronRight, Share2, ExternalLink,
   Edit2, X, AlertCircle, Circle, XCircle, Triangle,
-  Info, ShieldCheck, Zap
+  Info, ShieldCheck, Zap, Lock, Settings
 } from 'lucide-react';
 import AdBanner from '../AdBanner';
 import { WorkspaceContext } from '../WorkspaceContext';
@@ -33,7 +32,8 @@ interface Answer {
 
 interface ScheduleEvent {
   id: string;
-  admin_token?: string;
+  admin_token?: string; // APIからは通常返されない（認証後のみ）
+  has_password?: boolean; // パスワード保護されているか
   title: string;
   description: string;
   deadline: string | null;
@@ -52,6 +52,7 @@ const ScheduleTool: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [createPassword, setCreatePassword] = useState(''); // 新規作成時のパスワード
   const [polls, setPolls] = useState<PollOption[]>([
     { id: 'p1', type: 'date', title: '日程候補', candidates: [] }
   ]);
@@ -65,7 +66,13 @@ const ScheduleTool: React.FC = () => {
   const [eventData, setEventData] = useState<ScheduleEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Admin / Auth States
+  const [adminToken, setAdminToken] = useState<string | null>(urlToken);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authPassword, setAuthPassword] = useState('');
+  const [isOrganizerMode, setIsOrganizerMode] = useState(false); // 編集モード表示フラグ
+  const [editEventData, setEditEventData] = useState<ScheduleEvent | null>(null); // 編集用データ
   
   // Answer Modal
   const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
@@ -74,7 +81,6 @@ const ScheduleTool: React.FC = () => {
   
   // Share
   const [shareUrl, setShareUrl] = useState('');
-  const [adminUrl, setAdminUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
   // Initialize
@@ -86,6 +92,13 @@ const ScheduleTool: React.FC = () => {
     }
   }, [eventId]);
 
+  // URLにトークンがある場合は管理者とみなす
+  useEffect(() => {
+    if (urlToken) {
+        setAdminToken(urlToken);
+    }
+  }, [urlToken]);
+
   const fetchEventData = async () => {
     setLoading(true);
     try {
@@ -93,7 +106,7 @@ const ScheduleTool: React.FC = () => {
       if (!res.ok) throw new Error('イベントが見つかりません');
       const data = await res.json();
       
-      // データ構造の正規化（古い文字列配列形式をオブジェクト配列形式に変換）
+      // データ構造の正規化
       if (data.polls) {
         data.polls = data.polls.map((poll: any) => ({
           ...poll,
@@ -104,7 +117,6 @@ const ScheduleTool: React.FC = () => {
       }
 
       setEventData(data);
-      if (urlToken) setIsAdmin(true);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -114,29 +126,28 @@ const ScheduleTool: React.FC = () => {
 
   // --- Create Functions ---
   
-  const addCandidate = (pollIndex: number, name: string, note: string = '') => {
-    const newPolls = [...polls];
-    // 重複チェックはnameのみで行う
+  const addCandidate = (pollIndex: number, name: string, note: string = '', setPollsFunc = setPolls, currentPolls = polls) => {
+    const newPolls = [...currentPolls];
     if (!newPolls[pollIndex].candidates.some(c => c.name === name)) {
       newPolls[pollIndex].candidates.push({ name, note });
-      // 日付順ソート (dateタイプの場合)
       if (newPolls[pollIndex].type === 'date') {
         newPolls[pollIndex].candidates.sort((a, b) => new Date(a.name.split(' ')[0]).getTime() - new Date(b.name.split(' ')[0]).getTime());
       }
-      setPolls(newPolls);
+      setPollsFunc(newPolls);
     }
   };
 
-  const removeCandidate = (pollIndex: number, candIndex: number) => {
-    const newPolls = [...polls];
+  const removeCandidate = (pollIndex: number, candIndex: number, setPollsFunc = setPolls, currentPolls = polls) => {
+    const newPolls = [...currentPolls];
     newPolls[pollIndex].candidates.splice(candIndex, 1);
-    setPolls(newPolls);
+    setPollsFunc(newPolls);
   };
 
-  const handleDateSelect = (date: Date) => {
+  // 汎用DateSelectハンドラ
+  const handleDateSelectGeneral = (date: Date, pollIndex: number, setPollsFunc: any, currentPolls: any) => {
     const dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} (${['日','月','火','水','木','金','土'][date.getDay()]})`;
     const val = isTimeEnabled ? `${dateStr} ${timeRange.start}〜${timeRange.end}` : dateStr;
-    addCandidate(0, val, ''); // 日程候補には備考は空で追加
+    addCandidate(pollIndex, val, '', setPollsFunc, currentPolls);
   };
 
   const handleCreate = async () => {
@@ -148,15 +159,18 @@ const ScheduleTool: React.FC = () => {
       const res = await fetch('./backend/schedule_api.php?action=create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, deadline, polls })
+        body: JSON.stringify({ 
+            title, 
+            description, 
+            deadline, 
+            polls,
+            password: createPassword // オプション
+        })
       });
       const data = await res.json();
       if (data.status === 'success') {
         const baseUrl = window.location.href.split('?')[0];
-        setShareUrl(`${baseUrl}?id=${data.id}`);
-        setAdminUrl(`${baseUrl}?id=${data.id}&token=${data.admin_token}`);
-        
-        // 完了画面へ（簡易的にadminUrlへリダイレクト）
+        // 作成後は管理者トークン付きでリダイレクト
         window.location.href = `${baseUrl}?id=${data.id}&token=${data.admin_token}`;
       }
     } catch (e) {
@@ -164,6 +178,97 @@ const ScheduleTool: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- Organizer / Admin Functions ---
+
+  const handleOrganizerLogin = async () => {
+    if (!eventData) return;
+    
+    // 既にトークンを持っている場合
+    if (adminToken) {
+        setIsOrganizerMode(true);
+        // 編集用データ初期化
+        setEditEventData(JSON.parse(JSON.stringify(eventData)));
+        return;
+    }
+
+    // パスワードがない場合は自動ログイン試行
+    if (!eventData.has_password) {
+        performAuth('');
+        return;
+    }
+
+    // パスワードがある場合はモーダル表示
+    setIsAuthModalOpen(true);
+  };
+
+  const performAuth = async (password: string) => {
+    try {
+        const res = await fetch('./backend/schedule_api.php?action=auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: eventId, password })
+        });
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            setAdminToken(data.admin_token);
+            setIsAuthModalOpen(false);
+            setAuthPassword('');
+            setIsOrganizerMode(true);
+            setEditEventData(JSON.parse(JSON.stringify(eventData))); // 編集用データ準備
+        } else {
+            alert(data.error || '認証に失敗しました');
+        }
+    } catch(e) {
+        alert('通信エラーが発生しました');
+    }
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editEventData || !adminToken) return;
+    if (!editEventData.title.trim()) { alert('タイトルは必須です'); return; }
+
+    setLoading(true);
+    try {
+        const res = await fetch('./backend/schedule_api.php?action=update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: eventId,
+                token: adminToken,
+                title: editEventData.title,
+                description: editEventData.description,
+                deadline: editEventData.deadline,
+                polls: editEventData.polls
+            })
+        });
+        if (res.ok) {
+            alert('イベントを更新しました');
+            setIsOrganizerMode(false);
+            fetchEventData();
+        } else {
+            alert('更新に失敗しました');
+        }
+    } catch (e) {
+        alert('通信エラー');
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const deleteEvent = async () => {
+      if(!confirm('本当にこのイベントを削除しますか？\nこの操作は取り消せません。')) return;
+      try {
+          await fetch('./backend/schedule_api.php?action=delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: eventId, token: adminToken })
+          });
+          const baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl;
+      } catch(e) { alert('削除失敗'); }
   };
 
   // --- View/Answer Functions ---
@@ -205,18 +310,6 @@ const ScheduleTool: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  const deleteEvent = async () => {
-      if(!confirm('本当に削除しますか？')) return;
-      try {
-          await fetch('./backend/schedule_api.php?action=delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: eventId, token: urlToken })
-          });
-          window.location.href = window.location.href.split('?')[0];
-      } catch(e) { alert('削除失敗'); }
-  };
-
   const exportGoogleCalendar = (poll: PollOption, candIndex: number) => {
       const cand = poll.candidates[candIndex];
       // Parse "2024/10/1 (Tue) 19:00〜21:00" -> ISO
@@ -252,7 +345,7 @@ const ScheduleTool: React.FC = () => {
 
   // --- Components ---
 
-  const CalendarPicker = () => {
+  const CalendarPicker = ({ onSelect }: { onSelect?: (d: Date) => void }) => {
     const year = pickerDate.getFullYear();
     const month = pickerDate.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
@@ -276,7 +369,7 @@ const ScheduleTool: React.FC = () => {
                     <button 
                         key={i} 
                         disabled={!d}
-                        onClick={() => d && handleDateSelect(d)}
+                        onClick={() => d && onSelect?.(d)}
                         className={`aspect-square rounded-md flex items-center justify-center text-xs font-bold transition-all ${
                             !d ? 'invisible' : 'bg-white dark:bg-gray-700 hover:bg-teal-100 dark:hover:bg-teal-900/50 shadow-sm text-gray-700 dark:text-gray-200'
                         }`}
@@ -306,7 +399,7 @@ const ScheduleTool: React.FC = () => {
 
   if (eventId) {
       // VIEW MODE
-      if (loading) return <div className="p-10 text-center"><div className="animate-spin text-teal-500 text-4xl mx-auto mb-4">C</div>読み込み中...</div>;
+      if (loading && !eventData) return <div className="p-10 text-center"><div className="animate-spin text-teal-500 text-4xl mx-auto mb-4">C</div>読み込み中...</div>;
       if (!eventData) return <div className="p-10 text-center text-red-500">イベントが見つかりません</div>;
 
       return (
@@ -317,19 +410,20 @@ const ScheduleTool: React.FC = () => {
                           <h1 className="text-xl md:text-2xl font-black text-gray-800 dark:text-white mb-2">{eventData.title}</h1>
                           <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm whitespace-pre-wrap">{eventData.description}</p>
                       </div>
-                      {isAdmin && (
-                          <div className="flex gap-2">
-                              <button onClick={() => {
-                                  const url = window.location.href.split('&token')[0];
-                                  navigator.clipboard.writeText(url);
-                                  setCopied(true);
-                                  setTimeout(() => setCopied(false), 2000);
-                              }} className="flex items-center gap-2 px-4 py-2 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-xl font-bold text-xs hover:bg-teal-200 transition-colors">
-                                  {copied ? <Check size={14}/> : <Share2 size={14}/>} URLコピー
-                              </button>
-                              <button onClick={deleteEvent} className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-xl hover:bg-red-200 transition-colors"><Trash2 size={16}/></button>
-                          </div>
-                      )}
+                      <div className="flex flex-wrap gap-2">
+                          <button onClick={() => {
+                              const url = window.location.href.split('&token')[0];
+                              navigator.clipboard.writeText(url);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                          }} className="flex items-center gap-2 px-4 py-2 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-xl font-bold text-xs hover:bg-teal-200 transition-colors">
+                              {copied ? <Check size={14}/> : <Share2 size={14}/>} URLコピー
+                          </button>
+                          
+                          <button onClick={handleOrganizerLogin} className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-xs hover:bg-gray-200 transition-colors">
+                              <Settings size={14} /> 幹事メニュー
+                          </button>
+                      </div>
                   </div>
 
                   {eventData.deadline && (
@@ -339,31 +433,34 @@ const ScheduleTool: React.FC = () => {
                   )}
 
                   {/* Main Table */}
-                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-2xl">
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-2xl relative max-h-[60vh]">
                       <table className="w-full text-sm text-left border-collapse">
-                          <thead>
-                              <tr className="bg-gray-50 dark:bg-gray-800">
-                                  <th className="p-3 min-w-[120px] border-b border-r dark:border-gray-700 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 font-bold text-xs">参加者 / 候補</th>
+                          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-20 shadow-sm">
+                              <tr>
+                                  <th className="p-3 min-w-[120px] border-b border-r dark:border-gray-700 sticky left-0 bg-gray-50 dark:bg-gray-800 z-30 font-bold text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">参加者 / 候補</th>
                                   {eventData.polls[0].candidates.map((cand, i) => (
-                                      <th key={i} className="p-2 min-w-[100px] border-b border-r dark:border-gray-700 font-bold text-center relative group text-xs">
-                                          <div className="text-gray-800 dark:text-white px-2">{cand.name}</div>
-                                          {/* 日程の場合は備考を表示しない、または必要に応じて表示 */}
+                                      <th key={i} className="p-2 min-w-[100px] border-b border-r dark:border-gray-700 font-bold text-center relative group text-xs whitespace-normal">
+                                          <div className="text-gray-800 dark:text-white px-1">{cand.name}</div>
                                           {cand.note && <div className="text-[10px] text-gray-500 font-normal mt-1 truncate">{cand.note}</div>}
                                           <button onClick={() => exportGoogleCalendar(eventData.polls[0], i)} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 p-1"><Calendar size={12}/></button>
                                       </th>
                                   ))}
                               </tr>
-                              {/* Score Row */}
+                              {/* Score Row - Fixed overlapping issue with higher z-index for left column */}
                               <tr className="bg-teal-50 dark:bg-teal-900/20">
-                                  <th className="p-2 border-b border-r dark:border-gray-700 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-10 text-teal-800 dark:text-teal-200 font-bold text-right text-xs">○の数</th>
+                                  <th className="p-2 border-b border-r border-teal-100 dark:border-teal-900 sticky left-0 bg-teal-50 dark:bg-teal-900/20 z-30 text-teal-800 dark:text-teal-200 font-bold text-right text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">回答</th>
                                   {eventData.polls[0].candidates.map((_, i) => {
-                                      const score = eventData.answers.reduce((acc, ans) => {
+                                      let countO = 0;
+                                      let countTri = 0;
+                                      eventData.answers.forEach(ans => {
                                           const status = ans.selections[eventData.polls[0].id]?.[i]?.status;
-                                          return acc + (status === 2 ? 1 : status === 1 ? 0.5 : 0);
-                                      }, 0);
+                                          if (status === 2) countO++;
+                                          else if (status === 1) countTri++;
+                                      });
+                                      
                                       return (
-                                          <td key={i} className="p-2 border-b border-r dark:border-gray-700 text-center font-black text-teal-600 dark:text-teal-400 text-sm">
-                                              {score}
+                                          <td key={i} className="p-2 border-b border-r border-teal-100 dark:border-teal-900 text-center font-bold text-teal-700 dark:text-teal-300 text-xs">
+                                              〇{countO} / △{countTri}
                                           </td>
                                       );
                                   })}
@@ -374,7 +471,7 @@ const ScheduleTool: React.FC = () => {
                                   <tr><td colSpan={eventData.polls[0].candidates.length + 1} className="p-8 text-center text-gray-400 text-xs">まだ回答がありません</td></tr>
                               ) : eventData.answers.map((ans) => (
                                   <tr key={ans.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                      <td className="p-3 border-b border-r dark:border-gray-700 sticky left-0 bg-white dark:bg-dark-lighter z-10">
+                                      <td className="p-3 border-b border-r dark:border-gray-700 sticky left-0 bg-white dark:bg-dark-lighter z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                           <div className="font-bold text-gray-800 dark:text-gray-200 text-xs">{ans.name}</div>
                                           {ans.comment && <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1"><MessageSquare size={8}/> {ans.comment}</div>}
                                       </td>
@@ -394,9 +491,8 @@ const ScheduleTool: React.FC = () => {
                                                               <MessageSquare size={10} className="text-blue-400" />
                                                           </div>
                                                       )}
-                                                      {/* Tooltip for cell comment */}
                                                       {comment && (
-                                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-gray-900 text-white text-[10px] rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-gray-900 text-white text-[10px] rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-40">
                                                               {comment}
                                                           </div>
                                                       )}
@@ -430,10 +526,14 @@ const ScheduleTool: React.FC = () => {
                       {/* Simple List for non-date polls */}
                       <div className="space-y-3">
                           {poll.candidates.map((cand, i) => {
-                              const score = eventData.answers.reduce((acc, ans) => {
-                                  const s = ans.selections[poll.id]?.[i]?.status;
-                                  return acc + (s === 2 ? 1 : s === 1 ? 0.5 : 0);
-                              }, 0);
+                              let countO = 0;
+                              let countTri = 0;
+                              eventData.answers.forEach(ans => {
+                                  const status = ans.selections[poll.id]?.[i]?.status;
+                                  if (status === 2) countO++;
+                                  else if (status === 1) countTri++;
+                              });
+                              
                               return (
                                   <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 gap-2">
                                       <div className="flex flex-col">
@@ -449,8 +549,8 @@ const ScheduleTool: React.FC = () => {
                                           )}
                                       </div>
                                       <div className="flex items-center gap-2">
-                                          <span className="text-xs font-bold text-gray-500">スコア:</span>
-                                          <span className="text-lg font-black text-teal-600">{score}</span>
+                                          <span className="text-xs font-bold text-gray-500">回答:</span>
+                                          <span className="text-sm font-black text-teal-600 dark:text-teal-400">〇{countO} / △{countTri}</span>
                                       </div>
                                   </div>
                               );
@@ -548,6 +648,122 @@ const ScheduleTool: React.FC = () => {
                       </div>
                   </div>
               )}
+
+              {/* Auth Modal (Password Prompt) */}
+              {isAuthModalOpen && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                      <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-3xl shadow-2xl p-6 border border-gray-100 dark:border-gray-700">
+                          <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-4">幹事ログイン</h3>
+                          <p className="text-xs text-gray-500 mb-4">このイベントにはパスワードが設定されています。</p>
+                          <input 
+                              type="password" 
+                              value={authPassword}
+                              onChange={e => setAuthPassword(e.target.value)}
+                              className="w-full p-3 mb-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              placeholder="パスワード"
+                          />
+                          <div className="flex gap-2">
+                              <button onClick={() => setIsAuthModalOpen(false)} className="flex-1 py-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-sm">キャンセル</button>
+                              <button onClick={() => performAuth(authPassword)} className="flex-1 py-2 bg-teal-600 text-white rounded-xl font-bold text-sm">認証</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* Organizer / Edit Mode Modal */}
+              {isOrganizerMode && editEventData && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                      <div className="bg-white dark:bg-gray-800 w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+                          <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+                              <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2"><Settings size={18}/> 幹事用メニュー</h3>
+                              <button onClick={() => setIsOrganizerMode(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"><X size={20}/></button>
+                          </div>
+                          <div className="p-6 overflow-y-auto flex-1 space-y-8">
+                               {/* Edit Form */}
+                               <div className="space-y-4">
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 mb-1">イベント名</label>
+                                       <input type="text" value={editEventData.title} onChange={e => setEditEventData({...editEventData, title: e.target.value})} className="w-full p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold" />
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 mb-1">詳細 / メモ</label>
+                                       <textarea value={editEventData.description} onChange={e => setEditEventData({...editEventData, description: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm h-20 resize-none" />
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs font-bold text-gray-500 mb-1">回答期限</label>
+                                       <input type="datetime-local" value={editEventData.deadline || ''} onChange={e => setEditEventData({...editEventData, deadline: e.target.value})} className="w-full md:w-auto p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" />
+                                   </div>
+                               </div>
+
+                               <hr className="border-gray-100 dark:border-gray-800" />
+
+                               <div className="space-y-6">
+                                   <h4 className="font-bold text-base text-gray-700 dark:text-gray-300">アンケート項目の編集</h4>
+                                   {editEventData.polls.map((poll, pIdx) => (
+                                       <div key={poll.id} className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                                           <input 
+                                                type="text" 
+                                                value={poll.title} 
+                                                onChange={e => {
+                                                    const newPolls = [...editEventData.polls];
+                                                    newPolls[pIdx].title = e.target.value;
+                                                    setEditEventData({...editEventData, polls: newPolls});
+                                                }}
+                                                className="w-full bg-transparent border-b border-gray-300 dark:border-gray-600 py-1 font-bold text-base focus:border-teal-500 outline-none text-gray-800 dark:text-white mb-3"
+                                           />
+                                           {/* Candidates */}
+                                           <div className="space-y-2">
+                                                {poll.candidates.map((cand, cIdx) => (
+                                                    <div key={cIdx} className="flex gap-2">
+                                                        <input 
+                                                            type="text" 
+                                                            value={cand.name} 
+                                                            onChange={e => {
+                                                                const newPolls = [...editEventData.polls];
+                                                                newPolls[pIdx].candidates[cIdx].name = e.target.value;
+                                                                setEditEventData({...editEventData, polls: newPolls});
+                                                            }}
+                                                            className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                                                        />
+                                                        {/* 削除機能は回答整合性のため慎重に。ここでは簡易的にUI非表示にしておくか、追加のみとするのが無難だが、要望通り編集可能にする */}
+                                                    </div>
+                                                ))}
+                                                {/* 追加UI */}
+                                                <div className="flex gap-2 mt-2">
+                                                     <input type="text" id={`new-cand-name-${pIdx}`} className="flex-1 p-2 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm" placeholder="新しい候補名" />
+                                                     <button 
+                                                        onClick={() => {
+                                                            const el = document.getElementById(`new-cand-name-${pIdx}`) as HTMLInputElement;
+                                                            if (el.value) {
+                                                                const newPolls = [...editEventData.polls];
+                                                                newPolls[pIdx].candidates.push({ name: el.value, note: '' });
+                                                                setEditEventData({...editEventData, polls: newPolls});
+                                                                el.value = '';
+                                                            }
+                                                        }}
+                                                        className="px-3 bg-teal-600 text-white rounded text-xs font-bold"
+                                                     >追加</button>
+                                                </div>
+                                           </div>
+                                       </div>
+                                   ))}
+                                   
+                                   {/* Poll 追加ボタンは複雑になるため省略するか、必要なら実装 */}
+                               </div>
+                               
+                               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                                   <p className="text-xs text-red-500 font-bold mb-2">危険な操作</p>
+                                   <button onClick={deleteEvent} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200 dark:border-red-800 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors">イベントを削除する</button>
+                               </div>
+                          </div>
+                          <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 flex gap-4">
+                              <button onClick={() => setIsOrganizerMode(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">キャンセル</button>
+                              <button onClick={handleUpdateEvent} className="flex-1 py-3 bg-teal-600 text-white font-black rounded-xl shadow-lg hover:bg-teal-700 transition-all text-sm">変更を保存</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {!isWorkspace && <AdBanner />}
           </div>
       );
@@ -583,6 +799,20 @@ const ScheduleTool: React.FC = () => {
                 className="w-full md:w-auto p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" 
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">幹事用パスワード (任意)</label>
+              <div className="flex items-center gap-2">
+                  <Lock size={16} className="text-gray-400" />
+                  <input 
+                    type="password" 
+                    value={createPassword} 
+                    onChange={e => setCreatePassword(e.target.value)} 
+                    className="w-full md:w-auto p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" 
+                    placeholder="編集・削除時に必要"
+                  />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">設定しない場合、URLを知っている全員が編集可能になります。</p>
+            </div>
           </div>
 
           <hr className="border-gray-100 dark:border-gray-800" />
@@ -604,7 +834,7 @@ const ScheduleTool: React.FC = () => {
 
                 {poll.type === 'date' ? (
                   <div className="flex flex-col md:flex-row gap-4">
-                    <div className="shrink-0 w-full md:w-auto"><CalendarPicker /></div>
+                    <div className="shrink-0 w-full md:w-auto"><CalendarPicker onSelect={(d) => handleDateSelectGeneral(d, pIdx, setPolls, polls)} /></div>
                     <div className="flex-1">
                       <div className="text-[10px] font-bold text-gray-400 uppercase mb-2">選択された候補</div>
                       <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
