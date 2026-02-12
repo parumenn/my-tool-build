@@ -74,9 +74,7 @@ call npm run build
 
 echo --- 2. 手元の変更をGitに記録します ---
 
-git add -f dist/
-
-git add .
+git add --all -- ":!README.md"
 
 set datetime=%date% %time%
 
@@ -84,7 +82,7 @@ git commit -m "deploy update %datetime%"
 
 
 
-echo --- 3. GitHubへ強制的に同期します ---
+echo --- 3. GitHubへ同期します ---
 
 git push -f origin master
 
@@ -92,6 +90,6 @@ git push -f origin master
 
 popd
 
-echo --- 完了 ---
+echo --- 完了 　何かキーを押してください---
 
 pause
