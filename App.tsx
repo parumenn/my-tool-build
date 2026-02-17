@@ -70,8 +70,7 @@ const Layout: React.FC = () => {
     const saved = localStorage.getItem('addedTools');
     return saved ? JSON.parse(saved) : ['freebord', 'bundle', 'qrcode', 'count'];
   });
-  // showAdsをlocalStorageと同期するように初期化
-  const [showAds, setShowAds] = useState(() => localStorage.getItem('showAds') !== 'false');
+  const [showAds, setShowAds] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [isTermsChecked, setIsTermsChecked] = useState(false);
   
@@ -83,11 +82,6 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   const isAdminPath = location.pathname === '/secure-panel-7x9v2';
-
-  // showAdsが変更されたらlocalStorageに保存
-  useEffect(() => {
-    localStorage.setItem('showAds', String(showAds));
-  }, [showAds]);
 
   // 通信エラーを回避するため、解析を行わず非同期で送信のみを行う（バックエンド側の修正と合わせて確実にクローズ）
   useEffect(() => {
