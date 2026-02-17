@@ -376,6 +376,7 @@ const ScheduleTool: React.FC = () => {
           else x++;
       });
       // 全員参加可能か（回答者がいて、かつ全員が〇）
+      // 修正: △もNGとするため、oの数が回答者数と一致する必要がある（△はtriにカウントされ、oには含まれない）
       const isPerfect = eventData.answers.length > 0 && o === eventData.answers.length;
       return { o, tri, x, isPerfect };
   };
@@ -384,6 +385,7 @@ const ScheduleTool: React.FC = () => {
       return poll.candidates.map((cand, i) => ({ ...cand, originalIndex: i, stats: getCandidateStatus(poll, i) }))
           .filter(c => {
               if (filterMode === 'perfect') return c.stats.isPerfect;
+              // possible: 〇または△のみ (×が0)
               if (filterMode === 'possible') return c.stats.x === 0 && eventData!.answers.length > 0;
               return true;
           });
@@ -546,6 +548,8 @@ const ScheduleTool: React.FC = () => {
                                       })}
                                   </tr>
                               ))}
+                              {/* Spacer Row for sticky footer overlap prevention */}
+                              <tr className="h-12 bg-transparent border-0"><td colSpan={displayCandidates.length + 1}></td></tr>
                           </tbody>
                           {/* Score Row: Moved to tfoot for better sticky positioning */}
                           <tfoot className="bg-teal-50 dark:bg-teal-900/20 sticky bottom-0 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
@@ -840,7 +844,7 @@ const ScheduleTool: React.FC = () => {
                                </div>
                                
                                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                                   <p className="text-xs text-red-500 font-bold mb-2">管理</p>
+                                   <p className="text-xs text-red-500 font-bold mb-2">危険な操作</p>
                                    <button onClick={deleteEvent} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200 dark:border-red-800 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors">イベントを削除する</button>
                                </div>
                           </div>

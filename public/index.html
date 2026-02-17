@@ -13,7 +13,6 @@
     <link rel="apple-touch-icon" href="/favicon.svg">
     
     <!-- CSSを最優先で読み込み、App Shellを表示 -->
-        
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
       tailwind.config = {
@@ -35,12 +34,12 @@
       }
     </script>
     
-    <!-- Google AdSense (Conditional Load) -->
+    <!-- Google AdSense (Conditional Load based on localStorage) -->
     <script>
       (function() {
         try {
           var showAds = localStorage.getItem('showAds');
-          // デフォルトON (null) または 'true' の場合のみ読み込み
+          // showAdsが 'false' でない場合（null=デフォルトON含む）のみ読み込み
           if (showAds !== 'false') {
             var script = document.createElement('script');
             script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8961158026153736";
@@ -101,7 +100,6 @@
 }
 </script>
   <link rel="stylesheet" href="./index.css">
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 text-slate-800 antialiased dark:bg-dark dark:text-gray-100 transition-colors duration-200">
     <div id="root">
@@ -125,6 +123,5 @@
       </div>
     </div>
     <script type="module" src="./index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
