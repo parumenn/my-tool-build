@@ -70,13 +70,7 @@ const Layout: React.FC = () => {
     const saved = localStorage.getItem('addedTools');
     return saved ? JSON.parse(saved) : ['freebord', 'bundle', 'qrcode', 'count'];
   });
-  
-  // 広告設定をlocalStorageから読み込み (デフォルトはtrue)
-  const [showAds, setShowAds] = useState(() => {
-    const saved = localStorage.getItem('showAds');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-
+  const [showAds, setShowAds] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [isTermsChecked, setIsTermsChecked] = useState(false);
   
@@ -127,25 +121,6 @@ const Layout: React.FC = () => {
     theme === 'dark' ? root.classList.add('dark') : root.classList.remove('dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  // 広告設定の保存
-  useEffect(() => {
-    localStorage.setItem('showAds', JSON.stringify(showAds));
-  }, [showAds]);
-
-  // AdSenseスクリプトの注入制御
-  useEffect(() => {
-    if (showAds) {
-      // 既にスクリプトがあるか確認して重複防止
-      if (!document.querySelector('script[src*="adsbygoogle"]')) {
-        const script = document.createElement('script');
-        script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8961158026153736";
-        script.async = true;
-        script.crossOrigin = "anonymous";
-        document.head.appendChild(script);
-      }
-    }
-  }, [showAds]);
 
   const handleConsent = () => {
     if (!isTermsChecked) return;
