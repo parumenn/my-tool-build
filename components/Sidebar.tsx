@@ -50,7 +50,6 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         <span>ダッシュボード</span>
       </NavLink>
 
-      <AdBanner2 />
       <div className="border-b border-gray-100 dark:border-gray-800 my-3"></div>
 
       <div className="pt-2 pb-2 px-4 flex items-center justify-between">
@@ -106,7 +105,6 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
         )}
       </div>
       
-      <AdBanner2 />
       <div className="pt-4 mt-auto space-y-1 border-t border-gray-100 dark:border-gray-800">
         <p className="px-4 py-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
           いんふぉ
@@ -134,7 +132,6 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ addedToolIds, on
           <span>設定</span>
         </NavLink>
       </div>
-      <AdBanner2 />
     </nav>
   );
 };
