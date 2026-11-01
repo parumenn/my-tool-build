@@ -12,6 +12,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # 普段使っているNodeのバージョン（18や22など）に合わせてください
+
+      - name: Install dependencies and Build
+        run: |
+          npm ci
+          npm run build
       
       - name: Log in to GHCR
         uses: docker/login-action@v3
