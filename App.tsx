@@ -286,12 +286,12 @@ const Layout: React.FC = () => {
 
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-dark-lighter border-r border-gray-200 dark:border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block ${sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
           <div className="flex h-16 items-center justify-between px-4 border-b dark:border-gray-800 bg-white dark:bg-dark-lighter shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-1.5 rounded-lg text-white"><LayoutGrid size={20} /></div>
-              <h1 className="text-lg font-black tracking-tight">まいつーる</h1>
-            </div>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-gray-400">✕</button>
-          </div>
+          <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-opacity">
+            <div className="bg-blue-600 p-1.5 rounded-lg text-white"><LayoutGrid size={20} /></div>
+            <h1 className="text-lg font-black tracking-tight">まいつーる</h1>
+          </Link>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-gray-400">✕</button>
+        </div>
           <div className="h-[calc(100vh-64px)] flex flex-col">
             <Suspense fallback={<div className="p-4 space-y-4">{[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800/50 rounded-xl animate-pulse" />)}</div>}>
               <SidebarContent addedToolIds={addedTools} onReorder={setAddedTools} onClose={() => setSidebarOpen(false)} />
