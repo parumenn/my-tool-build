@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.4.27-apache
 
 # フロントエンドのビルド結果をコピー
 COPY dist /var/www/html/
