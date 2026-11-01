@@ -7,7 +7,8 @@
 ![Hardware](https://img.shields.io/badge/ハードウェア-Raspberry--pi%20%2F%20mini--PC-red.svg)
 
 ## ▼ 公開URL
-**[https://parumenn.server-on.net/](https://parumenn.server-on.net/)**
+* **新公開URL**: [https://mytool.parumenn.com/](https://mytool.parumenn.com/)
+* **注意事項**: 旧ドメイン（ `https://parumenn.server-on.net/` ）は一定期間の経過後に閉鎖されます。お手数ですが、ブックマーク等の変更をお願いいたします。
 
 ---
 
