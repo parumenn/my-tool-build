@@ -1,4 +1,3 @@
-
 <?php
 // security.php
 // 共通セキュリティロジック（IPブロック、DOS検知）
