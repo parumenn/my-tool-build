@@ -25,4 +25,23 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/parumenn/my-tool-build:latest
+          # latestだけでなく、一意のコミットハッシュもタグとして付与する
+          tags: |
+            ghcr.io/parumenn/my-tool-build:latest
+            ghcr.io/parumenn/my-tool-build:${{ github.sha }}
+      
+      - name: Update Manifest Repository
+        run: |
+          # マニフェストリポジトリをクローン（先ほど登録したシークレットを使用）
+          git clone https://x-access-token:${{ secrets.MANIFEST_TOKEN }}@github.com/parumenn/my-tool-manifest.git
+          cd my-tool-manifest
+          
+          # my-tool.yaml の image 行を、今回ビルドした最新のハッシュタグに書き換える
+          sed -i "s|image: ghcr.io/parumenn/my-tool-build:.*|image: ghcr.io/parumenn/my-tool-build:${{ github.sha }}|g" my-tool.yaml
+          
+          # 変更をコミットしてマニフェストリポジトリへ自動Push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add my-tool.yaml
+          git commit -m "auto-update: my-tool image tag to ${{ github.sha }}"
+          git push
