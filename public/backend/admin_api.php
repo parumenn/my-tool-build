@@ -1,4 +1,3 @@
-
 <?php
 // admin_api.php
 // セキュリティチェックロジックを security.php に委譲
