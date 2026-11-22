@@ -42,6 +42,28 @@ interface RoomMeta {
 
 const USER_COLORS = ['#2563eb', '#059669', '#dc2626', '#7c3aed', '#ea580c', '#0891b2', '#be185d'];
 
+const ANIMALS = ['パンダ', 'キリン', 'ゾウ', 'ライオン', 'トラ', 'ウサギ', 'コアラ', 'ペンギン', 'フクロウ', 'キツネ', 'タヌキ', 'シカ', 'クマ', 'ネコ', 'イヌ', 'カバ', 'ワニ', 'サル', 'リス', 'モグラ'];
+const NAME_KEY = 'maitool_realtime_memo_name';
+const COLOR_KEY = 'maitool_realtime_memo_color';
+
+function loadIdentity(): { name: string; color: string } {
+  let name = '';
+  let color = '';
+  try {
+    name = localStorage.getItem(NAME_KEY) || '';
+    color = localStorage.getItem(COLOR_KEY) || '';
+  } catch { /* 取得できない場合は新規生成 */ }
+  if (!name) {
+    name = `${ANIMALS[Math.floor(Math.random() * ANIMALS.length)]}-${Math.floor(10 + Math.random() * 90)}`;
+    try { localStorage.setItem(NAME_KEY, name); } catch { /* 保存できなくても表示はする */ }
+  }
+  if (!color) {
+    color = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+    try { localStorage.setItem(COLOR_KEY, color); } catch { /* 同上 */ }
+  }
+  return { name, color };
+}
+
 function loadSavedRooms(): SavedRoom[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -89,6 +111,10 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
   const [joinToken, setJoinToken] = useState<string | null>(() => sessionStorage.getItem(`collab_join_${id}`));
   const [connStatus, setConnStatus] = useState('connecting');
   const [participants, setParticipants] = useState(0);
+  const [peerNames, setPeerNames] = useState<{ name: string; color: string }[]>([]);
+  const [identity, setIdentity] = useState<{ name: string; color: string }>(() => loadIdentity());
+  const [nameDraft, setNameDraft] = useState('');
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [charCount, setCharCount] = useState(0);
   const [copiedLabel, copy] = useCopy();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -152,11 +178,13 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
       },
     );
     providerRef.current = provider;
-    const color = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
-    const name = `ゲスト-${Math.floor(1000 + Math.random() * 9000)}`;
-    provider.awareness.setLocalStateField('user', { name, color });
+    provider.awareness.setLocalStateField('user', { name: identity.name, color: identity.color });
     provider.on('status', (ev: { status: string }) => setConnStatus(ev.status));
-    const onAwareness = () => setParticipants(provider.awareness.getStates().size);
+    const onAwareness = () => {
+      const states = Array.from(provider.awareness.getStates().values());
+      setParticipants(states.length);
+      setPeerNames(states.map((s: any) => s.user).filter((u: any) => u && u.name));
+    };
     provider.awareness.on('change', onAwareness);
     const onText = () => setCharCount(ytext.length);
     ytext.observe(onText);
@@ -190,6 +218,31 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, id]);
+
+  // 名前・色が変わったら参加者情報（カーソル表示）へ即反映
+  useEffect(() => {
+    providerRef.current?.awareness.setLocalStateField('user', { name: identity.name, color: identity.color });
+  }, [identity]);
+
+  // ブラウザのオンライン/オフライン監視
+  useEffect(() => {
+    const on = () => setIsOffline(false);
+    const off = () => setIsOffline(true);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+
+  const applyName = () => {
+    const next = nameDraft.trim();
+    if (!next) return;
+    try { localStorage.setItem(NAME_KEY, next); } catch { /* 保存できなくても表示はする */ }
+    setIdentity((prev) => ({ ...prev, name: next }));
+    setNameDraft('');
+  };
 
   const handleDelete = async () => {
     if (!manageToken) return;
@@ -253,7 +306,8 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
     );
   }
 
-  const statusLabel = connStatus === 'connected' ? '接続中' : connStatus === 'connecting' ? '接続しています...' : '切断（再接続中）';
+  const statusLabel = isOffline ? 'オフライン' : connStatus === 'connected' ? '接続中' : connStatus === 'connecting' ? '接続しています...' : '切断（再接続中）';
+  const showOfflineWarning = isOffline || connStatus === 'disconnected';
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       <div className="bg-white dark:bg-dark-lighter rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-gray-100 dark:border-gray-700 transition-all">
@@ -264,7 +318,7 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
           </h2>
           <div className="flex items-center gap-4 text-xs font-bold text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${connStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+              <span className={`w-2.5 h-2.5 rounded-full ${isOffline || connStatus === 'disconnected' ? 'bg-red-500' : connStatus === 'connected' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
               {statusLabel}（{participants}人）
             </span>
             <span>{charCount.toLocaleString()}文字</span>
@@ -275,6 +329,48 @@ const RoomView: React.FC<{ id: string }> = ({ id }) => {
               </span>
             )}
           </div>
+        </div>
+        {showOfflineWarning && (
+          <div className="mb-4 px-4 py-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-bold flex items-start gap-2">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+            <span>
+              {isOffline
+                ? 'オフラインです。ネットワーク接続を確認してください。接続が戻るまで、編集内容は他の参加者に届きません。'
+                : 'サーバーとの接続が切れています。再接続を自動で試みています。再接続するまで、編集内容は他の参加者に届きません。'}
+            </span>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-500 dark:text-gray-400">
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: identity.color }} />
+            あなたの名前：
+            <span className="text-gray-800 dark:text-gray-100">{identity.name}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyName(); } }}
+              placeholder="名前を変更"
+              maxLength={20}
+              className="w-36 px-3 py-1.5 rounded-lg border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs font-bold text-gray-900 dark:text-white focus:border-emerald-500 outline-none transition-all"
+            />
+            <button type="button" onClick={applyName} disabled={!nameDraft.trim() || nameDraft.trim() === identity.name} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-30 transition-all active:scale-95">
+              変更
+            </button>
+          </div>
+          {peerNames.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
+              参加中：
+              {peerNames.map((u, i) => (
+                <span key={i} className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: u.color }} />
+                  {u.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div ref={editorRef} className="rounded-2xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden" />
         <div className="flex flex-wrap gap-2 mt-5">

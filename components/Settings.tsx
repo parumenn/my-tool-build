@@ -21,6 +21,8 @@ const Settings: React.FC = () => {
       'theme', 'addedTools', 'showAds',
       'maitool_notes',
       'maitool_realtime_memo_rooms',
+      'maitool_realtime_memo_name',
+      'maitool_realtime_memo_color',
       'kakeibo_transactions', 'kakeibo_subs', 'kakeibo_goals'
     ];
 
