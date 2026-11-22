@@ -253,7 +253,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { id, manageToken, readToken, retention, expiresAt: meta.expiresAt });
     }
 
-    const m = p.match(/^\/collab-api\/rooms\/([a-f0-9]{16})(?:\/(join))?$/);
+    const m = p.match(/^\/collab-api\/rooms\/([a-f0-9]{16})(?:\/(join|meta))?$/);
     if (m) {
       const id = m[1];
       const meta = loadMeta(id);
@@ -261,7 +261,7 @@ const server = http.createServer(async (req, res) => {
         if (meta && isExpired(meta)) deleteRoom(id);
         return json(res, 404, { error: 'not_found' });
       }
-      if (req.method === 'GET' && !m[2]) {
+      if (req.method === 'GET' && (!m[2] || m[2] === 'meta')) {
         touchAccess(meta);
         return json(res, 200, {
           exists: true, hasPassword: !!meta.passHash, retention: meta.retention,
