@@ -20,6 +20,7 @@ const Settings: React.FC = () => {
     const keysToBackup = [
       'theme', 'addedTools', 'showAds',
       'maitool_notes',
+      'maitool_realtime_memo_rooms',
       'kakeibo_transactions', 'kakeibo_subs', 'kakeibo_goals'
     ];
 

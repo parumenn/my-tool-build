@@ -6,7 +6,7 @@ import {
   FileJson, FileType, Calculator, Trophy, Stamp, Dices, BoxSelect, 
   Fingerprint, Type, Disc, ArrowRightLeft, ImageOff, Hash, Search, 
   BookOpen, ListTodo, FileStack, Code, Database, CalendarDays, Globe, 
-  Pipette, Bath, Share2, Layers, Monitor, TrendingUp, CalendarCheck
+  Pipette, Bath, Share2, Layers, Monitor, TrendingUp, CalendarCheck, Users
 } from 'lucide-react';
 import { Tool } from '../types';
 
@@ -16,6 +16,7 @@ export const TOOLS: Tool[] = [
   { id: 'qrcode', name: 'QRコード生成', path: '/qrcode', description: 'URLを入力してQRコードを作成', icon: QrCode, color: 'text-blue-500', lightBg: 'bg-blue-50' },
   { id: 'bundle', name: 'URLまとめURL', path: '/bundle', description: '複数URLを1つのリンクに集約', icon: Layers, color: 'text-cyan-500', lightBg: 'bg-cyan-50' },
   { id: 'share', name: 'テキスト共有', path: '/share', description: '期限付きURLでテキストを共有', icon: Share2, color: 'text-emerald-500', lightBg: 'bg-emerald-50' },
+  { id: 'realtime-memo', name: 'リアルタイム共有メモ', path: '/realtime-memo', description: '開いた全員で同時に編集できるメモ', icon: Users, color: 'text-emerald-600', lightBg: 'bg-emerald-50' },
   { id: 'freebord', name: 'マイボード', path: '/freebord/', description: 'PC専用ページ：多機能付箋ボードです', icon: Monitor, color: 'text-indigo-500', lightBg: 'bg-indigo-50', isExternal: true, hideOnMobile: true },
   { id: 'count', name: '文字数カウンター', path: '/count', description: 'リアルタイムで文字数・行数をカウント', icon: AlignLeft, color: 'text-green-500', lightBg: 'bg-green-50' },
   { id: 'bath', name: '風呂キャン防止ツール', path: '/bath', description: '5秒で強制的に風呂へ向かわせる', icon: Bath, color: 'text-cyan-500', lightBg: 'bg-cyan-50' },

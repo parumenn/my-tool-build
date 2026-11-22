@@ -1,0 +1,1 @@
+{"dependencies":{"lib0":"^0.2.99","ws":"^8.18.0","y-leveldb":"^0.2.0","y-protocols":"^1.0.6","yjs":"^13.6.20"},"description":"まいつーる リアルタイム共有メモ用 WebSocket/CRDT サーバ","main":"server.js","name":"mytool-collab-server","private":true,"scripts":{"start":"node server.js"},"version":"1.0.0"}
