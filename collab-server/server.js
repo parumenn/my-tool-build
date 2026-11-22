@@ -276,7 +276,8 @@ const server = http.createServer(async (req, res) => {
         }
         return json(res, 401, { error: 'wrong_password' });
       }
-      const manageOk = req.headers['x-manage-token'] && sha256(req.headers['x-manage-token']) === meta.manageHash;
+      const manageTokenIn = req.headers['x-manage-token'] || url.searchParams.get('manageToken') || '';
+      const manageOk = !!manageTokenIn && sha256(manageTokenIn) === meta.manageHash;
       if (req.method === 'DELETE' && !m[2]) {
         if (!manageOk) return json(res, 403, { error: 'forbidden' });
         await deleteRoom(id);
