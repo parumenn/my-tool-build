@@ -164,11 +164,11 @@ const Layout: React.FC = () => {
                   <div className="flex gap-4">
                     <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0 h-fit"><CheckCircle2 size={18} /></div>
                     <div>
-                      <p className="font-black text-xs text-slate-800 dark:text-white">{isJP ? 'データはすべてブラウザ内に保存' : 'All data stays in your browser'}</p>
+                      <p className="font-black text-xs text-slate-800 dark:text-white">{isJP ? 'データは原則ブラウザ内に保存' : 'Data stays in your browser, with a few exceptions'}</p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
                         {isJP 
-                          ? '各アプリで入力されたデータはサーバーに送信・保存されることはありません。ローカル環境で動作するためご利用のブラウザに依存します。' 
-                          : 'Data entered in each app is not sent to or stored on our servers. It operates locally and depends on the browser you use.'}
+                          ? 'ほとんどのアプリで入力されたデータはサーバーに送信・保存されることはありません。ただし、リアルタイム共有メモ・テキスト共有・URLまとめURLなど、URLで共有するツールでは、共有のために入力内容をサーバーに保存します。詳しくはプライバシーポリシーをご覧ください。' 
+                          : 'Data entered in most apps is not sent to or stored on our servers. However, tools that share content via URL (Realtime Shared Memo, Text Share, URL Bundler) store the shared content on our servers. See the Privacy Policy for details.'}
                       </p>
                     </div>
                   </div>

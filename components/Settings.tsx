@@ -116,8 +116,8 @@ const Settings: React.FC = () => {
          <div>
             <h3 className="font-bold text-emerald-800 dark:text-emerald-400 mb-1">安全な設計</h3>
             <p className="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
-               当サイトのデータ管理はサーバーレスで動作しており、各アプリで入力されたデータがサーバーに送信・保存されることは一切ありません。<br/>
-               すべての処理はお使いのブラウザ内（ローカル）で完結しています。
+               当サイトのデータ管理は原則としてブラウザ内で完結しており、ほとんどのアプリで入力されたデータがサーバーに送信・保存されることはありません。<br/>
+               ただし、リアルタイム共有メモ・テキスト共有・URLまとめURLなど、URLで共有するツールでは、共有のために入力内容をサーバーに保存します。詳しくはプライバシーポリシーをご覧ください。
             </p>
          </div>
       </div>

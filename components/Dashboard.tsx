@@ -142,7 +142,7 @@ const Dashboard: React.FC<DashboardProps> = ({ addedToolIds, onToggleAdded, onRe
               <div>
                 <h4 className="font-bold text-lg text-gray-800 dark:text-white mb-3">2. 徹底したセキュリティ</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  当サイトのツールは、基本的にサーバー通信を行わず、お使いのブラウザ内（クライアントサイド）で処理を完結させます。画像データや機密テキストが外部に送信されることはないため、ビジネス用途でも安心してご利用いただけます。
+                  当サイトのツールは、基本的にサーバー通信を行わず、お使いのブラウザ内（クライアントサイド）で処理を完結させます。画像データや機密テキストが外部に送信されることはないため、ビジネス用途でも安心してご利用いただけます。なお、リアルタイム共有メモ・テキスト共有・URLまとめURLなど、URLで共有するツールでは、共有のために入力内容をサーバーに保存します。
                 </p>
               </div>
               <div>
